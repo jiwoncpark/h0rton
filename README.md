@@ -1,5 +1,6 @@
 # time_delay_challenge
 
+Email @joshualin24 and @jiwoncpark for any questions.
 
 Challenge webpage: https://tdlmc.github.io/
 
