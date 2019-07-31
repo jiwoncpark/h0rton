@@ -19,12 +19,14 @@ from scipy.ndimage import rotate
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
+import time
+import datetime
 ### LensDatasets
 
 folder = "/media/joshua/HDD_fun2/time_delay_challenge/First_sims/"
 
-EPOCH = 20
-glo_batch_size = 10
+EPOCH = 60
+glo_batch_size = 16
 test_num_batch = 50
 
 
@@ -190,7 +192,8 @@ if __name__ == '__main__':
             print(epoch, 'Test loss (averge per batch wise):', total_loss/(total_counter), ' RMS (average per batch wise):', np.array_str(avg_rms, precision=3))
             if total_loss/(total_counter) < best_accuracy:
                 best_accuracy = total_loss/(total_counter)
-                torch.save(net, './saved_model/' + 'power_law_pred_resnet18.mdl')
+                datetime_today = str(datetime.date.today())
+                torch.save(net, './saved_model/' + datetime_today + 'power_law_pred_resnet18.mdl')
                 print("saved to " + "power_law_pred_resnet18.mdl" + " file.")
 
     tb.close()
