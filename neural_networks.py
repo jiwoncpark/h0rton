@@ -23,7 +23,7 @@ import time
 import datetime
 ### LensDatasets
 
-folder = "/media/joshua/HDD_fun2/time_delay_challenge/First_sims/"
+folder = "/media/joshua/HDD_fun2/time_delay_challenge/Second_sims/"
 
 EPOCH = 60
 glo_batch_size = 16

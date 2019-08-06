@@ -1,5 +1,7 @@
 # simulation 2019-7-29 12:26 CT by Joshua Yao-Yu Lin
 
+### Second_sims 2019-8-6 2:57AM ET at Rochester, NY
+
 # import of standard python libraries
 import numpy as np
 import os
@@ -45,8 +47,48 @@ path = os.getcwd()
 dirpath, _ = os.path.split(path)
 module_path, _ = os.path.split(dirpath)
 #psf_filename = os.path.join(module_path, 'git_work_zone/lenstronomy_extensions/Data/PSF_TinyTim/psf_example.fits')
-psf_filename = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed110/drizzled_image/psf.fits')
-kernel = pyfits.getdata(psf_filename)
+psf_filename_list = []
+psf_filename_101 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed101/drizzled_image/psf.fits')
+psf_filename_102 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed102/drizzled_image/psf.fits')
+psf_filename_103 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed103/drizzled_image/psf.fits')
+psf_filename_104 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed104/drizzled_image/psf.fits')
+psf_filename_105 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed105/drizzled_image/psf.fits')
+#psf_filename_106 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed106/drizzled_image/psf.fits')
+psf_filename_107 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed107/drizzled_image/psf.fits')
+psf_filename_108 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed108/drizzled_image/psf.fits')
+psf_filename_109 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code1/f160w-seed109/drizzled_image/psf.fits')
+psf_filename_110 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed110/drizzled_image/psf.fits')
+psf_filename_111 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed111/drizzled_image/psf.fits')
+#psf_filename_112 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed112/drizzled_image/psf.fits')
+psf_filename_113 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed113/drizzled_image/psf.fits')
+psf_filename_114 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed114/drizzled_image/psf.fits')
+psf_filename_115 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed115/drizzled_image/psf.fits')
+psf_filename_116 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed116/drizzled_image/psf.fits')
+psf_filename_117 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed117/drizzled_image/psf.fits')
+psf_filename_118 = os.path.join('/media/joshua/HDD_fun2/time_delay_challenge/rung1/code2/f160w-seed118/drizzled_image/psf.fits')
+psf_filename_list.append(psf_filename_101)
+psf_filename_list.append(psf_filename_102)
+psf_filename_list.append(psf_filename_103)
+psf_filename_list.append(psf_filename_104)
+psf_filename_list.append(psf_filename_105)
+#psf_filename_list.append(psf_filename_106)
+psf_filename_list.append(psf_filename_107)
+psf_filename_list.append(psf_filename_108)
+psf_filename_list.append(psf_filename_109)
+psf_filename_list.append(psf_filename_110)
+psf_filename_list.append(psf_filename_111)
+#psf_filename_list.append(psf_filename_112)
+psf_filename_list.append(psf_filename_113)
+psf_filename_list.append(psf_filename_114)
+psf_filename_list.append(psf_filename_115)
+psf_filename_list.append(psf_filename_116)
+psf_filename_list.append(psf_filename_117)
+psf_filename_list.append(psf_filename_118)
+
+
+
+
+#kernel = pyfits.getdata(psf_filename_list[0])
 
 # plt.matshow(np.log10(kernel))
 # plt.show()
@@ -62,14 +104,7 @@ kernel_size = 91
 
 # initial input simulation
 
-# generate the coordinate grid and image properties
-kwargs_data = sim_util.data_configure_simple(numPix, deltaPix, exp_time, sigma_bkg)
-data_class = ImageData(**kwargs_data)
-# generate the psf variables
-kernel_cut = kernel_util.cut_psf(kernel, kernel_size)
-kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'kernel_point_source': kernel_cut}
-#kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
-psf_class = PSF(**kwargs_psf)
+
 
 
 
@@ -79,10 +114,10 @@ if __name__ == "__main__":
 
     IsTrain = args.IsTrain
     if IsTrain:
-        num_samples = 10
+        num_samples = 20000
     else:
-        num_samples = 5
-    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/First_sims/"
+        num_samples = 10000
+    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Second_sims/"
     if not os.path.exists(root_folder):
         os.mkdir(root_folder)
 
@@ -99,6 +134,20 @@ if __name__ == "__main__":
 
 
     for i in tqdm(range(0, num_samples)):
+
+        psf_seed = i % len(psf_filename_list)
+
+        kernel = pyfits.getdata(psf_filename_list[psf_seed])
+
+
+        # generate the coordinate grid and image properties
+        kwargs_data = sim_util.data_configure_simple(numPix, deltaPix, exp_time, sigma_bkg)
+        data_class = ImageData(**kwargs_data)
+        # generate the psf variables
+        kernel_cut = kernel_util.cut_psf(kernel, kernel_size)
+        kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'kernel_point_source': kernel_cut}
+        #kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
+        psf_class = PSF(**kwargs_psf)
         # lensing quantities
         gamma_ext = 0.0
         psi_ext = -0.0
