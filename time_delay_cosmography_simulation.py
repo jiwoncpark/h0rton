@@ -201,8 +201,12 @@ if __name__ == "__main__":
 
         # lens light model
         phi_G, q = 0.9, 0.9
-        e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
-        kwargs_sersic_lens = {'amp': 8000, 'R_sersic': 0.4, 'n_sersic': 2., 'e1': e1, 'e2': e2, 'center_x': 0.0, 'center_y': 0}
+        lens_light_e1, lens_light_e2 = param_util.phi_q2_ellipticity(phi_G, q)
+        lens_light_R_sersic_mu, lens_light_R_sersic_sigma = 0.3, 0.1
+        lens_light_n_sersic_mu, lens_light_n_sersic_sigma = 1.0, 0.1
+        lens_light_R_sersic = np.random.normal(lens_light_R_sersic_mu, lens_light_R_sersic_sigma)
+        lens_light_n_sersic = np.random.normal(lens_light_n_sersic_mu, lens_light_n_sersic_sigma)
+        kwargs_sersic_lens = {'amp': 8000, 'R_sersic': lens_light_R_sersic, 'n_sersic': lens_light_n_sersic , 'e1': lens_light_e1, 'e2': lens_light_e2, 'center_x': lens_center_x, 'center_y': lens_center_y}
         lens_light_model_list = ['SERSIC_ELLIPSE']
         kwargs_lens_light = [kwargs_sersic_lens]
         lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
