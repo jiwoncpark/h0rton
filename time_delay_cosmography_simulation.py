@@ -114,10 +114,10 @@ if __name__ == "__main__":
 
     IsTrain = args.IsTrain
     if IsTrain:
-        num_samples = 20000
+        num_samples = 20
     else:
-        num_samples = 10000
-    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Second_sims/"
+        num_samples = 10
+    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Third_sims/"
     if not os.path.exists(root_folder):
         os.mkdir(root_folder)
 
@@ -149,15 +149,20 @@ if __name__ == "__main__":
         #kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
         psf_class = PSF(**kwargs_psf)
         # lensing quantities
-        gamma_ext = 0.0
-        psi_ext = -0.0
-        theta_E = np.random.uniform(1.5, 2.0)
-        gamma = np.random.uniform(1.95, 2.05)
-        lens_center_sigma = 0.1
-        lens_center_x = np.random.random() * lens_center_sigma - lens_center_sigma/2
-        lens_center_y = np.random.random() * lens_center_sigma - lens_center_sigma/2
-        lens_e1 = (np.random.random()-0.5) * 0.2
-        lens_e2 = (np.random.random()-0.5) * 0.2
+
+        ### mean of the lens parameters
+        gamma_ext_mu, theta_E_mu, gamma_mu, lens_center_mu, lens_e_mu = 0.015, 1.25, 2.0, 0.0, 0.0
+
+        gamma_ext_sigma, theta_E_sigma, gamma_sigma, lens_center_sigma, lens_e_sigma= 0.005, 0.4, 0.05, 0.2, 0.2
+
+        gamma_ext = np.maximum(np.random.normal(gamma_ext_mu, gamma_ext_sigma), 0)
+        psi_ext = np.random.uniform(0.0, 2* np.pi)
+        theta_E = np.maximum(np.random.normal(loc=theta_E_mu, scale=theta_E_sigma), 0.1)
+        gamma = np.maximum(np.random.normal(gamma_mu, gamma_sigma), 1.85)
+        lens_center_x = np.random.normal(lens_center_mu, lens_center_sigma)
+        lens_center_y = np.random.normal(lens_center_mu, lens_center_sigma)
+        lens_e1 = np.minimum(np.random.normal(lens_e_mu, lens_e_sigma), 0.9)
+        lens_e2 = np.minimum(np.random.normal(lens_e_mu, lens_e_sigma), 0.9)
 
         kwargs_shear = {'gamma_ext': gamma_ext, 'psi_ext': psi_ext}  # shear values to the source plane
         kwargs_spemd = {'theta_E': theta_E, 'gamma': gamma, 'center_x': lens_center_x, 'center_y': lens_center_y, 'e1': lens_e1, 'e2': lens_e2}  # parameters of the deflector lens model
@@ -171,15 +176,24 @@ if __name__ == "__main__":
 
         # choice of source type
         source_type = 'SERSIC'  # 'SERSIC' or 'SHAPELETS'
-        sigma_source_position = 0.1
-        source_x = np.random.random() * sigma_source_position - sigma_source_position/2
-        source_y = np.random.random() * sigma_source_position - sigma_source_position/2
+        source_position_mu = 0.0
+        source_position_sigma = 0.1
+        #sigma_source_position = 0.1
+        source_x = np.random.normal(source_position_mu, source_position_sigma)
+        source_y = np.random.normal(source_position_mu, source_position_sigma)
 
 
         # Sersic parameters in the initial simulation
         phi_G, q = 0.5, 0.8
-        e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
-        kwargs_sersic_source = {'amp': 4000, 'R_sersic': 0.2, 'n_sersic': 1, 'e1': e1, 'e2': e2, 'center_x': source_x, 'center_y': source_y}
+        sersic_source_e1, sersic_source_e2 = param_util.phi_q2_ellipticity(phi_G, q)
+        source_R_sersic_mu, source_R_sersic_sigma = 0.2, 0.1
+        source_n_sersic_mu, source_n_sersic_sigma = 1.0, 0.1
+        source_R_sersic = np.random.normal(source_R_sersic_mu, source_R_sersic_sigma)
+        source_n_sersic = np.random.normal(source_n_sersic_mu, source_n_sersic_sigma)
+
+
+
+        kwargs_sersic_source = {'amp': 4000, 'R_sersic': source_R_sersic, 'n_sersic': source_n_sersic, 'e1': sersic_source_e1, 'e2': sersic_source_e2, 'center_x': source_x, 'center_y': source_y}
         #kwargs_else = {'sourcePos_x': source_x, 'sourcePos_y': source_y, 'quasar_amp': 400., 'gamma1_foreground': 0.0, 'gamma2_foreground':-0.0}
         source_model_list = ['SERSIC_ELLIPSE']
         kwargs_source = [kwargs_sersic_source]
@@ -233,6 +247,10 @@ if __name__ == "__main__":
         df_lens  = pd.DataFrame([lens_dict], columns=lens_dict.keys())
         #df_shear = pd.DataFrame([shear_dict], columns=shear_dict.keys())
         df_lens['name'] = "lens" + "_" + "%07d" % (i+1)
+        df_lens['source_R_sersic'] = source_R_sersic
+        df_lens['source_n_sersic'] = source_n_sersic
+        df_lens['sersic_source_e1'] = sersic_source_e1
+        df_lens['sersic_source_e2'] = sersic_source_e2
         df_lens['source_x'] = source_x
         df_lens['source_y'] = source_y
         df_lens['gamma_ext'] = gamma_ext
@@ -259,6 +277,6 @@ if __name__ == "__main__":
             ax.get_yaxis().set_visible(False)
             ax.autoscale(False)
             plt.show()
-    df_lens_podcast = df_lens_podcast[['name', 'theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'source_x', 'source_y', 'gamma_ext', 'psi_ext']]
+    df_lens_podcast = df_lens_podcast[['name', 'theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'gamma_ext', 'psi_ext', 'source_x', 'source_y', 'source_n_sersic', 'source_R_sersic', 'sersic_source_e1', 'sersic_source_e2']]
     df_lens_podcast.to_csv(file_path + "lens_info.csv")
     print(df_lens_podcast.head())
