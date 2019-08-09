@@ -114,9 +114,9 @@ if __name__ == "__main__":
 
     IsTrain = args.IsTrain
     if IsTrain:
-        num_samples = 20
+        num_samples = 20000
     else:
-        num_samples = 10
+        num_samples = 10000
     root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Third_sims/"
     if not os.path.exists(root_folder):
         os.mkdir(root_folder)

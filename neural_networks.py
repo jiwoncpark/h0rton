@@ -23,7 +23,7 @@ import time
 import datetime
 ### LensDatasets
 
-folder = "/media/joshua/HDD_fun2/time_delay_challenge/Second_sims/"
+folder = "/media/joshua/HDD_fun2/time_delay_challenge/Third_sims/"
 
 EPOCH = 60
 glo_batch_size = 16
@@ -74,13 +74,23 @@ class DeepLenstronomyDataset(Dataset): # torch.utils.data.Dataset
         source_y = self.df['source_y'].iloc[[index]]
         gamma_ext = self.df['gamma_ext'].iloc[[index]]
         psi_ext = self.df['psi_ext'].iloc[[index]]
+        source_R_sersic = self.df['source_R_sersic'].iloc[[index]]
+        source_n_sersic = self.df['source_n_sersic'].iloc[[index]]
+        sersic_source_e1 = self.df['sersic_source_e1'].iloc[[index]]
+        sersic_source_e2 = self.df['sersic_source_e2'].iloc[[index]]
+        lens_light_e1 = self.df['lens_light_e1'].iloc[[index]]
+        lens_light_e2 = self.df['lens_light_e2'].iloc[[index]]
+        lens_light_R_sersic = self.df['lens_light_R_sersic'].iloc[[index]]
+        lens_light_n_sersic = self.df['lens_light_n_sersic'].iloc[[index]]
+
+
         img_path = self.path + "/" + str(name.values[0]) + ".npy"
         img = np.load(img_path)
         img = scipy.ndimage.zoom(img, 224/100, order=1)
         image = np.zeros((3, 224, 224))
         for i in range(3):
             image[i, :, :] += img
-        return image, theta_E.values, gamma.values, center_x.values, center_y.values, e1.values, e2.values, source_x.values, source_y.values, gamma_ext.values, psi_ext.values
+        return image, theta_E.values, gamma.values, center_x.values, center_y.values, e1.values, e2.values, source_x.values, source_y.values, gamma_ext.values, psi_ext.values, source_R_sersic.values, source_n_sersic.values, sersic_source_e1.values, sersic_source_e2.values, lens_light_e1.values, lens_light_e2.values, lens_light_R_sersic.values, lens_light_n_sersic.values
 
 
     def __len__(self):
@@ -93,7 +103,7 @@ train_loader = torch.utils.data.DataLoader(DeepLenstronomyDataset(folder, train=
 
 if __name__ == '__main__':
 
-    dset_classes_number = 10
+    dset_classes_number = 18
     net = models.resnet18(pretrained=True)
     num_ftrs = net.fc.in_features
     net.fc= nn.Linear(in_features=num_ftrs, out_features=dset_classes_number)
@@ -119,14 +129,14 @@ if __name__ == '__main__':
         total_counter = 0
         total_rms = 0
 
-        for batch_idx, (data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext) in enumerate(tqdm(train_loader, total= len(train_loader))):
-            data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext = data.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float()
-            data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext = Variable(data).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda()
+        for batch_idx, (data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic) in enumerate(tqdm(train_loader, total= len(train_loader))):
+            data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = data.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float(), source_R_sersic.float(), source_n_sersic.float(), sersic_source_e1.float(), sersic_source_e2.float(), lens_light_e1.float(), lens_light_e2.float(), lens_light_R_sersic.float(), lens_light_n_sersic.float()
+            data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = Variable(data).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda(), Variable(source_R_sersic).cuda(), Variable(source_n_sersic).cuda(), Variable(sersic_source_e1).cuda(), Variable(sersic_source_e2).cuda(), Variable(lens_light_e1).cuda(), Variable(lens_light_e2).cuda(), Variable(lens_light_R_sersic).cuda(), Variable(lens_light_n_sersic).cuda()
 
             optimizer.zero_grad()
             output = net(data)
             #print(output[:, 1].unsqueeze(1).shape, theta_E.shape)
-            target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext), dim = 1)
+            target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic), dim = 1)
             #target = torch.cat(target, e2)
             #print(output.shape, target.shape)
             #loss_theta_E = loss_fn(output[:, 0].unsqueeze(1), theta_E)
@@ -161,11 +171,10 @@ if __name__ == '__main__':
                         batch_size = glo_batch_size, shuffle = True
                         )
 
-            for batch_idx, (data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext) in enumerate(test_loader):
-                data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext = data.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float()
-                data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext = Variable(data).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda()
-
-                target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext), dim = 1)
+            for batch_idx, (data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic) in enumerate(test_loader):
+                data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = data.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float(), source_R_sersic.float(), source_n_sersic.float(), sersic_source_e1.float(), sersic_source_e2.float(), lens_light_e1.float(), lens_light_e2.float(), lens_light_R_sersic.float(), lens_light_n_sersic.float()
+                data, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = Variable(data).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda(), Variable(source_R_sersic).cuda(), Variable(source_n_sersic).cuda(), Variable(sersic_source_e1).cuda(), Variable(sersic_source_e2).cuda(), Variable(lens_light_e1).cuda(), Variable(lens_light_e2).cuda(), Variable(lens_light_R_sersic).cuda(), Variable(lens_light_n_sersic).cuda()
+                target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic), dim = 1)
                 #pred [batch, out_caps_num, out_caps_size, 1]
                 pred = net(data)
 
