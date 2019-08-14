@@ -29,5 +29,7 @@ pip install -r requirements.txt
 
 Email @joshualin24 and @jiwoncpark for any questions.
 
+There is an ongoing [document](https://www.overleaf.com/read/pswdqwttjbjr) that details our Bayesian inference method, written and maintained by Ji Won.
+
 Challenge webpage: https://tdlmc.github.io/
 Experimental design paper: https://arxiv.org/abs/1801.01506
