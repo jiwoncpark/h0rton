@@ -25,7 +25,7 @@ from lenstronomy.Data.psf import PSF
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', dest='is_train', action='store_true')
-    parser.add_argument('--test', dest='is_train', action='store_false')
+    parser.add_argument('--val', dest='is_train', action='store_false')
     parser.add_argument('--n_data', type=int, default=100, help="number of examples to generate")
     parser.add_argument('--seed', type=int, default=123, help="random seed for BNN prior")
     args = parser.parse_args()
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     if args.is_train:
         dest_dir = os.path.join(data_dir, 'train_seed{:d}'.format(args.seed))
     else:
-        dest_dir = os.path.join(data_dir, 'test_seed{:d}'.format(args.seed))
+        dest_dir = os.path.join(data_dir, 'val_seed{:d}'.format(args.seed))
 
     if not os.path.exists(dest_dir):
         os.mkdir(dest_dir)
