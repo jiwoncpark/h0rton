@@ -1,0 +1,9 @@
+#conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
+lenstronomy
+matplotlib
+astropy
+pandas
+dynesty
+tqdm
+corner
+mpmath
