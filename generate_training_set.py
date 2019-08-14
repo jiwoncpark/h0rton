@@ -171,7 +171,7 @@ if __name__ == "__main__":
                          }
 
         # Save image file
-        img_path = os.path.join(dest_dir, 'X_{0:03d}.npy'.format(i+1))
+        img_path = os.path.join(dest_dir, 'X_{0:07d}.npy'.format(i+1))
         np.save(img_path, img)
         ##### saveing parameters
         lens_dict = kwargs_lens[0]
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         metadata_df['gamma_ext'] = gamma_ext
         metadata_df['psi_ext'] = psi_ext
         #df_shear = pd.DataFrame([shear_dict], columns=shear_dict.keys())
-        metadata_df['path'] = img_path
+        metadata_df['img_path'] = img_path
         metadata_df['source_R_sersic'] = source_R_sersic
         metadata_df['source_n_sersic'] = source_n_sersic
         metadata_df['sersic_source_e1'] = sersic_source_e1
@@ -216,7 +216,8 @@ if __name__ == "__main__":
             ax.get_yaxis().set_visible(False)
             ax.autoscale(False)
             plt.show()
-    #metadata_df_podcast = metadata_df_podcast[['name', 'theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'gamma_ext', 'psi_ext', 'source_x', 'source_y', 'source_n_sersic', 'source_R_sersic', 'sersic_source_e1', 'sersic_source_e2', 'lens_light_e1', 'lens_light_e2', 'lens_light_n_sersic', 'lens_light_R_sersic']]
+    # Reorder columns
+    full_metadata_df = full_metadata_df[['img_path', 'theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'gamma_ext', 'psi_ext', 'source_x', 'source_y', 'source_n_sersic', 'source_R_sersic', 'sersic_source_e1', 'sersic_source_e2', 'lens_light_e1', 'lens_light_e2', 'lens_light_n_sersic', 'lens_light_R_sersic']]
     metadata_path = os.path.join(dest_dir, 'metadata.csv')
     full_metadata_df.to_csv(metadata_path, index=None)
     print(full_metadata_df.columns.values)
