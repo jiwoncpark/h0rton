@@ -26,6 +26,7 @@ if cfg.MODEL.LOAD_PRETRAINED:
     cfg.DATA.MEAN = [0.485, 0.456, 0.406]
     cfg.DATA.STD = [0.229, 0.224, 0.225]
 cfg.MODEL.OUT_DIM = 18
+cfg.COV_TYPE = 'diagonal'
 
 # Optimization
 cfg.OPTIM = SNS()
@@ -37,8 +38,3 @@ cfg.OPTIM.LEARNING_RATE = 1.e-4
 cfg.LOG = SNS()
 cfg.LOG.CHECKPOINT_DIR = 'saved_models' # where to store saved models
 cfg.LOG.CHECKPOINT_INTERVAL = 1 # in epochs
-
-
-EPOCH = 60
-glo_batch_size = 16
-test_num_batch = 50

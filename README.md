@@ -2,7 +2,7 @@
 
 A private repo for a Rung 3 blind submission for the Time Delay Lens Modeling Challenge (TDLMC).
 
-### Installation instructions
+### How to install
 
 1. Create a conda virtual environment and activate it.
 ```shell
@@ -25,6 +25,20 @@ python setup.py install --user
 4. Install all other dependencies
 ```shell
 pip install -r requirements.txt
+```
+
+### How to train
+
+1. Edit the configuration parameters `utils/config.py`. Make sure the `cfg.DATA` field agrees with the training data you generated.
+
+2. Run
+```shell
+python train.py
+```
+
+You can visualize the training results by running
+```
+tensorboard --logdir runs
 ```
 
 Email @joshualin24 and @jiwoncpark for any questions.
