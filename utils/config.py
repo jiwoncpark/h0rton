@@ -3,12 +3,9 @@ import torch
 
 cfg = SNS()
 
-# Device
+# Global configs
 cfg.DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if cfg.DEVICE == 'cuda':
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-else:
-    torch.set_default_tensor_type('torch.FloatTensor')
+cfg.GLOBAL_SEED = 1113
 
 # Data
 cfg.DATA = SNS()

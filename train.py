@@ -18,6 +18,12 @@ import datetime
 from data.data_io import XYData
 from utils.config import cfg
 
+np.random.seed(cfg.GLOBAL_SEED)
+torch.manual_seed(cfg.GLOBAL_SEED)
+torch.cuda.manual_seed(cfg.GLOBAL_SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 if cfg.DATA.NORMALIZE:
     normalize = transforms.Normalize(mean=cfg.DATA.MEAN, std=cfg.DATA.STD)
     data_transform = transforms.Compose([transforms.ToTensor(), normalize])
