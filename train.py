@@ -1,4 +1,3 @@
-### 2019-7-30 neural networks by Joshua Yao-Yu Lin
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import torch
@@ -11,7 +10,6 @@ import torchvision.transforms as transforms
 import torchvision.models as models
 #import lenstronomy.Util.image_util as image_util
 import os, sys
-from scipy.ndimage import gaussian_filter, rotate
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
@@ -91,8 +89,10 @@ if __name__ == '__main__':
                 total_val_loss += loss
 
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.OPTIM.N_EPOCHS, total_val_loss/n_val))
+            logger.add_scalar('val_loss', loss.item(), epoch)
 
         if (epoch + 1)%(cfg.LOG.CHECKPOINT_INTERVAL):
-            torch.save(net, os.path.join(cfg.LOG.CHECKPOINT_DIR, 'resnet.mdl'))
+            time_stamp = str(datetime.date.today())
+            torch.save(net, os.path.join(cfg.LOG.CHECKPOINT_DIR, 'resnet18_{:s}.mdl'.format(time_stamp)))
 
     logger.close()

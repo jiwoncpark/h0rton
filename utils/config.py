@@ -33,7 +33,7 @@ cfg.OPTIM.LEARNING_RATE = 1.e-4
 
 # Logging
 cfg.LOG = SNS()
-cfg.LOG.CHECKPOINT_DIR = 'checkpoint' # where to store saved models
+cfg.LOG.CHECKPOINT_DIR = 'saved_models' # where to store saved models
 cfg.LOG.CHECKPOINT_INTERVAL = 1 # in epochs
 
 
