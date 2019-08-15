@@ -17,6 +17,7 @@ import datetime
 
 from data.data_io import XYData
 from utils.config import cfg
+from utils.loss import GaussianNLL
 
 np.random.seed(cfg.GLOBAL_SEED)
 torch.manual_seed(cfg.GLOBAL_SEED)
@@ -47,7 +48,8 @@ if __name__ == '__main__':
     net = models.resnet18(pretrained=cfg.MODEL.LOAD_PRETRAINED)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=cfg.MODEL.OUT_DIM) # replace final layer
-    loss_fn = nn.MSELoss(reduction='sum')
+
+    loss_fn = GaussianNLL(cov_mat=cfg.MODEL.TYPE, y_dim=cfg.DATA.Y_DIM, out_dim=cfg.MODEL.OUT_DIM, device=cfg.DEVICE)
 
     net.cuda()
 
