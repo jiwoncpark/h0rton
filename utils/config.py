@@ -25,13 +25,23 @@ if cfg.MODEL.LOAD_PRETRAINED:
     # Pretrained model expects exactly this normalization
     cfg.DATA.MEAN = [0.485, 0.456, 0.406]
     cfg.DATA.STD = [0.229, 0.224, 0.225]
-cfg.MODEL.OUT_DIM = 18
-cfg.COV_TYPE = 'diagonal'
+cfg.MODEL.TYPE = 'mixture'
+if cfg.MODEL.TYPE == 'diagonal': # a single Gaussian w. diagonal cov
+    # y_dim for the means + y_dim for the cov
+    cfg.MODEL.OUT_DIM = cfg.DATA.Y_DIM*2 
+elif cfg.MODEL.TYPE == 'low_rank': # a single Gaussian w. rank-2 cov
+# y_dim for the means + 3*y_dim for the cov
+    cfg.MODEL.OUT_DIM = cfg.DATA.Y_DIM*4
+elif cfg.MODEL.TYPE == 'mixture': # two Gaussians each w. rank-2 cov
+    # y_dim for the means + 2*y_dim for the cov for each Gaussian + 1 for amplitude weighting
+    cfg.MODEL.OUT_DIM = cfg.DATA.Y_DIM*8 + 1
+else:
+    raise NotImplementedError
 
 # Optimization
 cfg.OPTIM = SNS()
 cfg.OPTIM.N_EPOCHS = 10
-cfg.OPTIM.BATCH_SIZE = 10
+cfg.OPTIM.BATCH_SIZE = 20
 cfg.OPTIM.LEARNING_RATE = 1.e-4
 
 # Logging
