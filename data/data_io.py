@@ -25,7 +25,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         img_path = self.df.iloc[index]['img_path']
         img = np.load(img_path)
         img = ndimage.zoom(img, self.interpolation/100, order=1) # TODO: consider order=3
-        img = np.stack([img, img, img], axis=0)
+        img = np.stack([img, img, img], axis=0).astype(np.float32)
 
         Y_row = self.df.iloc[index][self.Y_cols].values.astype(np.float32)
 

@@ -13,7 +13,6 @@ import os, sys
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import matplotlib.pyplot as plt
-import time
 import datetime
 
 from data.data_io import XYData
@@ -25,11 +24,16 @@ if cfg.DATA.NORMALIZE:
 else:
     data_transform = None
 
-train_data = XYData(cfg.DATA.TRAIN, train=True, transform=data_transform, target_transform=torch.Tensor, interpolation=cfg.DATA.X_DIM)
+if cfg.DEVICE == 'cuda':
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+else:
+    torch.set_default_tensor_type('torch.FloatTensor')
+
+train_data = XYData(cfg.DATA.TRAIN, Y_cols=cfg.DATA.Y_COLS, train=True, transform=data_transform, interpolation=cfg.DATA.X_DIM)
 train_loader = DataLoader(train_data, batch_size=cfg.OPTIM.BATCH_SIZE, shuffle=True)
 n_train = train_data.n_data
 
-val_data = XYData(cfg.DATA.VAL, train=False, transform=data_transform, target_transform=torch.Tensor, interpolation=cfg.DATA.X_DIM)
+val_data = XYData(cfg.DATA.VAL, Y_cols=cfg.DATA.Y_COLS, train=False, transform=data_transform, interpolation=cfg.DATA.X_DIM)
 val_loader = DataLoader(val_data, batch_size=cfg.OPTIM.BATCH_SIZE, shuffle=True)
 n_val = val_data.n_data
 
@@ -55,17 +59,12 @@ if __name__ == '__main__':
         net.train()
         total_loss = 0.0
 
-        for batch_idx, (X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic) in enumerate(train_loader):
-            X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = X.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float(), source_R_sersic.float(), source_n_sersic.float(), sersic_source_e1.float(), sersic_source_e2.float(), lens_light_e1.float(), lens_light_e2.float(), lens_light_R_sersic.float(), lens_light_n_sersic.float()
-            X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = Variable(X).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda(), Variable(source_R_sersic).cuda(), Variable(source_n_sersic).cuda(), Variable(sersic_source_e1).cuda(), Variable(sersic_source_e2).cuda(), Variable(lens_light_e1).cuda(), Variable(lens_light_e2).cuda(), Variable(lens_light_R_sersic).cuda(), Variable(lens_light_n_sersic).cuda()
+        for batch_idx, (X_, Y_) in enumerate(train_loader):
+            X = Variable(torch.FloatTensor(X_)).to(cfg.DEVICE)
+            Y = Variable(torch.FloatTensor(Y_)).to(cfg.DEVICE)
 
-            output = net(X)
-            #print(output[:, 1].unsqueeze(1).shape, theta_E.shape)
-            target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic), dim = 1)
-            #target = torch.cat(target, e2)
-            #print(output.shape, target.shape)
-            #loss_theta_E = loss_fn(output[:, 0].unsqueeze(1), theta_E)
-            loss = loss_fn(output, target)
+            pred = net(X)
+            loss = loss_fn(pred, Y)
             total_loss += loss.item()
 
             optimizer.zero_grad()
@@ -78,15 +77,13 @@ if __name__ == '__main__':
             net.eval()
             total_val_loss = 0.0
 
-            for batch_idx, (X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic) in enumerate(val_loader):
-                X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = X.float(), theta_E.float(), gamma.float(), center_x.float(), center_y.float(), e1.float(), e2.float(), source_x.float(), source_y.float(), gamma_ext.float(), psi_ext.float(), source_R_sersic.float(), source_n_sersic.float(), sersic_source_e1.float(), sersic_source_e2.float(), lens_light_e1.float(), lens_light_e2.float(), lens_light_R_sersic.float(), lens_light_n_sersic.float()
-                X, theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic = Variable(X).cuda(), Variable(theta_E).cuda(), Variable(gamma).cuda(), Variable(center_x).cuda(), Variable(center_y).cuda(), Variable(e1).cuda(), Variable(e2).cuda(), Variable(source_x).cuda(), Variable(source_y).cuda(), Variable(gamma_ext).cuda(), Variable(psi_ext).cuda(), Variable(source_R_sersic).cuda(), Variable(source_n_sersic).cuda(), Variable(sersic_source_e1).cuda(), Variable(sersic_source_e2).cuda(), Variable(lens_light_e1).cuda(), Variable(lens_light_e2).cuda(), Variable(lens_light_R_sersic).cuda(), Variable(lens_light_n_sersic).cuda()
-                target = torch.cat((theta_E, gamma, center_x, center_y, e1, e2, source_x, source_y, gamma_ext, psi_ext, source_R_sersic, source_n_sersic, sersic_source_e1, sersic_source_e2, lens_light_e1, lens_light_e2, lens_light_R_sersic, lens_light_n_sersic), dim=1)
-                #pred [batch, out_caps_num, out_caps_size, 1]
-                pred = net(X)
+            for batch_idx, (X_, Y_) in enumerate(val_loader):
+                X = Variable(torch.FloatTensor(X_)).to(cfg.DEVICE)
+                Y = Variable(torch.FloatTensor(Y_)).to(cfg.DEVICE)
 
-                loss = loss_fn(pred, target)
-                total_val_loss += loss
+                pred = net(X)
+                loss = loss_fn(pred, Y)
+                total_val_loss += loss.item()
 
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.OPTIM.N_EPOCHS, total_val_loss/n_val))
             logger.add_scalar('val_loss', loss.item(), epoch)

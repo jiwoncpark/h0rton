@@ -1,9 +1,14 @@
 from types import SimpleNamespace as SNS
+import torch
 
 cfg = SNS()
 
 # Device
-cfg.USE_CUDA = True
+cfg.DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if cfg.DEVICE == 'cuda':
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+else:
+    torch.set_default_tensor_type('torch.FloatTensor')
 
 # Data
 cfg.DATA = SNS()
