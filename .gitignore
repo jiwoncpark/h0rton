@@ -4,6 +4,7 @@
 *.fits
 *.txt
 data/*
+runs/*
 results/*
 
 # Logs
