@@ -23,7 +23,7 @@ import time
 import datetime
 ### LensDatasets
 
-folder = "/media/joshua/HDD_fun2/time_delay_challenge/Third_sims/"
+folder = "/media/joshua/HDD_fun2/time_delay_challenge/Fourth_sims/"
 
 EPOCH = 60
 glo_batch_size = 16
@@ -86,7 +86,7 @@ class DeepLenstronomyDataset(Dataset): # torch.utils.data.Dataset
 
         img_path = self.path + "/" + str(name.values[0]) + ".npy"
         img = np.load(img_path)
-        img = scipy.ndimage.zoom(img, 224/100, order=1)
+        img = scipy.ndimage.zoom(img, 224/99, order=1)
         image = np.zeros((3, 224, 224))
         for i in range(3):
             image[i, :, :] += img
@@ -140,8 +140,9 @@ if __name__ == '__main__':
             #target = torch.cat(target, e2)
             #print(output.shape, target.shape)
             #loss_theta_E = loss_fn(output[:, 0].unsqueeze(1), theta_E)
-            loss = loss_fn(output,target)
-
+            loss_theta_E = loss_fn(100* output[0], 100* target[0])
+            loss_others = loss_fn(output, target)
+            loss = loss_theta_E + loss_others
 
             square_diff = (output - target)
             total_rms += square_diff.std(dim=0)
@@ -178,7 +179,10 @@ if __name__ == '__main__':
                 #pred [batch, out_caps_num, out_caps_size, 1]
                 pred = net(data)
 
-                loss = loss_fn(pred, target)
+                loss_theta_E = loss_fn(100* pred[0], 100* target[0])
+                loss_others = loss_fn(pred, target)
+                loss = loss_theta_E + loss_others
+                #loss = loss_fn(pred[0], target[0])
 
 
                 square_diff = (pred - target)

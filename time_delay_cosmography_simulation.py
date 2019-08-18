@@ -40,7 +40,7 @@ args = parser.parse_args()
 z_lens = 0.6
 z_source = 1.5
 from astropy.cosmology import FlatLambdaCDM
-cosmo = FlatLambdaCDM(H0=70, Om0=0.3, Ob0=0.)
+cosmo = FlatLambdaCDM(H0=70, Om0=0.27, Ob0=0.)
 
 # import PSF file
 path = os.getcwd()
@@ -96,8 +96,8 @@ psf_filename_list.append(psf_filename_118)
 # data specifics
 sigma_bkg = .05  #  background noise per pixel (Gaussian)
 exp_time = 100.  #  exposure time (arbitrary units, flux per pixel is in units #photons/exp_time unit)
-numPix = 100  #  cutout pixel size
-deltaPix = 0.05  #  pixel size in arcsec (area per pixel = deltaPix**2)
+numPix = 99  #  cutout pixel size
+deltaPix = 0.08  #  pixel size in arcsec (area per pixel = deltaPix**2)
 fwhm = 0.1  # full width half max of PSF (only valid when psf_type='gaussian')
 psf_type = 'PIXEL'  # 'gaussian', 'pixel', 'NONE'
 kernel_size = 91
@@ -117,7 +117,7 @@ if __name__ == "__main__":
         num_samples = 20000
     else:
         num_samples = 10000
-    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Third_sims/"
+    root_folder = "/media/joshua/HDD_fun2/time_delay_challenge/Fourth_sims/"
     if not os.path.exists(root_folder):
         os.mkdir(root_folder)
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         ### mean of the lens parameters
         gamma_ext_mu, theta_E_mu, gamma_mu, lens_center_mu, lens_e_mu = 0.015, 1.25, 2.0, 0.0, 0.0
 
-        gamma_ext_sigma, theta_E_sigma, gamma_sigma, lens_center_sigma, lens_e_sigma= 0.005, 0.4, 0.05, 0.2, 0.2
+        gamma_ext_sigma, theta_E_sigma, gamma_sigma, lens_center_sigma, lens_e_sigma= 0.005, 0.2, 0.1, 0.2, 0.2
 
         gamma_ext = np.maximum(np.random.normal(gamma_ext_mu, gamma_ext_sigma), 0)
         psi_ext = np.random.uniform(0.0, 2* np.pi)
