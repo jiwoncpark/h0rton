@@ -9,7 +9,6 @@ results/*
 
 # Logs
 *ipynb_checkpoints
-*archived
 
 # Checkpoints
 *__pycache__
