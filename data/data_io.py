@@ -38,13 +38,13 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     import torch
 
-    data = XYData('data/train_seed123',
-                  Y_cols=['theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'gamma_ext', 'psi_ext', 'source_x', 'source_y', 'source_n_sersic', 'source_R_sersic', 'sersic_source_e1', 'sersic_source_e2', 'lens_light_e1', 'lens_light_e2', 'lens_light_n_sersic', 'lens_light_R_sersic'],
+    data = XYData('data/tdlmc_train_DiagonalBNNPrior_seed1113',
+                  Y_cols=['lens_mass_theta_E', 'lens_mass_gamma'],
                   train=True, transform=None, interpolation=150)
-    loader = DataLoader(data, batch_size=7, shuffle=False)
+    loader = DataLoader(data, batch_size=20, shuffle=False)
 
     for batch_idx, xy_batch in enumerate(loader):
-        print(len(xy_batch))
-        print(xy_batch[0].shape)
-        print(xy_batch[1].shape)
-        break
+        if xy_batch[0].shape[0] != 20:
+            print(len(xy_batch)) # should be 2, x and y
+            print(xy_batch[0].shape)
+            print(xy_batch[1].shape)
