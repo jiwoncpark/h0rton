@@ -93,8 +93,9 @@ if __name__ == '__main__':
                 loss = loss_fn(pred, Y)
                 total_val_loss += loss.item()
 
-            tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.OPTIM.N_EPOCHS, total_val_loss/n_val))
-            logger.add_scalar('val_loss', loss.item(), epoch)
+            epoch_avg_val_loss = total_val_loss/n_val
+            tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.OPTIM.N_EPOCHS, epoch_avg_val_loss))
+            logger.add_scalar('val_loss', epoch_avg_val_loss, epoch)
 
         if (epoch + 1)%(cfg.LOG.CHECKPOINT_INTERVAL):
             time_stamp = str(datetime.date.today())
