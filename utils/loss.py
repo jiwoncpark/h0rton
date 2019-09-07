@@ -73,9 +73,10 @@ class GaussianNLL:
         # (27) in Miller et al 2016
         inv_cov = diag_inv_var - torch.bmm(torch.bmm(torch.bmm(torch.bmm(diag_inv_var, F), inv_M), torch.transpose(F, 1, 2)), diag_inv_var) 
         assert inv_cov.shape == torch.Size([batch_size, self.y_dim, self.y_dim])
-        sq_mahalanobis = torch.squeeze(torch.bmm(torch.bmm((mu - target).reshape(batch_size, 1, self.y_dim), inv_cov), (mu - target).reshape(batch_size, self.y_dim, 1)))
+        sq_mahalanobis = torch.bmm(torch.bmm((mu - target).reshape(batch_size, 1, self.y_dim), inv_cov), (mu - target).reshape(batch_size, self.y_dim, 1)).reshape(-1)
+        
         assert sq_mahalanobis.shape == torch.Size([batch_size])
-
+        
         if reduce==True:
             return torch.mean(sq_mahalanobis + log_det, dim=0)
         else:
