@@ -9,14 +9,21 @@ cfg.GLOBAL_SEED = 1113
 
 # Data
 cfg.DATA = SNS()
-cfg.DATA.TRAIN = 'data/train_seed123'
-cfg.DATA.VAL = 'data/val_seed111'
+cfg.DATA.TRAIN = 'data/tdlmc_val_DiagonalBNNPrior_seed1225'
+cfg.DATA.VAL = 'data/tdlmc_val_DiagonalBNNPrior_seed1225'
 cfg.DATA.NORMALIZE = True
 cfg.DATA.MEAN = [0.485, 0.456, 0.406]
 cfg.DATA.STD = [0.229, 0.224, 0.225]
 cfg.DATA.X_DIM = 224
-cfg.DATA.Y_COLS = ['theta_E', 'gamma', 'center_x', 'center_y', 'e1', 'e2', 'gamma_ext', 'psi_ext', 'source_x', 'source_y', 'source_n_sersic', 'source_R_sersic', 'sersic_source_e1', 'sersic_source_e2', 'lens_light_e1', 'lens_light_e2', 'lens_light_n_sersic', 'lens_light_R_sersic']
-cfg.DATA.Y_DIM = 18
+cfg.DATA.Y_COLS = ['lens_mass_center_x', 'lens_mass_center_y', 'lens_mass_gamma',
+ 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2',
+ 'external_shear_gamma_ext', 'external_shear_psi_ext', 'src_light_magnitude',
+ 'src_light_center_x', 'src_light_center_y', 'src_light_n_sersic',
+ 'src_light_R_sersic', 'src_light_e1', 'src_light_e2', 'lens_light_magnitude',
+ 'lens_light_center_x', 'lens_light_center_y', 'lens_light_n_sersic',
+ 'lens_light_R_sersic', 'lens_light_e1', 'lens_light_e2',
+ 'agn_light_magnitude']
+cfg.DATA.Y_DIM = len(cfg.DATA.Y_COLS)
 
 # Model
 cfg.MODEL = SNS()
