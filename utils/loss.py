@@ -1,14 +1,14 @@
 import torch
 
 class GaussianNLL:
-    def __init__(self, cov_mat, y_dim, out_dim, device):
+    def __init__(self, cov_mat, Y_dim, out_dim, device):
         self.cov_mat = cov_mat
-        self.y_dim = y_dim
+        self.Y_dim = Y_dim
         self.out_dim = out_dim
         self.device = device
 
     def __call__(self, pred, target):
-        d = self.y_dim # for readability
+        d = self.Y_dim # for readability
 
         if self.cov_mat == 'diagonal':
             mu = pred[:, :d]
@@ -21,7 +21,7 @@ class GaussianNLL:
             F = pred[:, 2*d:]
             return self.nll_lowrank(target, mu, logvar, F, reduce=True)
 
-        elif self.cov_mat == 'mixture':
+        elif self.cov_mat == 'double':
             # Boring and arbitrary slicing... bear with me...
             mu = pred[:, :d]
             logvar = pred[:, d:2*d]
@@ -34,20 +34,20 @@ class GaussianNLL:
 
     def nll_diagonal(self, target, mu, logvar):
         precision = torch.exp(-logvar)
-        return torch.mean(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
+        return torch.sum(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
 
     def nll_lowrank(self, target, mu, logvar, F, reduce=True):
         # 1/(Y_dim - 1) * (sq_mahalanobis + log(det of \Sigma))
-        batch_size, _ = target.shape # self.y_dim = Y_dim - 1
+        batch_size, _ = target.shape # self.Y_dim = Y_dim - 1
         rank = 2
-        F = F.reshape([batch_size, self.y_dim, rank]) # FIXME: hardcoded for rank 2
-        inv_var = torch.exp(-logvar) # [batch_size, self.y_dim]
-        diag_inv_var = torch.diag_embed(inv_var)  # [batch_size, self.y_dim, self.y_dim]
-        diag_prod = F**2.0 * inv_var.reshape([batch_size, self.y_dim, 1]) # [batch_size, self.y_dim, rank] after broadcasting
-        off_diag_prod = torch.prod(F, dim=2)*inv_var # [batch_size, self.y_dim]
-        #batchdiag = torch.diag_embed(torch.exp(logvar)) # [batch_size, self.y_dim, self.y_dim]
+        F = F.reshape([batch_size, self.Y_dim, rank]) # FIXME: hardcoded for rank 2
+        inv_var = torch.exp(-logvar) # [batch_size, self.Y_dim]
+        diag_inv_var = torch.diag_embed(inv_var)  # [batch_size, self.Y_dim, self.Y_dim]
+        diag_prod = F**2.0 * inv_var.reshape([batch_size, self.Y_dim, 1]) # [batch_size, self.Y_dim, rank] after broadcasting
+        off_diag_prod = torch.prod(F, dim=2)*inv_var # [batch_size, self.Y_dim]
+        #batchdiag = torch.diag_embed(torch.exp(logvar)) # [batch_size, self.Y_dim, self.Y_dim]
         #batch_eye = torch.eye(rank).reshape(1, rank, rank).repeat(batch_size, 1, 1) # [batch_size, rank, rank]
-        #assert batchdiag.shape == torch.Size([batch_size, self.y_dim, self.y_dim])
+        #assert batchdiag.shape == torch.Size([batch_size, self.Y_dim, self.Y_dim])
 
         # (25), (26) in Miller et al 2016
         log_det = torch.sum(logvar, dim=1) # [batch_size]
@@ -72,13 +72,13 @@ class GaussianNLL:
 
         # (27) in Miller et al 2016
         inv_cov = diag_inv_var - torch.bmm(torch.bmm(torch.bmm(torch.bmm(diag_inv_var, F), inv_M), torch.transpose(F, 1, 2)), diag_inv_var) 
-        assert inv_cov.shape == torch.Size([batch_size, self.y_dim, self.y_dim])
-        sq_mahalanobis = torch.bmm(torch.bmm((mu - target).reshape(batch_size, 1, self.y_dim), inv_cov), (mu - target).reshape(batch_size, self.y_dim, 1)).reshape(-1)
+        assert inv_cov.shape == torch.Size([batch_size, self.Y_dim, self.Y_dim])
+        sq_mahalanobis = torch.bmm(torch.bmm((mu - target).reshape(batch_size, 1, self.Y_dim), inv_cov), (mu - target).reshape(batch_size, self.Y_dim, 1)).reshape(-1)
         
         assert sq_mahalanobis.shape == torch.Size([batch_size])
         
         if reduce==True:
-            return torch.mean(sq_mahalanobis + log_det, dim=0)
+            return torch.sum(sq_mahalanobis + log_det, dim=0)
         else:
             return sq_mahalanobis + log_det
 
@@ -86,9 +86,10 @@ class GaussianNLL:
         batch_size, _ = target.shape
         rank = 2
         log_nll = torch.empty([batch_size, rank], device=self.device)
+        sigmoid = torch.nn.Sigmoid()
         logsigmoid = torch.nn.LogSigmoid()
         alpha = alpha.reshape(-1)
-        log_nll[:, 0] = torch.log(torch.tensor([0.5], device=self.device)) + logsigmoid(-alpha) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        log_nll[:, 0] = torch.log(1.0 - 0.5*sigmoid(alpha)) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         log_nll[:, 1] = torch.log(torch.tensor([0.5], device=self.device)) + logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size]
         sum_two_gaus = torch.logsumexp(log_nll, dim=1) 
-        return torch.mean(sum_two_gaus)
+        return torch.sum(sum_two_gaus)

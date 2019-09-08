@@ -1,6 +1,7 @@
 #conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
 lenstronomy
-tensorboardX
+tb-nightly
+future
 numpy
 matplotlib
 ipykernel
