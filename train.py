@@ -1,3 +1,4 @@
+import random
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import torch
@@ -22,7 +23,9 @@ from utils.config import cfg
 from utils.loss import GaussianNLL
 from utils.plotting import Plotter
 
+# Seed everything for reproducibility
 np.random.seed(cfg.global_seed)
+random.seed(cfg.global_seed)
 torch.manual_seed(cfg.global_seed)
 torch.cuda.manual_seed(cfg.global_seed)
 torch.backends.cudnn.deterministic = True
@@ -112,7 +115,7 @@ if __name__ == '__main__':
             tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, epoch_avg_train_loss))
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, epoch_avg_val_loss))
             
-            if (epoch + 1)%(cfg.log.logging_interval):
+            if (epoch + 1)%(cfg.log.logging_interval) == 0:
                 # Log train and val losses
                 logger.add_scalars('metrics/loss',
                                    {'train': epoch_avg_train_loss, 'val': epoch_avg_val_loss},
@@ -137,7 +140,7 @@ if __name__ == '__main__':
                     fig = plotter.get_1d_mapping_fig(param_name, param_idx, Y_plt[:, param_idx])
                     logger.add_figure(tag, fig)
 
-            if (epoch + 1)%(cfg.log.checkpoint_interval):
+            if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
                 time_stamp = str(datetime.date.today())
                 torch.save(net, os.path.join(cfg.log.checkpoint_dir, 'resnet18_{:s}.mdl'.format(time_stamp)))
 
