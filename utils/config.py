@@ -22,7 +22,7 @@ cfg.data = Dict(
                          'src_light_center_x', 'src_light_center_y', 'src_light_n_sersic',
                          'src_light_R_sersic', 'src_light_e1', 'src_light_e2',
                          'agn_light_magnitude'],
-                plot_idx=np.arange(50),
+                plot_idx=np.arange(100),
                 )
 if cfg.data.train_dir == cfg.data.val_dir:
     warnings.warn("You're training and validating on the same dataset.", UserWarning, stacklevel=2)
@@ -52,11 +52,11 @@ else:
 cfg.optim = Dict(n_epochs=100,
                  learning_rate=1.e-4,
                  batch_size=50,
-                 lr_scheduler=Dict(milestones=[15, 30, 60],
+                 lr_scheduler=Dict(milestones=[50, 90],
                                    gamma=0.7))
 
 # Logging
 cfg.log = Dict(checkpoint_dir='saved_models', # where to store saved models
-               checkpoint_interval=5, # in epochs
+               checkpoint_interval=1, # in epochs
                logging_interval=1, # in epochs
                )
