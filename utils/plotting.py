@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib import cm, colors
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from addict import Dict
@@ -14,6 +15,8 @@ class Plotter:
         self.cov_mat = cov_mat
         self.Y_dim = Y_dim
         self.device = device
+        self.mixture_cmap = cm.tab20
+        self.mixture_norm = colors.Normalize(vmin=0, vmax=20) # FIXME: hardcode max num of normals
 
     def _get_normal_params(self, pred):
         """Compute the mean and cov mat of a normal from the network output
@@ -65,6 +68,8 @@ class Plotter:
         batch_size, self.out_dim = pred.shape
 
         if self.cov_mat == 'diagonal':
+            mu = pred[:, :d]
+            logvar = pred[:, d:2*d]
             normal = Dict(
                           mu=mu,
                           logvar=logvar, 
@@ -84,7 +89,7 @@ class Plotter:
             alpha = pred[:, -1]
             normal_mixture = [] # each element is a dict of params for a normal
             for i in range(2): 
-                normal_comp = self._get_normal_params(pred[:, :4*d])
+                normal_comp = self._get_normal_params(pred[:, i*4*d: (i+1)*4*d])
                 normal_mixture.append(normal_comp)
 
             # FIXME: only works for 2 b/c of alphas, if we want to ensure alpha_1 > alpha_2
@@ -118,7 +123,6 @@ class Plotter:
 
         """
         n_data = len(Y)
-        print(Y)
         my_dpi = 72.0
         fig = Figure(figsize=(720/my_dpi, 360/my_dpi), dpi=my_dpi, tight_layout=True)
         ax = fig.gca()
@@ -128,15 +132,15 @@ class Plotter:
         ax.plot(perfect, np.zeros_like(perfect), linestyle='--', color='b', label="Perfect mapping")
 
         # Network predictions
-        for normal in self.normal_mixture:
+        for normal_idx, normal in enumerate(self.normal_mixture):
             offset = normal.mu[:, idx] - Y
             rgba_colors = np.zeros((n_data, 4))
             rgba_colors[:, 0] = 1.0
             rgba_colors[:, 3] = normal.alpha
-            print(normal.alpha[:5])
-            ax.errorbar(Y, offset, ecolor=rgba_colors, marker='o', linewidth=0.0,
+            ax.errorbar(Y, offset, 
+                        ecolor=rgba_colors, color=self.mixture_cmap(self.mixture_norm(normal_idx)),
+                        marker='o', linewidth=0.0,
                         yerr=normal.cov_diag[:, idx], elinewidth=0.5)
-        print("-----------------")
         ax.set_title('offset vs. truth ({:s})'.format(name))
         ax.set_ylabel('pred - truth')
         ax.set_xlabel('truth')
