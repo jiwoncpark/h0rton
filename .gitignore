@@ -6,6 +6,7 @@
 data/*
 runs/*
 results/*
+archived/*
 
 # Logs
 *ipynb_checkpoints
