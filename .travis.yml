@@ -1,0 +1,21 @@
+language: python
+
+python:
+    - '3.6'
+
+compiler:
+    - g++
+   
+cache:
+    ccache: true
+    pip: true
+
+install:
+    # Install SLRealizer dependencies
+    - "pip install -e . -r requirements.txt"
+
+script:
+    - "python setup.py test"
+
+after_success:
+    - codecov

@@ -68,7 +68,7 @@ You can visualize the training results by running
 
 ::
 
-tensorboard --logdir runs
+$tensorboard --logdir runs
 
 Feedback
 ========
