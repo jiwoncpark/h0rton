@@ -51,7 +51,13 @@ $pip install h0rton
 
 ::
 
-$python -m ipykernel install --user --name baobab --display-name "Python (baobab)"
+$python -m ipykernel install --user --name h0rton --display-name "Python (h0rton)"
+
+4. (Optional) To experiment with H0 inference using the TDLMC data, download all their data first using the provided convenience script:
+
+::
+
+$source h0rton/tdlmc_data/download_tdlmc_data.sh 
 
 How to train
 ============
