@@ -1,4 +1,6 @@
 # Data
+*.gz
+*.zip
 *.csv
 *.npy
 *.txt
