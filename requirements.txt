@@ -8,7 +8,7 @@ ipykernel
 astropy
 pandas
 dynesty
+git+https://github.com/jiwoncpark/corner.py.git
 tqdm
-corner
 mpmath
 addict

@@ -1,13 +1,20 @@
-# time_delay_lens_modeling_challenge
+# h0rton
 
-A private repo for a Rung 3 blind submission for the Time Delay Lens Modeling Challenge (TDLMC).
+.. image:: https://travis-ci.com/jiwoncpark/h0rton.svg?branch=master
+    :target: https://travis-ci.org/jiwoncpark/h0rton
+
+.. image:: https://readthedocs.org/projects/pybaobab/badge/?version=latest
+        :target: https://pybaobab.readthedocs.io/en/latest/?badge=latest
+        :alt: Documentation Status
+
+Hierarchical Bayesian inference of the Hubble constant
 
 ### How to install
 
 1. Create a conda virtual environment and activate it.
 ```shell
-conda create -n tdlmc python=3.6 -y
-conda activate tdlmc
+conda create -n h0rton python=3.6 -y
+conda activate h0rton
 ```
 
 2. Install PyTorch stable and torchvision following the [official instructions](https://pytorch.org/), e.g.,
@@ -22,9 +29,9 @@ cd <DESIRED DESTINATION>/fastell4py
 python setup.py install --user
 ```
 
-4. Install all other dependencies
+4. Install `h0rton`
 ```shell
-pip install -r requirements.txt
+pip install -e . -r requirements.txt
 ```
 
 ### How to train
