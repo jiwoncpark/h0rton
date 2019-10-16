@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from addict import Dict
 
-class Plotter:
+class H0rtonInterpreter:
     """
     Interprets the network output for making plots
 

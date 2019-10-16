@@ -5,9 +5,12 @@
 *.h5
 *.hdf5
 out_data/*
+h0rton/tdlmc_data/*
+saved_models/*
 
 # Personal config files under development
 my_configs/*
+in_progress/*
 
 # HTML builds
 docs/_build/*

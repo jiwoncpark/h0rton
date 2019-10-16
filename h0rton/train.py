@@ -18,10 +18,10 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import datetime
 
-from data.data_io import XYData
-from utils.config import cfg
-from utils.loss import GaussianNLL
-from utils.plotting import Plotter
+from baobab_data import XYData
+from config import cfg
+from losses import GaussianNLL
+from plotting import H0rtonInterpreter
 
 # Seed everything for reproducibility
 np.random.seed(cfg.global_seed)

@@ -11,8 +11,8 @@ cfg.global_seed = 1225
 
 # Data
 cfg.data = Dict(
-                train_dir='data/tdlmc_train_DiagonalBNNPrior_seed1113',
-                val_dir='data/tdlmc_val_DiagonalBNNPrior_seed1225',
+                train_dir='baobab_data/tdlmc_train_DiagonalBNNPrior_seed1113',
+                val_dir='baobab_data/tdlmc_val_DiagonalBNNPrior_seed1225',
                 normalize=True,
                 mean=[0.485, 0.456, 0.406],
                 std=[0.229, 0.224, 0.225],

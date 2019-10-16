@@ -1,0 +1,41 @@
+import numpy as np
+
+def reorder_to_tdlmc(abcd_ordering, ra_img, dec_img, time_delays):
+    """Reorder the list of ra, dec, and time delays to conform to the
+    order in the TDLMC challenge
+
+    Parameters
+    ----------
+    abcd_ordering : array-like
+        ABCD in an increasing dec order if the keys ABCD mapped to values 0123, respectively, e.g. [3, 1, 0, 2] if D (value 3) is lowest, B (value 1) is second lowest
+    ra_img : array-like
+        list of ra from lenstronomy
+    dec_img : array-like
+        list of dec from lenstronomy, in the order specified by `ra_img`
+    time_delays : array-like
+        list of time delays from lenstronomy, in the order specified by `ra_img`
+
+    Returns
+    -------
+    array-like
+        time delays of BCD with respect to the time delay of A
+
+    """
+    # Since there's just one source
+    ra_img = ra_img[0]
+    dec_img = dec_img[0]
+    # Order ra_pos, dec_pos, time_delays in increasing dec order 
+    increasing_dec_i = np.argsort(dec_img)
+    ra_img = ra_img[increasing_dec_i]
+    dec_img = dec_img[increasing_dec_i]
+    time_delays = time_delays[increasing_dec_i]
+    # Reorder to get it in ABCD
+    ra_img = ra_img[abcd_ordering_i]
+    dec_img = dec_img[abcd_ordering_i]
+    time_delays = time_delays[abcd_ordering_i]
+    # Offset BCD - A
+    time_delays_BCD = time_delays[1:] - time_delays[0]
+
+    return time_delays_BCD
+
+
