@@ -10,9 +10,9 @@ from lenstronomy.Analysis.lens_properties import LensProp
 import lenstronomy.Util.param_util as param_util
 import h0rton.tdlmc_utils
 
-__all__ = ['log_normal_pdf', 'H0Posterior']
+__all__ = ['log_gaussian_pdf', 'H0Posterior']
 
-def log_normal_pdf(x, mu, sigma):
+def log_gaussian_pdf(x, mu, sigma):
     """Evaluates the log of the normal (not lognormal) PDF at point x
     
     Parameters
@@ -20,9 +20,9 @@ def log_normal_pdf(x, mu, sigma):
     x : float or array-like
         point at which to evaluate the log pdf
     mu : float or array-like
-        mean of the normal
+        mean of the normal on a linear scale
     sigma : float or array-like
-        standard deviation of the normal
+        standard deviation of the normal on a linear scale
         
     """
     log_pdf = -0.5*(x - mu)**2.0/sigma**2.0 - np.log(sigma) - 0.5*np.log(2.0*np.pi)
@@ -124,8 +124,7 @@ class H0Posterior:
             kwargs_ps_source = [ps_dict]
             ra_image, dec_image = ps_class.image_position(kwargs_ps_source, self.kwargs_lens)
             self.kwargs_ps = [dict(ra_image=ra_image[0],
-                                   dec_image=dec_image[0],
-                                   point_amp=ps_dict['point_amp'])]
+                                   dec_image=dec_image[0])]
             self.requires_reordering = True # Since the ra_image is coming out of lenstronomy, we need to reorder it to agree with TDLMC
         else:
             self.kwargs_ps = [ps_dict]
@@ -230,7 +229,7 @@ class H0Posterior:
                 ll_vd = 0.0
             else:
                 inferred_vd = lens_prop.velocity_dispersion(self.kwargs_lens, r_eff=self.lens_light_R_sersic, R_slit=self.R_slit, dR_slit=self.dR_slit, psf_fwhm=self.psf_fwhm, aniso_param=aniso_param, num_evaluate=5000, kappa_ext=k_ext)
-                ll_vd = log_normal_pdf(inferred_vd,
+                ll_vd = log_gaussian_pdf(inferred_vd,
                                        self.measured_vd,
                                        self.measured_vd_err)
             # Time delays
@@ -240,7 +239,7 @@ class H0Posterior:
             else:
                 inferred_td = np.array(inferred_td)
             inferred_td = inferred_td[1:] - inferred_td[0]
-            ll_td = np.sum(log_normal_pdf(inferred_td, self.measured_td, self.measured_td_err))
+            ll_td = np.sum(log_gaussian_pdf(inferred_td, self.measured_td, self.measured_td_err))
             log_w = ll_vd + ll_td
             w = mp.exp(log_w)
 
