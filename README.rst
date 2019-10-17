@@ -9,7 +9,10 @@ h0rton
         :target: https://h0rton.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
-Hierarchical Bayesian inference of the Hubble constant
+Hierarchical Bayesian inference of the Hubble constant from samples of strong gravitational time delay lenses. This package represents LSST Dark Energy Science Collaboration research in progress: if you are interested in collaborating, please get in touch. 
+
+Contact: Ji Won Park (@jiwoncpark)
+
 
 Installation
 ============
