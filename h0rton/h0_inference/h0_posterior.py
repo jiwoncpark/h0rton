@@ -229,7 +229,7 @@ class H0Posterior:
             if exclude_vel_disp:
                 ll_vd = 0.0
             else:
-                inferred_vd = lens_prop.velocity_dispersion(self.kwargs_lens, r_eff=self.lens_light_R_sersic, R_slit=self.R_slit, dR_slit=self.dR_slit, psf_fwhm=self.psf_fwhm, aniso_param=aniso_param, num_evaluate=5000)
+                inferred_vd = lens_prop.velocity_dispersion(self.kwargs_lens, r_eff=self.lens_light_R_sersic, R_slit=self.R_slit, dR_slit=self.dR_slit, psf_fwhm=self.psf_fwhm, aniso_param=aniso_param, num_evaluate=5000, kappa_ext=k_ext)
                 ll_vd = log_normal_pdf(inferred_vd,
                                        self.measured_vd,
                                        self.measured_vd_err)
@@ -255,8 +255,8 @@ class H0Posterior:
             samples_dict['inferred_td'][n, :] = inferred_td
             samples_dict['ll_td'][n] = ll_td
 
-            # Normalize weights to unity
-            samples_dict['H0_weights'] /= np.sum(samples_dict['H0_weights'])
+        # Normalize weights to unity
+        samples_dict['H0_weights'] /= np.sum(samples_dict['H0_weights'])
 
         return samples_dict
 
