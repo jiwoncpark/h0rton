@@ -1,5 +1,5 @@
 #conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
-lenstronomy
+git+https://github.com/sibirrer/lenstronomy.git@master
 tb-nightly
 future
 numpy
@@ -8,7 +8,7 @@ ipykernel
 astropy
 pandas
 dynesty
-git+https://github.com/jiwoncpark/corner.py.git
+git+https://github.com/jiwoncpark/corner.py.git@master
 tqdm
 mpmath
 addict
