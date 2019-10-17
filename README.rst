@@ -5,8 +5,8 @@ h0rton
 .. image:: https://travis-ci.com/jiwoncpark/h0rton.svg?branch=master
     :target: https://travis-ci.org/jiwoncpark/h0rton
 
-.. image:: https://readthedocs.org/projects/pybaobab/badge/?version=latest
-        :target: https://pybaobab.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/h0rton/badge/?version=latest
+        :target: https://h0rton.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
 Hierarchical Bayesian inference of the Hubble constant
