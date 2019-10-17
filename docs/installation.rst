@@ -1,16 +1,4 @@
-======
-h0rton
-======
-
-.. image:: https://travis-ci.com/jiwoncpark/h0rton.svg?branch=master
-    :target: https://travis-ci.org/jiwoncpark/h0rton
-
-.. image:: https://readthedocs.org/projects/pybaobab/badge/?version=latest
-        :target: https://pybaobab.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-Hierarchical Bayesian inference of the Hubble constant
-
+============
 Installation
 ============
 
@@ -58,31 +46,3 @@ $python -m ipykernel install --user --name h0rton --display-name "Python (h0rton
 ::
 
 $source h0rton/tdlmc_data/download_tdlmc_data.sh 
-
-How to train
-============
-
-1. Edit the configuration parameters `h0rton/config.py`. Make sure the `cfg.DATA` field agrees with the training data you generated.
-
-2. Run
-
-::
-
-$python -m h0rton.train
-
-You can visualize the training results by running
-
-::
-
-$tensorboard --logdir runs
-
-Feedback
-========
-
-Suggestions are always welcome! If you encounter issues or areas for improvement, please message @jiwoncpark or `make an issue
-<https://github.com/jiwoncpark/h0rton/issues>`_.
-
-There is an ongoing `document <https://www.overleaf.com/read/pswdqwttjbjr>`_ that details our Bayesian inference method, written and maintained by Ji Won.
-
-Challenge webpage: https://tdlmc.github.io/
-Experimental design paper: https://arxiv.org/abs/1801.01506
