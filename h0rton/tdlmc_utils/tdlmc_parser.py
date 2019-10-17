@@ -4,12 +4,40 @@ import pandas as pd
 from ast import literal_eval
 import re
 import h0rton.tdlmc_data
-__all__ = ['convert_to_dataframe', 'parse_closed_box', 'parse_open_box']
+__all__ = ['convert_to_dataframe', 'parse_closed_box', 'parse_open_box', 'read_from_csv']
 
 tdlmc_data_path = os.path.abspath(h0rton.tdlmc_data.__path__[0])
 """str: directory path containing the TDLMC data
 
 """
+
+def read_from_csv(csv_path):
+    """Read a Pandas Dataframe from the combined csv file of TDLMC data while evaluating all the relevant strings in each column as Python objects
+
+    Parameters
+    ----------
+    csv_path : str
+        path to the csv file generated using `convert_to_dataframe`
+
+    Returns
+    -------
+    Pandas DataFrame
+        the TDLMC data with correct Python objects
+
+    """
+    df = pd.read_csv(csv_path, index_col=False)
+    # These are columns that are lists
+    for list_col in [
+                    'host_pos', 
+                    'measured_time_delays', 
+                    'measured_time_delays_err',
+                    'agn_img_pos_x', 
+                    'agn_img_pos_y', 
+                    'agn_img_amp', 
+                    'time_delays',
+                    ]:
+        df[list_col] = df[list_col].apply(literal_eval).apply(np.array)
+    return df
 
 def convert_to_dataframe(rung, save_csv_path):
     """Store the TDLMC closed and open boxes into a Pandas DataFrame and exports to a csv file at the same location
@@ -43,7 +71,7 @@ def convert_to_dataframe(rung, save_csv_path):
             open_box_path = os.path.join(open_code_dir, seed, 'lens_all_info.txt')
             # Save seed path for easy access
             row['name'] = 'rung{:d}_{:s}_{:s}'.format(rung, code, seed)
-            row['seed_path'] = os.path.join(closed_box_path, seed)
+            row['seed_path'] = os.path.join(closed_code_dir, seed)
             # Parse the text files
             row = parse_closed_box(closed_box_path, row)
             row = parse_open_box(open_box_path, row)
