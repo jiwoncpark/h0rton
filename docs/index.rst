@@ -1,5 +1,3 @@
-.. include:: ../README.rst
-
 **Contents:**
 
 .. toctree::
@@ -7,6 +5,7 @@
 
    installation
    usage
-   baobab
+   h0rton
    feedback
 
+.. include:: ../README.rst
