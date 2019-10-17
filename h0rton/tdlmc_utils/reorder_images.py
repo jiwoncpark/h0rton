@@ -1,4 +1,5 @@
 import numpy as np
+__all__ = ['reorder_to_tdlmc']
 
 def reorder_to_tdlmc(abcd_ordering, ra_img, dec_img, time_delays):
     """Reorder the list of ra, dec, and time delays to conform to the
