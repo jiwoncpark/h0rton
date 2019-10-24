@@ -1,42 +1,85 @@
+from abc import ABC, abstractmethod
 import torch
 
-class GaussianNLL:
-    def __init__(self, cov_mat, Y_dim, out_dim, device):
-        self.cov_mat = cov_mat
+class BaseGaussianNLL(ABC):
+    """Abstract base class to represent the Gaussian negative log likelihood (NLL).
+
+    Gaussian NLLs or mixtures thereof with various forms of the covariance matrix inherit from this class.
+
+    """
+    def __init__(self, Y_dim, device):
+        """
+        Parameters
+        ----------
+        cov_mat : str
+            type of covariance matrix, one of ['diagonal', 'low_rank', 'double']
+        Y_dim : int
+            number of parameters to predict
+        out_dim : int
+            number of output parameters
+        device : torch.device object
+
+        """
         self.Y_dim = Y_dim
-        self.out_dim = out_dim
         self.device = device
 
+    @abstractmethod
     def __call__(self, pred, target):
-        d = self.Y_dim # for readability
+        """Evaluate the NLL. Must be overridden by subclasses.
 
-        if self.cov_mat == 'diagonal':
-            mu = pred[:, :d]
-            logvar = pred[:, d:]
-            return self.nll_diagonal(target, mu, logvar)
+        Parameters
+        ----------
+        pred : torch.Tensor
+            raw network output for the predictions
+        target : torch.Tensor
+            Y labels
 
-        elif self.cov_mat == 'low_rank':
-            mu = pred[:, :d]
-            logvar = pred[:, d:2*d]
-            F = pred[:, 2*d:]
-            return self.nll_lowrank(target, mu, logvar, F, reduce=True)
-
-        elif self.cov_mat == 'double':
-            # Boring and arbitrary slicing... bear with me...
-            mu = pred[:, :d]
-            logvar = pred[:, d:2*d]
-            F = pred[:, 2*d:4*d]
-            mu2 = pred[:, 4*d:5*d]
-            logvar2 = pred[:, 5*d:6*d]
-            F2 = pred[:, 6*d:8*d]
-            alpha = pred[:, -1]
-            return self.nll_mixture(target, mu, logvar, F, mu2, logvar2, F2, alpha)
+        """
+        return NotImplemented
 
     def nll_diagonal(self, target, mu, logvar):
+        """Evaluate the NLL for single Gaussian with diagonal covariance matrix
+
+        Parameters
+        ----------
+        target : torch.Tensor of shape [batch_size, Y_dim]
+            Y labels
+        mu : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior
+        logvar : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix
+
+        Returns
+        -------
+        torch.Tensor of shape [batch_size,]
+            NLL values
+
+        """
         precision = torch.exp(-logvar)
         return torch.sum(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
 
     def nll_lowrank(self, target, mu, logvar, F, reduce=True):
+        """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
+
+        Parameters
+        ----------
+        target : torch.Tensor of shape [batch_size, Y_dim]
+            Y labels
+        mu : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior
+        logvar : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix
+        F : torch.Tensor of shape [batch_size, rank*Y_dim]
+            network prediction of the low rank portion of the covariance matrix
+        reduce : bool
+            whether to take the mean across the batch
+
+        Returns
+        -------
+        torch.Tensor of shape [batch_size,]
+            NLL values
+
+        """
         # 1/(Y_dim - 1) * (sq_mahalanobis + log(det of \Sigma))
         batch_size, _ = target.shape # self.Y_dim = Y_dim - 1
         rank = 2
@@ -83,6 +126,39 @@ class GaussianNLL:
             return sq_mahalanobis + log_det
 
     def nll_mixture(self, target, mu, logvar, F, mu2, logvar2, F2, alpha):
+        """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
+
+        Parameters
+        ----------
+        target : torch.Tensor of shape [batch_size, Y_dim]
+            Y labels
+        mu : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior for the first Gaussian
+        logvar : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix for the first Gaussian
+        F : torch.Tensor of shape [batch_size, rank*Y_dim]
+            network prediction of the low rank portion of the covariance matrix for the first Gaussian
+        mu2 : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior for the second Gaussian
+        logvar2 : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix for the second Gaussian
+        F2 : torch.Tensor of shape [batch_size, rank*Y_dim]
+            network prediction of the low rank portion of the covariance matrix for the second Gaussian
+        alpha : torch.Tensor
+            network prediction of the logit of twice the weight on the second Gaussian 
+        reduce : bool
+            whether to take the mean across the batch
+
+        Note
+        ----
+        The weight on the second Gaussian is required to be less than 0.5, to make the two Gaussians well-defined.
+
+        Returns
+        -------
+        torch.Tensor of shape [batch_size,]
+            NLL values
+
+        """
         batch_size, _ = target.shape
         rank = 2
         log_nll = torch.empty([batch_size, rank], device=self.device)
@@ -93,3 +169,55 @@ class GaussianNLL:
         log_nll[:, 1] = torch.log(torch.tensor([0.5], device=self.device)) + logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size]
         sum_two_gaus = torch.logsumexp(log_nll, dim=1) 
         return torch.sum(sum_two_gaus)
+
+class DiagonalGaussianNLL(BaseGaussianNLL):
+    """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
+        
+    `BaseGaussianNLL.__init__` docstring for the parameter description.
+
+    """
+    def __init__(self, Y_dim, device):
+        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        self.out_dim = Y_dim*2
+
+    def __call__(self, pred, target):
+        d = self.Y_dim # for readability
+        mu = pred[:, :d]
+        logvar = pred[:, d:]
+        return self.nll_diagonal(target, mu, logvar)
+
+class LowRankGaussianNLL(BaseGaussianNLL):
+    """The negative log likelihood (NLL) for a single Gaussian with a full but constrained as low-rank plus diagonal covariance matrix
+        
+    Only rank 2 is currently supported. `BaseGaussianNLL.__init__` docstring for the parameter description.
+
+    """
+    def __init__(self, Y_dim, device):
+        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        self.out_dim = Y_dim*4
+
+    def __call__(self, pred, target):
+        mu = pred[:, :d]
+        logvar = pred[:, d:2*d]
+        F = pred[:, 2*d:]
+        return self.nll_lowrank(target, mu, logvar, F, reduce=True)
+
+class DoubleGaussianNLL(BaseGaussianNLL):
+    """The negative log likelihood (NLL) for a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance 
+        
+    Only rank 2 is currently supported. `BaseGaussianNLL.__init__` docstring for the parameter description.
+
+    """
+    def __init__(self, Y_dim, device):
+        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        self.out_dim = Y_dim*8 + 1
+
+    def __call__(self, pred, target):
+        mu = pred[:, :d]
+        logvar = pred[:, d:2*d]
+        F = pred[:, 2*d:4*d]
+        mu2 = pred[:, 4*d:5*d]
+        logvar2 = pred[:, 5*d:6*d]
+        F2 = pred[:, 6*d:8*d]
+        alpha = pred[:, -1]
+        return self.nll_mixture(target, mu, logvar, F, mu2, logvar2, F2, alpha)
