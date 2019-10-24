@@ -11,12 +11,8 @@ class BaseGaussianNLL(ABC):
         """
         Parameters
         ----------
-        cov_mat : str
-            type of covariance matrix, one of ['diagonal', 'low_rank', 'double']
         Y_dim : int
             number of parameters to predict
-        out_dim : int
-            number of output parameters
         device : torch.device object
 
         """
@@ -51,12 +47,13 @@ class BaseGaussianNLL(ABC):
 
         Returns
         -------
-        torch.Tensor of shape [batch_size,]
+        torch.Tensor of shape
             NLL values
 
         """
         precision = torch.exp(-logvar)
-        return torch.sum(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
+        print(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1))
+        return torch.mean(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
 
     def nll_lowrank(self, target, mu, logvar, F, reduce=True):
         """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
@@ -144,7 +141,7 @@ class BaseGaussianNLL(ABC):
             network prediction of the log of the diagonal elements of the covariance matrix for the second Gaussian
         F2 : torch.Tensor of shape [batch_size, rank*Y_dim]
             network prediction of the low rank portion of the covariance matrix for the second Gaussian
-        alpha : torch.Tensor
+        alpha : torch.Tensor of shape [batch_size,]
             network prediction of the logit of twice the weight on the second Gaussian 
         reduce : bool
             whether to take the mean across the batch
@@ -177,7 +174,7 @@ class DiagonalGaussianNLL(BaseGaussianNLL):
 
     """
     def __init__(self, Y_dim, device):
-        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        super(DiagonalGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*2
 
     def __call__(self, pred, target):
@@ -193,7 +190,7 @@ class LowRankGaussianNLL(BaseGaussianNLL):
 
     """
     def __init__(self, Y_dim, device):
-        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        super(LowRankGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*4
 
     def __call__(self, pred, target):
@@ -209,7 +206,7 @@ class DoubleGaussianNLL(BaseGaussianNLL):
 
     """
     def __init__(self, Y_dim, device):
-        super(BaseGaussianNLL, self).__init__(Y_dim, device)
+        super(DoubleGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*8 + 1
 
     def __call__(self, pred, target):
