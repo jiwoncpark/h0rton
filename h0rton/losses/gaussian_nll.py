@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import torch
+__all__ = ['BaseGaussianNLL', 'DiagonalGaussianNLL', 'LowRankGaussianNLL', 'DoubleGaussianNLL']
 
 class BaseGaussianNLL(ABC):
     """Abstract base class to represent the Gaussian negative log likelihood (NLL).
@@ -130,7 +131,7 @@ class BaseGaussianNLL(ABC):
             network prediction of the log of the diagonal elements of the covariance matrix for the second Gaussian
         F2 : torch.Tensor of shape [batch_size, rank*Y_dim]
             network prediction of the low rank portion of the covariance matrix for the second Gaussian
-        alpha : torch.Tensor of shape [batch_size,]
+        alpha : torch.Tensor of shape [batch_size, 1]
             network prediction of the logit of twice the weight on the second Gaussian 
         reduce : bool
             whether to take the mean across the batch
@@ -147,14 +148,15 @@ class BaseGaussianNLL(ABC):
         """
         batch_size, _ = target.shape
         rank = 2
-        log_nll = torch.empty([batch_size, rank], device=self.device)
+        log_nll = torch.empty([batch_size, 2], device=self.device)
         sigmoid = torch.nn.Sigmoid()
         logsigmoid = torch.nn.LogSigmoid()
         alpha = alpha.reshape(-1)
-        log_nll[:, 0] = torch.log(1.0 - 0.5*sigmoid(alpha)) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
-        log_nll[:, 1] = torch.log(torch.tensor([0.5], device=self.device)) + logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size]
-        sum_two_gaus = torch.logsumexp(log_nll, dim=1) 
-        return torch.sum(sum_two_gaus)
+        log_nll[:, 0] = -torch.log(1.0 - 0.5*sigmoid(alpha)) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        # torch.log(torch.tensor([0.5], device=self.device)).double()
+        log_nll[:, 1] = 0.6931471 - logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size]
+        sum_two_gaus = torch.sum(log_nll, dim=1) 
+        return torch.mean(sum_two_gaus)
 
 class DiagonalGaussianNLL(BaseGaussianNLL):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
