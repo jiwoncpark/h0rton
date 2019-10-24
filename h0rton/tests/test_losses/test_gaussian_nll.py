@@ -7,7 +7,7 @@ class TestGaussianNLL(unittest.TestCase):
     """A suite of tests verifying the PDF evaluation of GaussianNLL
     
     """
-    def test_diagonal_gaussian_ll_pdf(self):
+    def test_diagonal_gaussian_nll(self):
         """Test the PDF evaluation of a single Gaussian with diagonal covariance matrix
 
         """
@@ -34,7 +34,7 @@ class TestGaussianNLL(unittest.TestCase):
             matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
 
-    def test_lowrank_gaussian_ll_pdf(self):
+    def test_low_rank_gaussian_nll(self):
         """Test the PDF evaluation of a single Gaussian with a full but low-rank plus diagonal covariance matrix
 
         """
@@ -44,7 +44,7 @@ class TestGaussianNLL(unittest.TestCase):
         Y_dim = 2
         rank = 2
         device = torch.device('cpu')
-        diagonal_gaussian_nll = LowRankGaussianNLL(Y_dim, device)
+        low_rank_gaussian_nll = LowRankGaussianNLL(Y_dim, device)
         # Get h0rton evaluation
         batch_size = 3
         target = np.random.randn(batch_size, Y_dim)
@@ -52,14 +52,47 @@ class TestGaussianNLL(unittest.TestCase):
         logvar = np.abs(2.0*np.random.randn(batch_size, Y_dim))
         F = np.random.randn(batch_size, rank*Y_dim)
         pred = np.concatenate([mu, logvar, F], axis=1)
-        h0rton_nll = diagonal_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
+        h0rton_nll = low_rank_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
         # Get scipy evaluation
         matched_nll = 0.0
         for b in range(batch_size):
             target_b = target[b, :]
             mu_b = mu[b, :]
-            cov_b = np.diagflat(np.exp(logvar[b, :]))
-            nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=cov_b)) # real nll, not scaled and shifted
+            diag_b = np.diagflat(np.exp(logvar[b, :]))
+            F_b = F[b, :].reshape(Y_dim, rank)
+            low_rank_b =  np.matmul(F_b, F_b.T)
+            nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=diag_b + low_rank_b)) # real nll, not scaled and shifted
+            matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size
+        np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
+
+    def test_double_gaussian_nll(self):
+        """Test the PDF evaluation of a mixture of two Gaussians, each with a full but low-rank plus diagonal covariance matrix
+
+        """
+        from h0rton.losses import DoubleGaussianNLL
+        from scipy.stats import multivariate_normal
+        # Instantiate NLL class
+        Y_dim = 2
+        rank = 2
+        device = torch.device('cpu')
+        double_gaussian_nll = DoubleGaussianNLL(Y_dim, device)
+        # Get h0rton evaluation
+        batch_size = 3
+        target = np.random.randn(batch_size, Y_dim)
+        mu = np.random.randn(batch_size, Y_dim)
+        logvar = np.abs(2.0*np.random.randn(batch_size, Y_dim))
+        F = np.random.randn(batch_size, rank*Y_dim)
+        pred = np.concatenate([mu, logvar, F], axis=1)
+        h0rton_nll = double_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
+        # Get scipy evaluation
+        matched_nll = 0.0
+        for b in range(batch_size):
+            target_b = target[b, :]
+            mu_b = mu[b, :]
+            diag_b = np.diagflat(np.exp(logvar[b, :]))
+            F_b = F[b, :].reshape(Y_dim, rank)
+            low_rank_b =  np.matmul(F_b, F_b.T)
+            nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=diag_b + low_rank_b)) # real nll, not scaled and shifted
             matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
 
