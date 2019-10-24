@@ -154,7 +154,7 @@ class BaseGaussianNLL(ABC):
         alpha = alpha.reshape(-1)
         log_nll[:, 0] = -torch.log(1.0 - 0.5*sigmoid(alpha)) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_nll[:, 1] = 0.6931471 - logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size]
+        log_nll[:, 1] = 0.6931471 - logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = -np.log(0.5)
         sum_two_gaus = torch.sum(log_nll, dim=1) 
         return torch.mean(sum_two_gaus)
 
