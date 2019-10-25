@@ -110,7 +110,7 @@ class TestGaussianNLL(unittest.TestCase):
             nll2 = -np.log(multivariate_normal.pdf(target_b, mean=mu2_b, cov=diag2_b + low_rank2_b)) # real likelihood, not scaled and shifted
             matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
-            matched_nll += (-np.log(1.0 - w2_b) + matched_nll1 - np.log(w2_b) + matched_nll2)/batch_size
+            matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size
             #print(matched_nll1 + matched_nll2)
             #nll = -np.log((1.0 - w2_b)) + nll1 - np.log(w2_b) + nll2 
             #matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size

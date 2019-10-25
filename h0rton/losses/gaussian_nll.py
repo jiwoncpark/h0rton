@@ -148,15 +148,15 @@ class BaseGaussianNLL(ABC):
         """
         batch_size, _ = target.shape
         rank = 2
-        log_nll = torch.empty([batch_size, 2], device=self.device)
+        log_ll = torch.empty([batch_size, 2], device=self.device)
         sigmoid = torch.nn.Sigmoid()
         logsigmoid = torch.nn.LogSigmoid()
         alpha = alpha.reshape(-1)
-        log_nll[:, 0] = -torch.log(1.0 - 0.5*sigmoid(alpha)) + self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        log_ll[:, 0] = torch.log(1.0 - 0.5*sigmoid(alpha)) - self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_nll[:, 1] = 0.6931471 - logsigmoid(alpha) + self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = -np.log(0.5)
-        sum_two_gaus = torch.sum(log_nll, dim=1) 
-        return torch.mean(sum_two_gaus)
+        log_ll[:, 1] = -0.6931471 + logsigmoid(alpha) - self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_nll = -torch.logsumexp(log_ll, dim=1) 
+        return torch.mean(log_nll)
 
 class DiagonalGaussianNLL(BaseGaussianNLL):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
