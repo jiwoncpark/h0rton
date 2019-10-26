@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import numpy as np
 import torch
 __all__ = ['BaseGaussianNLL', 'DiagonalGaussianNLL', 'LowRankGaussianNLL', 'DoubleGaussianNLL']
 
@@ -19,6 +20,8 @@ class BaseGaussianNLL(ABC):
         """
         self.Y_dim = Y_dim
         self.device = device
+        self.sigmoid = torch.nn.Sigmoid()
+        self.logsigmoid = torch.nn.LogSigmoid()
 
     @abstractmethod
     def __call__(self, pred, target):
@@ -53,10 +56,16 @@ class BaseGaussianNLL(ABC):
 
         """
         precision = torch.exp(-logvar)
-        print(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1))
-        return torch.mean(torch.sum(precision * (target - mu)**2.0 + logvar, dim=1), dim=0)
+        # Loss kernel
+        loss = precision * (target - mu)**2.0 + logvar
+        # Restore prefactors
+        loss += np.log(2.0*np.pi)
+        loss *= 0.5
+        print(torch.sum(loss, dim=1))
 
-    def nll_lowrank(self, target, mu, logvar, F, reduce=True):
+        return torch.mean(torch.sum(loss, dim=1), dim=0)
+
+    def nll_low_rank(self, target, mu, logvar, F, reduce=True):
         """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
 
         Parameters
@@ -107,10 +116,16 @@ class BaseGaussianNLL(ABC):
         inv_cov = diag_inv_var - torch.bmm(torch.bmm(torch.bmm(torch.bmm(diag_inv_var, F), inv_M), torch.transpose(F, 1, 2)), diag_inv_var) # [batch_size, self.Y_dim, self.Y_dim]
         sq_mahalanobis = torch.bmm(torch.bmm((mu - target).reshape(batch_size, 1, self.Y_dim), inv_cov), (mu - target).reshape(batch_size, self.Y_dim, 1)).reshape(-1) # [batch_size,]
         
+        # Loss kernel
+        loss = sq_mahalanobis + log_det
+        # Restore prefactors
+        loss += self.Y_dim*np.log(2.0*np.pi)
+        loss *= 0.5
+
         if reduce==True:
-            return torch.mean(sq_mahalanobis + log_det, dim=0) # float
+            return torch.mean(loss, dim=0) # float
         else:
-            return sq_mahalanobis + log_det # [batch_size,]
+            return loss # [batch_size,]
 
     def nll_mixture(self, target, mu, logvar, F, mu2, logvar2, F2, alpha):
         """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
@@ -149,12 +164,10 @@ class BaseGaussianNLL(ABC):
         batch_size, _ = target.shape
         rank = 2
         log_ll = torch.empty([batch_size, 2], device=self.device)
-        sigmoid = torch.nn.Sigmoid()
-        logsigmoid = torch.nn.LogSigmoid()
         alpha = alpha.reshape(-1)
-        log_ll[:, 0] = torch.log(1.0 - 0.5*sigmoid(alpha)) - self.nll_lowrank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_ll[:, 1] = -0.6931471 + logsigmoid(alpha) - self.nll_lowrank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 1] = -0.6931471 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -torch.logsumexp(log_ll, dim=1) 
         return torch.mean(log_nll)
 
@@ -189,7 +202,7 @@ class LowRankGaussianNLL(BaseGaussianNLL):
         mu = pred[:, :d]
         logvar = pred[:, d:2*d]
         F = pred[:, 2*d:]
-        return self.nll_lowrank(target, mu, logvar, F, reduce=True)
+        return self.nll_low_rank(target, mu, logvar, F, reduce=True)
 
 class DoubleGaussianNLL(BaseGaussianNLL):
     """The negative log likelihood (NLL) for a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance 
