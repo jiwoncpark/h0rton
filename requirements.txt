@@ -1,6 +1,6 @@
 #conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
-#git+https://github.com/sibirrer/lenstronomy.git@master
-lenstronomy
+git+https://github.com/sibirrer/lenstronomy.git@master
+#lenstronomy
 torch
 torchvision
 tb-nightly
