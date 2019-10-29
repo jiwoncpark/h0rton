@@ -1,0 +1,17 @@
+#conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
+#git+https://github.com/sibirrer/lenstronomy.git@master
+#lenstronomy
+#torch
+#torchvision
+#tb-nightly
+future
+numpy
+matplotlib
+ipykernel
+astropy
+pandas
+dynesty
+git+https://github.com/jiwoncpark/corner.py.git@master
+tqdm
+mpmath
+addict

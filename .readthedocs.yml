@@ -7,6 +7,9 @@ sphinx:
 
 python:
   version: 3.6
-  pip:
+  install:
     - sphinx-autoapi
     - sphinx-rtd-theme
+    - requirements: 
+        - docs/requirements.txt    
+    - method: pip
