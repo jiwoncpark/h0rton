@@ -1,20 +1,25 @@
 import os, sys
 import numpy as np
 
-name = 'tdlmc'
+name = 'tdlmc_rung1'
 seed = 1225 # random seed
 bnn_prior_class = 'DiagonalBNNPrior'
-n_data = 5000 # number of images to generate
+n_data = 200 # number of images to generate
 train_vs_val = 'val'
-out_dir = os.path.join('data', '{:s}_{:s}_{:s}_seed{:d}'.format(name,
-                                                                train_vs_val,
-                                                                bnn_prior_class,
-                                                                seed))
+out_dir = os.path.join('{:s}_{:s}_{:s}_seed{:d}'.format(name,
+                                                        train_vs_val,
+                                                        bnn_prior_class,
+                                                        seed))
 components = ['lens_mass', 'external_shear', 'src_light', 'lens_light', 'agn_light']
 
 selection = dict(
                  magnification=dict(
-                                    min=2.0))
+                                    min=2.0
+                                    ),
+                 theta_E=dict(
+                              min=0.5,
+                              ),
+                 )
 
 instrument = dict(
               pixel_scale=0.08, # scale (in arcseonds) of pixels
@@ -30,7 +35,7 @@ observation = dict(
                   exposure_time=100.0, # exposure time per image (in seconds)
                   sky_brightness=20.1, # sky brightness (in magnitude per square arcseconds)
                   num_exposures=10, # number of exposures that are combined
-                  background_noise=0.25, # overrides exposure_time, sky_brightness, read_noise, num_exposures
+                  background_noise=0.2, # overrides exposure_time, sky_brightness, read_noise, num_exposures
                   )
 
 psf = dict(
@@ -65,43 +70,47 @@ bnn_omega = dict(
                                  # Lognormal(mu, sigma^2)
                                  gamma = dict(
                                               dist='normal',
-                                              mu=0.7,
-                                              sigma=0.02,
-                                              log=True),
+                                              mu=2.0,
+                                              sigma=0.1,
+                                              log=False),
                                  theta_E = dict(
                                                 dist='normal',
-                                                mu=0.0,
-                                                sigma=0.1,
-                                                log=True),
+                                                mu=1.12,
+                                                sigma=0.08,
+                                                log=False),
                                  # Beta(a, b)
-                                 e1 = dict(
-                                           dist='beta',
-                                           a=4.0,
-                                           b=4.0,
-                                           lower=-0.9,
-                                           upper=0.9),
-                                 e2 = dict(
-                                           dist='beta',
-                                           a=4.0,
-                                           b=4.0,
-                                           lower=-0.9,
-                                           upper=0.9,),
+                                 q = dict(
+                                           dist='generalized_normal',
+                                           mu=0.85,
+                                           alpha=0.15,
+                                           p=10.0,
+                                           lower=0.7,
+                                           upper=1.0),
+                                 phi = dict(
+                                           dist='generalized_normal',
+                                           mu=0.5*np.pi,
+                                           alpha=0.25*np.pi,
+                                           p=10.0,
+                                           lower=0.0,
+                                           upper=np.pi),
                                  ),
 
                  external_shear = dict(
                                        profile='SHEAR_GAMMA_PSI',
                                        gamma_ext = dict(
-                                                         dist='normal',
-                                                         mu=-2.73, # See overleaf doc
-                                                         sigma=1.05,
-                                                         log=True,),
-                                       psi_ext = dict(
                                                      dist='generalized_normal',
-                                                     mu=np.pi,
-                                                     alpha=np.pi,
+                                                     mu=0.025,
+                                                     alpha=0.0125,
                                                      p=10.0,
                                                      lower=0.0,
-                                                     upper=2.0*np.pi)
+                                                     upper=0.05),
+                                       psi_ext = dict(
+                                                     dist='generalized_normal',
+                                                     mu=0.5*np.pi,
+                                                     alpha=0.25*np.pi,
+                                                     p=10.0,
+                                                     lower=0.0,
+                                                     upper=np.pi)
                                        ),
 
                  lens_light = dict(
@@ -109,34 +118,39 @@ bnn_omega = dict(
                                   # Centered at lens mass
                                   # Lognormal(mu, sigma^2)
                                   magnitude = dict(
-                                             dist='normal',
-                                             mu=15,
-                                             sigma=1,
-                                             lower=0.0,
-                                             log=False),
+                                                     dist='generalized_normal',
+                                                     mu=18.0,
+                                                     alpha=1.0,
+                                                     p=10.0,
+                                                     lower=17.0,
+                                                     upper=19.0),
                                   n_sersic = dict(
-                                                  dist='normal',
-                                                  mu=1.25,
-                                                  sigma=0.13,
-                                                  log=True),
+                                                     dist='generalized_normal',
+                                                     mu=3.0,
+                                                     alpha=1.0,
+                                                     p=10.0,
+                                                     lower=2.0,
+                                                     upper=4.0),
                                   R_sersic = dict(
-                                                  dist='normal',
-                                                  mu=-0.35,
-                                                  sigma=0.3,
-                                                  log=True),
+                                                dist='normal',
+                                                mu=1.12,
+                                                sigma=0.16,
+                                                log=False),
                                   # Beta(a, b)
-                                  e1 = dict(
-                                            dist='beta',
-                                            a=4.0,
-                                            b=4.0,
-                                            lower=-0.9,
-                                            upper=0.9),
-                                  e2 = dict(
-                                            dist='beta',
-                                            a=4.0,
-                                            b=4.0,
-                                            lower=-0.9,
-                                            upper=0.9),
+                                  q = dict(
+                                           dist='generalized_normal',
+                                           mu=0.85,
+                                           alpha=0.15,
+                                           p=10.0,
+                                           lower=0.7,
+                                           upper=1.0),
+                                 phi = dict(
+                                           dist='generalized_normal',
+                                           mu=0.5*np.pi,
+                                           alpha=0.25*np.pi,
+                                           p=10.0,
+                                           lower=0.0,
+                                           upper=np.pi),
                                   ),
 
                  src_light = dict(
@@ -144,9 +158,9 @@ bnn_omega = dict(
                                 # Lognormal(mu, sigma^2)
                                 magnitude = dict(
                                              dist='normal',
-                                             mu=22,
-                                             sigma=1,
-                                             lower=0.0,
+                                             mu=21.25,
+                                             sigma=1.25,
+                                             lower=20.0,
                                              log=False),
                                 n_sersic = dict(
                                                 dist='normal',
@@ -198,28 +212,4 @@ bnn_omega = dict(
                                              lower=0.0,
                                              log=False),
                                  ),
-
-                 cosmo = dict(
-                             # Normal(mu, sigma^2)
-                             z_lens = dict(
-                                           dist='normal',
-                                           mu=1.5,
-                                           sigma=0.2,
-                                           lower=0.1,
-                                           upper=2.5),
-                             z_src = dict(
-                                          dist='normal',
-                                          mu=1.5,
-                                          sigma=0.2,
-                                          lower=-1,
-                                          upper=99),
-                             # Uniform
-                             H0 = dict(
-                                       lower=50.0,
-                                       upper=90.0),
-                             # Uniform (scaled by r_eff)
-                             r_ani = dict(
-                                          lower=0.5,
-                                          upper=5.0),
-                             ),
                  )
