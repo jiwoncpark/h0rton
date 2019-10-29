@@ -1,12 +1,15 @@
 import os, sys
 import numpy as np
+import h0rton.baobab_data
+
+baobab_data_path = list(h0rton.baobab_data.__path__)[0]
 
 name = 'tdlmc_rung1'
 seed = 1225 # random seed
 bnn_prior_class = 'DiagonalBNNPrior'
 n_data = 200 # number of images to generate
 train_vs_val = 'val'
-out_dir = os.path.join('{:s}_{:s}_{:s}_seed{:d}'.format(name,
+out_dir = os.path.join(baobab_data_path, '{:s}_{:s}_{:s}_seed{:d}'.format(name,
                                                         train_vs_val,
                                                         bnn_prior_class,
                                                         seed))
