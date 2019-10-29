@@ -46,6 +46,7 @@ extensions = [
 ]
 autoapi_type = 'python'
 autoapi_dirs = ['../h0rton']
+autodoc_mock_imports = ["torch", "torchvision"]
 
 html_math_renderer = 'mathjax'
 
