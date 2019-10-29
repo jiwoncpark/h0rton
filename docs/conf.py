@@ -44,7 +44,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'autoapi.extension'
 ]
-
+autoapi_type = 'python'
 autoapi_dirs = ['../h0rton']
 
 html_math_renderer = 'mathjax'
