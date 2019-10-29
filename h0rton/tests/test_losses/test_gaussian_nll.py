@@ -65,7 +65,7 @@ class TestGaussianNLL(unittest.TestCase):
             low_rank_b =  np.matmul(F_b, F_b.T)
             nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=diag_b + low_rank_b)) # real nll, not scaled and shifted
             matched_nll += nll/batch_size
-            #matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size
+            #matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size # kernel version
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
 
     def test_double_gaussian_nll(self):
@@ -111,9 +111,10 @@ class TestGaussianNLL(unittest.TestCase):
 
             nll1 = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=diag_b + low_rank_b)) # real likelihood, not scaled and shifted
             nll2 = -np.log(multivariate_normal.pdf(target_b, mean=mu2_b, cov=diag2_b + low_rank2_b)) # real likelihood, not scaled and shifted
+            # Kernel version
             #matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             #matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
-            #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size
+            #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 
             matched_nll += (-np.log((1.0 - w2_b) * np.exp(-nll1) + w2_b * np.exp(-nll2)))/batch_size # logsumexp
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
 
