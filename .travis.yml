@@ -19,7 +19,7 @@ install:
   - "pip install -e . -r requirements.txt"
 
 script:
-  - "python setup.py test"
+  - coverage run --source h0rton setup.py test
 
 after_success:
   - codecov
