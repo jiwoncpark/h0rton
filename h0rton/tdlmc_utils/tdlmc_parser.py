@@ -6,6 +6,7 @@ import re
 import h0rton.tdlmc_data
 __all__ = ['convert_to_dataframe', 'parse_closed_box', 'parse_open_box', 'read_from_csv']
 
+print(h0rton.tdlmc_data.__path__)
 tdlmc_data_path = os.path.abspath(h0rton.tdlmc_data.__path__[0])
 """str: directory path containing the TDLMC data
 
