@@ -9,6 +9,9 @@ h0rton
         :target: https://h0rton.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
+.. image:: https://coveralls.io/repos/github/jiwoncpark/h0rton/badge.svg
+        :target: https://coveralls.io/github/jiwoncpark/h0rton
+
 Hierarchical Bayesian inference of the Hubble constant from samples of strong gravitational time delay lenses. This package represents LSST Dark Energy Science Collaboration research in progress:  the code is under development and has not yet been released. We welcome requests to access the code for non-DESC use; if you wish to use the code outside DESC please contact Ji Won Park (@jiwoncpark).
 
 

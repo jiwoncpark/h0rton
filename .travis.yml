@@ -1,21 +1,26 @@
 language: python
 
 python:
-    - '3.6'
+  - '3.6'
 
 compiler:
-    - g++
-   
+  - g++
+
 cache:
-    ccache: true
-    pip: true
+  ccache: true
+  pip: true
+
+before_install:
+  - pip install coveralls
+  - pip install python-coveralls
 
 install:
-    # Install SLRealizer dependencies
-    - "pip install -e . -r requirements.txt"
+# Install SLRealizer dependencies
+  - "pip install -e . -r requirements.txt"
 
 script:
-    - "python setup.py test"
+  - "python setup.py test"
 
 after_success:
-    - codecov
+  - codecov
+  - coveralls
