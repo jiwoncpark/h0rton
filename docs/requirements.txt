@@ -4,6 +4,8 @@
 #torch
 #torchvision
 #tb-nightly
+sphinx-autoapi
+sphinx-rtd-theme
 future
 numpy
 matplotlib
