@@ -10,10 +10,10 @@ from lenstronomy.Analysis.lens_properties import LensProp
 import lenstronomy.Util.param_util as param_util
 import h0rton.tdlmc_utils
 
-__all__ = ['log_gaussian_pdf', 'H0Posterior']
+__all__ = ['gaussian_ll_pdf', 'H0Posterior']
 
-def log_gaussian_pdf(x, mu, sigma):
-    """Evaluates the log of the normal (not lognormal) PDF at point x
+def gaussian_ll_pdf(x, mu, sigma):
+    """Evaluates the log of the normal PDF at point x
     
     Parameters
     ----------
@@ -229,7 +229,7 @@ class H0Posterior:
                 ll_vd = 0.0
             else:
                 inferred_vd = lens_prop.velocity_dispersion(self.kwargs_lens, r_eff=self.lens_light_R_sersic, R_slit=self.R_slit, dR_slit=self.dR_slit, psf_fwhm=self.psf_fwhm, aniso_param=aniso_param, num_evaluate=5000, kappa_ext=k_ext)
-                ll_vd = log_gaussian_pdf(inferred_vd,
+                ll_vd = gaussian_ll_pdf(inferred_vd,
                                        self.measured_vd,
                                        self.measured_vd_err)
             # Time delays
@@ -239,7 +239,7 @@ class H0Posterior:
             else:
                 inferred_td = np.array(inferred_td)
             inferred_td = inferred_td[1:] - inferred_td[0]
-            ll_td = np.sum(log_gaussian_pdf(inferred_td, self.measured_td, self.measured_td_err))
+            ll_td = np.sum(gaussian_ll_pdf(inferred_td, self.measured_td, self.measured_td_err))
             log_w = ll_vd + ll_td
             w = mp.exp(log_w)
 
