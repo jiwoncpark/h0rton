@@ -1,0 +1,11 @@
+name: h0rton
+
+channels:
+    - anaconda
+
+dependencies:
+    - python==3.6
+    - pytorch
+    - pip:
+        - matplotlib
+        - torchvision
