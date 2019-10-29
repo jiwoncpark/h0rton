@@ -107,8 +107,8 @@ def parse_closed_box(closed_box_path, row_dict=dict()):
     row_dict['z_lens'], row_dict['z_src'] = literal_eval(lines[2].split('\t')[1])
     row_dict['measured_vel_disp'] = float(lines[5].split('\t')[1].split('km/s')[0])
     row_dict['measured_vel_disp_err'] = float(lines[5].split('\t')[1].split('km/s')[1].split(':')[1])
-    row_dict['measured_time_delays'] = literal_eval(re.split('\(|\)', lines[7])[1])
-    row_dict['measured_time_delays_err'] = literal_eval(re.split('\(|\)', lines[7])[3])
+    row_dict['measured_time_delays'] = literal_eval(re.split(r'\(|\)', lines[7])[1])
+    row_dict['measured_time_delays_err'] = literal_eval(re.split(r'\(|\)', lines[7])[3])
     return row_dict
 
 def parse_open_box(open_box_path, row_dict=dict()):
@@ -129,23 +129,23 @@ def parse_open_box(open_box_path, row_dict=dict()):
     """
     file = open(open_box_path)
     lines = [line.rstrip('\n') for line in file]
-    row_dict['H0'] = float(re.split(':\s|km/s/Mpc', lines[3])[-2])
+    row_dict['H0'] = float(re.split(r':\s|km/s/Mpc', lines[3])[-2])
     row_dict['td_distance'] = float(re.split('ls:|Mpc', lines[5])[-2])
-    row_dict['time_delays'] = literal_eval(re.split('\(|\)', lines[7])[1])
+    row_dict['time_delays'] = literal_eval(re.split(r'\(|\)', lines[7])[1])
     row_dict['lens_mass'] = literal_eval(lines[11][7:])
-    row_dict['ext_shear_e1e2'], row_dict['ext_shear_bphi'] = literal_eval(re.split('\(|\)', lines[12])[1])
+    row_dict['ext_shear_e1e2'], row_dict['ext_shear_bphi'] = literal_eval(re.split(r'\(|\)', lines[12])[1])
     row_dict['lens_light'] = literal_eval(lines[14].split('\t')[1])
-    row_dict['host_name'] = re.split('\(|\)|:|\t', lines[16])[2][1:]
-    row_dict['host_pos'] = literal_eval(re.split('\(|\)|:|\t', lines[16])[-2])
-    row_dict['host_mag'] = float(re.split('\t|\s', lines[17])[3])
-    row_dict['host_r_eff'] = float(re.split('\t|\s', lines[17])[7])
+    row_dict['host_name'] = re.split(r'\(|\)|:|\t', lines[16])[2][1:]
+    row_dict['host_pos'] = literal_eval(re.split(r'\(|\)|:|\t', lines[16])[-2])
+    row_dict['host_mag'] = float(re.split(r'\t|\s', lines[17])[3])
+    row_dict['host_r_eff'] = float(re.split(r'\t|\s', lines[17])[7])
     row_dict['agn_src_amp'] = float(lines[20].split()[-1])
-    row_dict['agn_img_pos_x'] = literal_eval(re.split('\(|\)', lines[21])[1])
-    row_dict['agn_img_pos_y'] = literal_eval(re.split('\(|\)', lines[21])[3])
-    row_dict['agn_img_amp'] = literal_eval(re.split('\(|\)', lines[22])[1])
+    row_dict['agn_img_pos_x'] = literal_eval(re.split(r'\(|\)', lines[21])[1])
+    row_dict['agn_img_pos_y'] = literal_eval(re.split(r'\(|\)', lines[21])[3])
+    row_dict['agn_img_amp'] = literal_eval(re.split(r'\(|\)', lines[22])[1])
     row_dict['host_img_mag'] = re.split('plane: |mag|', lines[23])[3]
     row_dict['agn_img_mag'] = re.split('plane: |mag|', lines[23])[7]
-    row_dict['vel_disp'] = float(re.split('km\/s| |\t', lines[25])[1])
+    row_dict['vel_disp'] = float(re.split(r'km\/s| |\t', lines[25])[1])
     row_dict['kappa_ext'] = float(lines[27].split('\t')[1])
 
     return row_dict
