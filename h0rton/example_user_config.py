@@ -5,7 +5,7 @@ from addict import Dict
 cfg = Dict()
 
 # Global configs
-cfg.device_type = 'cuda'
+cfg.device_type = 'cpu'
 cfg.global_seed = 1225
 
 # Data
