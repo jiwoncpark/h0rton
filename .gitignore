@@ -10,6 +10,9 @@ out_data/*
 h0rton/tdlmc_data/*
 saved_models/*
 
+# Logs
+runs/*
+
 # Personal config files under development
 my_configs/*
 in_progress/*
