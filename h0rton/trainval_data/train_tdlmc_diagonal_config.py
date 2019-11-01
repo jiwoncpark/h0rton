@@ -1,8 +1,8 @@
 import os, sys
 import numpy as np
-import h0rton.baobab_data
+import h0rton.trainval_data
 
-baobab_data_path = list(h0rton.baobab_data.__path__)[0]
+baobab_data_path = list(h0rton.trainval_data.__path__)[0]
 
 name = 'tdlmc_rung1'
 seed = 1113 # random seed
