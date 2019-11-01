@@ -105,7 +105,7 @@ class BaseGaussianNLL(ABC):
         det_M = M00*M11 - M12**2.0 # [batch_size]
         log_det += torch.log(det_M) # [batch_size,]
 
-        inv_M = torch.ones([batch_size, rank, rank], device=self.device).double()
+        inv_M = torch.ones([batch_size, rank, rank], device=self.device, dtype=None)
         inv_M[:, 0, 0] = M11
         inv_M[:, 1, 1] = M00
         inv_M[:, 1, 0] = -M12
@@ -163,11 +163,11 @@ class BaseGaussianNLL(ABC):
         """
         batch_size, _ = target.shape
         rank = 2
-        log_ll = torch.empty([batch_size, 2], device=self.device)
+        log_ll = torch.empty([batch_size, 2], dtype=None, device=self.device)
         alpha = alpha.reshape(-1)
         log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_ll[:, 1] = -0.6931471 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 1] = -0.693147 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -torch.logsumexp(log_ll, dim=1) 
         return torch.mean(log_nll)
 
