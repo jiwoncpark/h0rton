@@ -2,6 +2,7 @@ import os, sys
 import importlib
 import warnings
 import numpy as np
+import pandas as pd
 import torch
 from baobab import Config as BaobabConfig
 from addict import Dict
@@ -63,12 +64,10 @@ class BNNConfig:
             self.data.train_dir = None
         if 'val_dir' not in self.data:
             self.data.val_dir = None
-        if len(self.data.log_parameterize) != len(self.data.Y_cols):
-            raise ValueError("data.log_parameterize field must be of same length as data.Y_cols.")
-        if self.data.normalize_image and not ('mean_image' in self.data and 'std_image' in self.data):
-            raise ValueError("Since self.data.normalize_image is True, please supply self.data.mean_image and self.data.std_image values.")
-        if np.array(self.data.log_parameterize).dtype != 'bool':
-            raise ValueError("self.data.log_parameterize must be array-like of type bool.")
+        if self.data.normalize_pixels and not ('mean_pixels' in self.data and 'std_pixels' in self.data):
+            raise ValueError("Since data.normalize_pixels is True, please supply data.mean_pixels and data.std_pixels.")
+        if len(self.data.mean_pixels) != len(self.data.std_pixels):
+            raise ValueError("Lengths of data.mean_pixels and data.std_pixels should be equal.")
 
     def set_device(self):
         """Configure the device to use for training
@@ -96,6 +95,16 @@ class BNNConfig:
             self.data.train_dir = self.data.train_baobab_cfg.out_dir
         if self.data.val_dir is None:
             self.data.val_dir = self.data.val_baobab_cfg.out_dir
+        metadata_path = os.path.join(self.data.val_dir, 'metadata.csv')
+        Y_df = pd.read_csv(metadata_path, index_col=False)
+        img_path = os.path.join(self.data.val_dir, Y_df.iloc[0]['img_filename'])
+        img = np.load(img_path)
+        self.data.n_data = Y_df.shape[0]
+        self.data.raw_X_dim = img.shape[0]
+        original = Y_df.loc[:, self.data.Y_cols_to_whiten].values
+        self.data.Y_mean = np.mean(original, axis=0, keepdims=True)
+        self.data.Y_std = np.std(original, axis=0, keepdims=True)
+        del Y_df, original # FIXME: bad, not sure if necessary
         self.check_train_val_diff()
 
     def set_XY_metadata(self):
@@ -103,6 +112,7 @@ class BNNConfig:
 
         """
         self.data.Y_dim = len(self.data.Y_cols)
+        self.data.n_filters = len(self.data.mean_pixels)
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)
@@ -110,8 +120,8 @@ class BNNConfig:
         """
         if self.model.load_pretrained:
             # Pretrained model expects exactly this normalization
-            self.data.mean_image = [0.485, 0.456, 0.406]
-            self.data.std_image = [0.229, 0.224, 0.225]
+            self.data.mean_pixels = [0.485, 0.456, 0.406]
+            self.data.std_pixels = [0.229, 0.224, 0.225]
 
     def check_train_val_diff(self):
         """Check that the training and validation datasets are different

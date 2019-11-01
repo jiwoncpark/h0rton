@@ -1,5 +1,5 @@
 import numpy as np
-from h0rton.baobab_data import train_tdlmc_diagonal_config, val_tdlmc_diagonal_config
+from h0rton.trainval_data import train_tdlmc_diagonal_config, val_tdlmc_diagonal_config
 from addict import Dict
 
 cfg = Dict()
@@ -13,12 +13,15 @@ cfg.data = Dict(train_dir=None,
                 val_dir=None,
                 train_baobab_cfg_path=train_tdlmc_diagonal_config.__file__,
                 val_baobab_cfg_path=val_tdlmc_diagonal_config.__file__,
-                normalize_image=True,
-                mean_image=[0.485, 0.456, 0.406],
-                std_image=[0.229, 0.224, 0.225],
+                normalize_pixels=True,
+                mean_pixels=[0.485, 0.456, 0.406],
+                std_pixels=[0.229, 0.224, 0.225],
                 X_dim=224,
-                whiten_features=True,
-                log_parameterize=[True, True, False, False, True, True, True, False, False],
+                Y_cols_to_log_parameterize=['lens_mass_gamma', 'lens_mass_theta_E', 
+                         'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic',],
+                Y_cols_to_whiten=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2',
+                         'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic',
+                         'src_light_center_x', 'src_light_center_y',],
                 Y_cols=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2',
                          'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic',
                          'src_light_center_x', 'src_light_center_y',],
@@ -26,7 +29,8 @@ cfg.data = Dict(train_dir=None,
                 )
 
 # Model
-cfg.model = Dict(load_pretrained=True,
+cfg.model = Dict(architecture='resnet18',
+                 load_pretrained=True,
                  likelihood_class='DoubleGaussianNLL',
                  )
 
@@ -41,4 +45,5 @@ cfg.optim = Dict(n_epochs=100,
 cfg.log = Dict(checkpoint_dir='saved_models', # where to store saved models
                checkpoint_interval=1, # in epochs
                logging_interval=1, # in epochs
+               monitor_1d_marginal_mapping=False,
                )
