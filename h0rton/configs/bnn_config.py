@@ -73,10 +73,18 @@ class BNNConfig:
     def set_device(self):
         """Configure the device to use for training
 
+        Note
+        ----
+        Disabling fallback to cpu when cuda is unavailable, for full reproducibility.
+
         """
         # Disable this check for reproducibility
         #self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.device = torch.device(self.device_type)
+        if self.device.type == 'cuda':
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        else:
+            torch.set_default_tensor_type('torch.FloatTensor')
 
     def set_baobab_metadata(self):
         """Migrate some of the metadata in the Baobab configs and check that they are reasonable
