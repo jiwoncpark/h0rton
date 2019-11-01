@@ -35,9 +35,9 @@ cfg.model = Dict(architecture='resnet18',
                  )
 
 # Optimization
-cfg.optim = Dict(n_epochs=100,
+cfg.optim = Dict(n_epochs=2,
                  learning_rate=1.e-4,
-                 batch_size=50,
+                 batch_size=5,
                  lr_scheduler=Dict(milestones=[50, 90],
                                    gamma=0.7))
 

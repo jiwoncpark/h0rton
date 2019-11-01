@@ -7,7 +7,7 @@ baobab_data_path = list(h0rton.trainval_data.__path__)[0]
 name = 'tdlmc_rung1'
 seed = 1113 # random seed
 bnn_prior_class = 'DiagonalBNNPrior'
-n_data = 200 # number of images to generate
+n_data = 20 # number of images to generate
 train_vs_val = 'train'
 out_dir = os.path.join(baobab_data_path,'{:s}_{:s}_{:s}_seed{:d}'.format(name,
                                                         train_vs_val,
