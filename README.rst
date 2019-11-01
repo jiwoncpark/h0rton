@@ -67,13 +67,19 @@ $source h0rton/tdlmc_data/download_tdlmc_data.sh
 How to train
 ============
 
-1. Edit the configuration parameters `h0rton/config.py`. Make sure the `cfg.DATA` field agrees with the training data you generated.
-
-2. Run
+1. Generate the training and validation data, e.g.
 
 ::
 
-$python -m h0rton.train
+$python -m baobab.generate h0rton/trainval_data/train_tdlmc_diagonal_config.py
+
+2. Edit the configuration parameters `h0rton/example_user_config.py`. Make sure the `cfg.data` field agrees with the training data you generated.
+
+3. Run
+
+::
+
+$python -m h0rton.train h0rton/example_user_config.py
 
 You can visualize the training results by running
 
