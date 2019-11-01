@@ -32,7 +32,6 @@ from torch.utils.tensorboard import SummaryWriter
 # h0rton modules
 from h0rton.trainval_data import XYData
 from h0rton.configs import BNNConfig
-import h0rton.bnn_utils as bnn_utils
 import h0rton.losses
 #from h0rton.plotting import H0rtonInterpreter
 
