@@ -1,10 +1,13 @@
 import os, sys
 import numpy as np
 import pandas as pd
+import astropy.io.fits as pyfits
 from scipy import ndimage
 from torch.utils.data import Dataset
 import torchvision.transforms
 import torch
+
+__all__ = ['XYData', 'XData', 'get_X_normalizer']
 
 #from PIL import Image
 
@@ -83,6 +86,34 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_row = self.Y_transform(Y_row)
 
         return img, Y_row
+
+class XData(Dataset): # torch.utils.data.Dataset
+    """Represents the XData used to test the BNN
+
+    """
+    def __init__(self, img_paths, data_cfg):
+        """
+        Parameters
+        ----------
+        img_paths : list
+            list of image paths. Indexing is based on order in this list.
+        data_cfg : dict or Dict
+            copy of the `data` field of `BNNConfig`
+
+        """
+        self.__dict__ = data_cfg
+        self.img_paths = img_paths
+        self.X_transform = get_X_normalizer(self.normalize_pixels, self.mean_pixels, self.std_pixels)
+
+    def __getitem__(self, index):
+        hdul = pyfits.open(self.img_paths[index])
+        img = hdul['PRIMARY'].data
+        img = ndimage.zoom(img, self.X_dim/self.raw_X_dim, order=1) # TODO: consider order=3
+        img = np.stack([img]*self.n_filters, axis=2).astype(np.float32)
+        # Transformations
+        img = self.X_transform(img)
+
+        return img
 
     def __len__(self):
         return self.n_data

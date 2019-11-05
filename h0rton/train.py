@@ -171,7 +171,7 @@ def main():
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
                 time_stamp = str(datetime.date.today())
-                torch.save(net, os.path.join(cfg.log.checkpoint_dir, 'resnet18_{:s}.mdl'.format(time_stamp)))
+                torch.save(net.state_dict(), os.path.join(cfg.log.checkpoint_dir, 'resnet18_{:s}.mdl'.format(time_stamp)))
 
     logger.close()
 

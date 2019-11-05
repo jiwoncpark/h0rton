@@ -113,6 +113,9 @@ class BNNConfig:
         """
         self.data.Y_dim = len(self.data.Y_cols)
         self.data.n_filters = len(self.data.mean_pixels)
+        Y_col_idx_mapping = dict(zip(self.data.Y_cols, range(self.data.Y_dim)))
+        self.data.Y_cols_to_log_parameterize_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_log_parameterize))
+        self.data.Y_cols_to_whiten_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_whiten))
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)

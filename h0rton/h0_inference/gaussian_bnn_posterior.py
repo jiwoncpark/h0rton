@@ -10,7 +10,7 @@ class BaseGaussianBNNPosterior(ABC):
     Gaussian posteriors or mixtures thereof with various forms of the covariance matrix inherit from this class.
 
     """
-    def __init__(self, pred, Y_dim, device):
+    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
         """
         Parameters
         ----------
@@ -18,12 +18,24 @@ class BaseGaussianBNNPosterior(ABC):
             raw network output for the predictions
         Y_dim : int
             number of parameters to predict
+        whitened_Y_cols_idx : list
+            list of Y_cols indices that were whitened
+        Y_mean : list
+            mean values for the original values of `whitened_Y_cols`
+        Y_std : list
+            std values for the original values of `whitened_Y_cols`
+        log_parameterized_Y_cols_idx : list
+            list of Y_cols indices that were log-parameterized
         device : torch.device object
 
         """
         self.pred = pred
         self.batch_size = pred.shape[0]
         self.Y_dim = Y_dim
+        self.whitened_Y_cols_idx = whitened_Y_cols_idx
+        self.Y_mean = torch.Tensor(Y_mean)
+        self.Y_std = torch.Tensor(Y_std)
+        self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
         self.logsigmoid = torch.nn.LogSigmoid()
@@ -114,18 +126,59 @@ class BaseGaussianBNNPosterior(ABC):
         samples = samples.swapaxes(0, 1)
         return samples
 
+    def unwhiten_back(self, pred):
+        """Scale and shift back to the unwhitened state
+
+        Parameters
+        ----------
+        pred : torch.Tensor
+            network prediction
+
+        Returns
+        -------
+        torch.Tensor
+            the unwhitened pred
+        
+        """
+        whitened_subpred = pred[:, self.whitened_Y_cols_idx]
+        unwhitened_subpred = whitened_subpred*self.Y_std + self.Y_mean
+        pred[:, self.whitened_Y_cols_idx] = unwhitened_subpred
+        return pred
+
+    def exponentiate_back(self, pred):
+        """Exponentiate back the log-parameterized Y values
+
+        Parameters
+        ----------
+        pred : torch.Tensor
+            network prediction
+
+        Returns
+        -------
+        torch.Tensor
+            the unwhitened pred
+        
+        """
+        log_subpred = pred[:, self.log_parameterized_Y_cols_idx]
+        linear_subpred = torch.exp(log_subpred)
+        pred[:, self.log_parameterized_Y_cols_idx] = linear_subpred
+        return pred
+
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
         
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, device):
-        super(DiagonalGaussianBNNPosterior, self).__init__(pred, Y_dim, device)
+    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(DiagonalGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
         out_dim = self.Y_dim*2
         self._check_input_shape(out_dim)
         d = self.Y_dim # for readability
-        self.mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = self.unwhiten_back(mu)
+        mu = self.exponentiate_back(mu)
+        self.mu = mu
         self.logvar = pred[:, d:].reshape(self.batch_size, -1)
 
     def sample(self, n_samples, sample_seed):
@@ -159,13 +212,16 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, device):
-        super(LowRankGaussianBNNPosterior, self).__init__(pred, Y_dim, device)
+    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(LowRankGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
         out_dim = self.Y_dim*4
         self._check_input_shape(out_dim)
         self.rank = 2 # FIXME: hardcoded
         d = self.Y_dim # for readability
-        self.mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = self.unwhiten_back(mu)
+        mu = self.exponentiate_back(mu)
+        self.mu = mu
         self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
         self.F = pred[:, 2*d:].reshape(self.batch_size, self.Y_dim, self.rank)
 
@@ -182,16 +238,22 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, device):
-        super(DoubleGaussianBNNPosterior, self).__init__(pred, Y_dim, device)
+    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(DoubleGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
         out_dim = self.Y_dim*8 + 1
         self._check_input_shape(out_dim)
         self.rank = 2 # FIXME: hardcoded
         d = self.Y_dim # for readability
-        self.mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = pred[:, :d].reshape(self.batch_size, -1)
+        mu = self.unwhiten_back(mu)
+        mu = self.exponentiate_back(mu)
+        self.mu = mu
         self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
         self.F = pred[:, 2*d:4*d].reshape(self.batch_size, self.Y_dim, self.rank)
-        self.mu2 = pred[:, 4*d:5*d].reshape(self.batch_size, -1)
+        mu2 = pred[:, 4*d:5*d].reshape(self.batch_size, -1)
+        mu2 = self.unwhiten_back(mu2)
+        mu2 = self.exponentiate_back(mu2)
+        self.mu2 = mu2
         self.logvar2 = pred[:, 5*d:6*d].reshape(self.batch_size, -1)
         self.F2 = pred[:, 6*d:8*d].reshape(self.batch_size, self.Y_dim, self.rank)
         self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(self.batch_size, -1))

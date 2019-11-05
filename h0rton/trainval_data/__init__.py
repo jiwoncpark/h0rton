@@ -1,1 +1,1 @@
-from .xy_data import XYData
+from .xy_data import XYData, XData
