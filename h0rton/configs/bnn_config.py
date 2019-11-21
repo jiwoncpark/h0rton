@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
-from baobab import Config as BaobabConfig
+from baobab import BaobabConfig
 from addict import Dict
 
 class BNNConfig:
@@ -89,8 +89,8 @@ class BNNConfig:
         """Migrate some of the metadata in the Baobab configs and check that they are reasonable
 
         """
-        self.data.train_baobab_cfg = BaobabConfig.fromfile(self.data.train_baobab_cfg_path)
-        self.data.val_baobab_cfg = BaobabConfig.fromfile(self.data.val_baobab_cfg_path)
+        self.data.train_baobab_cfg = BaobabConfig.from_file(self.data.train_baobab_cfg_path)
+        self.data.val_baobab_cfg = BaobabConfig.from_file(self.data.val_baobab_cfg_path)
         if self.data.train_dir is None:
             self.data.train_dir = self.data.train_baobab_cfg.out_dir
         if self.data.val_dir is None:
