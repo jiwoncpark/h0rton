@@ -87,6 +87,9 @@ class XYData(Dataset): # torch.utils.data.Dataset
 
         return img, Y_row
 
+    def __len__(self):
+        return self.Y_df.shape[0]
+
 class XData(Dataset): # torch.utils.data.Dataset
     """Represents the XData used to test the BNN
 
