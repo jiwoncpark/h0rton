@@ -176,8 +176,8 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self._check_input_shape(out_dim)
         d = self.Y_dim # for readability
         mu = pred[:, :d].reshape(self.batch_size, -1)
-        mu = self.unwhiten_back(mu)
-        mu = self.exponentiate_back(mu)
+        #mu = self.unwhiten_back(mu)
+        #mu = self.exponentiate_back(mu)
         self.mu = mu
         self.logvar = pred[:, d:].reshape(self.batch_size, -1)
 
@@ -219,8 +219,8 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.rank = 2 # FIXME: hardcoded
         d = self.Y_dim # for readability
         mu = pred[:, :d].reshape(self.batch_size, -1)
-        mu = self.unwhiten_back(mu)
-        mu = self.exponentiate_back(mu)
+        #mu = self.unwhiten_back(mu)
+        #mu = self.exponentiate_back(mu)
         self.mu = mu
         self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
         self.F = pred[:, 2*d:].reshape(self.batch_size, self.Y_dim, self.rank)
@@ -245,14 +245,14 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.rank = 2 # FIXME: hardcoded
         d = self.Y_dim # for readability
         mu = pred[:, :d].reshape(self.batch_size, -1)
-        mu = self.unwhiten_back(mu)
-        mu = self.exponentiate_back(mu)
+        #mu = self.unwhiten_back(mu)
+        #mu = self.exponentiate_back(mu)
         self.mu = mu
         self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
         self.F = pred[:, 2*d:4*d].reshape(self.batch_size, self.Y_dim, self.rank)
         mu2 = pred[:, 4*d:5*d].reshape(self.batch_size, -1)
-        mu2 = self.unwhiten_back(mu2)
-        mu2 = self.exponentiate_back(mu2)
+        #mu2 = self.unwhiten_back(mu2)
+        #mu2 = self.exponentiate_back(mu2)
         self.mu2 = mu2
         self.logvar2 = pred[:, 5*d:6*d].reshape(self.batch_size, -1)
         self.F2 = pred[:, 6*d:8*d].reshape(self.batch_size, self.Y_dim, self.rank)
