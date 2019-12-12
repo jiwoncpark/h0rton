@@ -1,6 +1,8 @@
 import os, sys
 import importlib
 import warnings
+import json
+import glob
 import numpy as np
 import pandas as pd
 import torch
@@ -47,6 +49,26 @@ class BNNConfig:
         user_cfg = getattr(user_cfg_script, 'cfg')
         return cls(user_cfg)
 
+    def load_baobab_log(self, baobab_out_dir):
+        """Load the baobab log
+
+        Parameters
+        ----------
+        baobab_out_dir : str or os.path object
+            path to the baobab output directory
+
+        Returns
+        -------
+        baobab.BaobabConfig object
+            log of the baobab-generated dataset, including the input config
+
+        """
+        baobab_log_path = glob.glob(os.path.join(baobab_out_dir, 'log_*_baobab.json'))[0]
+        with open(baobab_log_path, 'r') as f:
+            log_str = f.read()
+        baobab_cfg = BaobabConfig(Dict(json.loads(log_str)))
+        return baobab_cfg
+
     def validate_user_definition(self):
         """Check to see if the user-defined config is valid
 
@@ -61,13 +83,9 @@ class BNNConfig:
 
         """
         if 'train_dir' not in self.data:
-            self.data.train_dir = None
+            raise ValueError("Must provide training data directory.")
         if 'val_dir' not in self.data:
-            self.data.val_dir = None
-        if self.data.normalize_pixels and not ('mean_pixels' in self.data and 'std_pixels' in self.data):
-            raise ValueError("Since data.normalize_pixels is True, please supply data.mean_pixels and data.std_pixels.")
-        if len(self.data.mean_pixels) != len(self.data.std_pixels):
-            raise ValueError("Lengths of data.mean_pixels and data.std_pixels should be equal.")
+            raise ValueError("Must provide validation data directory.")
 
     def set_device(self):
         """Configure the device to use for training
@@ -89,22 +107,15 @@ class BNNConfig:
         """Migrate some of the metadata in the Baobab configs and check that they are reasonable
 
         """
-        self.data.train_baobab_cfg = BaobabConfig.from_file(self.data.train_baobab_cfg_path)
-        self.data.val_baobab_cfg = BaobabConfig.from_file(self.data.val_baobab_cfg_path)
-        if self.data.train_dir is None:
-            self.data.train_dir = self.data.train_baobab_cfg.out_dir
-        if self.data.val_dir is None:
-            self.data.val_dir = self.data.val_baobab_cfg.out_dir
+        self.data.train_baobab_cfg = self.load_baobab_log(self.data.train_dir)
+        self.data.val_baobab_cfg = self.load_baobab_log(self.data.val_dir)
         metadata_path = os.path.join(self.data.val_dir, 'metadata.csv')
         Y_df = pd.read_csv(metadata_path, index_col=False)
         img_path = os.path.join(self.data.val_dir, Y_df.iloc[0]['img_filename'])
         img = np.load(img_path)
         self.data.n_data = Y_df.shape[0]
         self.data.raw_X_dim = img.shape[0]
-        original = Y_df.loc[:, self.data.Y_cols_to_whiten].values
-        self.data.Y_mean = np.mean(original, axis=0, keepdims=True)
-        self.data.Y_std = np.std(original, axis=0, keepdims=True)
-        del Y_df, original # FIXME: bad, not sure if necessary
+        del Y_df # FIXME: bad, not sure if necessary
         self.check_train_val_diff()
 
     def set_XY_metadata(self):
@@ -112,19 +123,16 @@ class BNNConfig:
 
         """
         self.data.Y_dim = len(self.data.Y_cols)
-        self.data.n_filters = len(self.data.mean_pixels)
         Y_col_idx_mapping = dict(zip(self.data.Y_cols, range(self.data.Y_dim)))
         self.data.Y_cols_to_log_parameterize_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_log_parameterize))
         self.data.Y_cols_to_whiten_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_whiten))
+        self.data.n_plotting = min(100, self.data.n_plotting) # Plot no more than 100 points when logging.
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)
 
         """
-        if self.model.load_pretrained:
-            # Pretrained model expects exactly this normalization
-            self.data.mean_pixels = [0.485, 0.456, 0.406]
-            self.data.std_pixels = [0.229, 0.224, 0.225]
+        pass
 
     def check_train_val_diff(self):
         """Check that the training and validation datasets are different
