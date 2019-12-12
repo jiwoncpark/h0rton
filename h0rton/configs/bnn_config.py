@@ -109,13 +109,10 @@ class BNNConfig:
         """
         self.data.train_baobab_cfg = self.load_baobab_log(self.data.train_dir)
         self.data.val_baobab_cfg = self.load_baobab_log(self.data.val_dir)
-        metadata_path = os.path.join(self.data.val_dir, 'metadata.csv')
-        Y_df = pd.read_csv(metadata_path, index_col=False)
-        img_path = os.path.join(self.data.val_dir, Y_df.iloc[0]['img_filename'])
+        img_path = glob.glob(os.path.join(self.data.val_dir, '*.npy'))[0]
         img = np.load(img_path)
-        self.data.n_data = Y_df.shape[0]
         self.data.raw_X_dim = img.shape[0]
-        del Y_df # FIXME: bad, not sure if necessary
+        # TODO: update pixel_scale, exposure_time, num_exposures, mag zero point from baobab cfg
         self.check_train_val_diff()
 
     def set_XY_metadata(self):
