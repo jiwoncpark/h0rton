@@ -13,27 +13,23 @@ To run this script, pass in the path to the user-defined training config file as
 import os, sys
 import random
 import argparse
-import datetime
+from addict import Dict
 import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 # torch modules
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from  torch.autograd import Variable
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 import torchvision.models
-import torchvision.utils as vutils
 from torch.utils.tensorboard import SummaryWriter
 # h0rton modules
 from h0rton.trainval_data import XYData
 from h0rton.configs import BNNConfig
 import h0rton.losses
-#from h0rton.plotting import H0rtonInterpreter
+from h0rton.plotting import BNNInterpreter
+import h0rton.train_utils as train_utils
 
 def parse_args():
     """Parse command-line arguments
@@ -45,7 +41,7 @@ def parse_args():
     args = parser.parse_args()
     # sys.argv rerouting for setuptools entry point
     if args is None:
-        args = SimpleNamespace()
+        args = Dict()
         args.user_cfg_path = sys.argv[0]
         #args.n_data = sys.argv[1]
     return args
@@ -71,39 +67,44 @@ def main():
 
     # Define training data and loader
     train_data = XYData(cfg.data.train_dir, data_cfg=cfg.data)
-    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True)
+    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True)
     n_train = train_data.n_data
 
     # Define val data and loader
     val_data = XYData(cfg.data.val_dir, data_cfg=cfg.data)
-    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=True)
+    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True)
     n_val = val_data.n_data
 
     # Define plotting data (subset of val data) and loader
-    #plot_data_sampler = SubsetRandomSampler(cfg.data.plot_idx)
-    #plot_data_loader = DataLoader(val_data, batch_size=len(cfg.data.plot_idx), sampler=plot_data_sampler)
-
-    # Define plotter object
-    #plotter = Plotter(cfg.model.type, cfg.data.Y_dim, cfg.device)
+    if cfg.log.monitor_1d_marginal_mapping:
+        plot_data_sampler = SubsetRandomSampler(np.arange(cfg.data.n_plotting))
+        plot_data_loader = DataLoader(val_data, batch_size=len(cfg.data.n_plotting), sampler=plot_data_sampler)
+        # Define plotter object
+        plotter = BNNInterpreter(cfg.model.type, cfg.data.Y_dim, cfg.device)
 
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=cfg.device)
     # Instantiate model
-    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=cfg.model.load_pretrained)
+    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=False)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
     net.to(cfg.device)
     # Instantiate optimizer
-    optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=True)
+    optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=True, weight_decay=cfg.optim.weight_decay)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.optim.lr_scheduler.milestones, gamma=cfg.optim.lr_scheduler.gamma)
     logger = SummaryWriter()
 
     if not os.path.exists(cfg.log.checkpoint_dir):
         os.mkdir(cfg.log.checkpoint_dir)
-        #net = torch.load('./saved_model/resnet18.mdl')
-        #print('loaded mdl!')
 
-    progress = tqdm(range(cfg.optim.n_epochs))
+    if cfg.model.load_state:
+        net, optimizer, lr_scheduler, epoch = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, lr_scheduler, cfg.optim.n_epochs, cfg.device)
+        epoch += 1 # resume with next epoch
+    else:
+        epoch = 0
+
+    model_path = ''
+    progress = tqdm(range(epoch, cfg.optim.n_epochs))
     for epoch in progress:
         net.train()
         total_loss = 0.0
@@ -113,16 +114,16 @@ def main():
             #Y = Variable(torch.Tensor(Y_)).to(cfg.device)
             X = X_.to(cfg.device)
             Y = Y_.to(cfg.device)
-            batch_size = X.shape[0]
 
             pred = net(X)
             loss = loss_fn(pred, Y)
-            total_loss += loss.item()*batch_size
+            total_loss += loss.item()*cfg.optim.batch_size
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            lr_scheduler.step()
+        # Step every epoch
+        lr_scheduler.step()
 
         with torch.no_grad():
             net.eval()
@@ -131,11 +132,10 @@ def main():
             for batch_idx, (X_, Y_) in enumerate(val_loader):
                 X = X_.to(cfg.device)
                 Y = Y_.to(cfg.device)
-                batch_size = X.shape[0]
 
                 pred = net(X)
                 loss = loss_fn(pred, Y)
-                total_val_loss += loss.item()*batch_size
+                total_val_loss += loss.item()*cfg.optim.batch_size
 
             epoch_avg_train_loss = total_loss/n_train
             epoch_avg_val_loss = total_val_loss/n_val
@@ -161,7 +161,6 @@ def main():
                         X_plt = X_.to(cfg.device)
                         Y_plt = Y_.to(cfg.device)
                         pred_plt = net(X_plt).cpu().numpy()
-                        break
 
                     plotter.set_normal_mixture_params(pred_plt)
                     for param_idx, param_name in enumerate(cfg.data.Y_cols):
@@ -170,10 +169,13 @@ def main():
                         logger.add_figure(tag, fig)
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
-                time_stamp = str(datetime.date.today())
-                torch.save(net.state_dict(), os.path.join(cfg.log.checkpoint_dir, 'resnet18_{:s}.mdl'.format(time_stamp)))
+                os.remove(model_path) if os.path.exists(model_path) else None
+                model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, epoch_avg_train_loss, epoch_avg_val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
 
     logger.close()
+    os.remove(model_path) if os.path.exists(model_path) else None
+    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, epoch_avg_train_loss, epoch_avg_val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
+    print("Saved model at {:s}".format(os.path.abspath(model_path)))
 
 if __name__ == '__main__':
     main()
