@@ -122,8 +122,10 @@ class BaseGaussianBNNPosterior(ABC):
         half_var = torch.exp(0.5*logvar) # [self.batch_size*n_samples, self.Y_dim]
         samples = torch.bmm(F, eps_low_rank).squeeze() + mu + half_var*eps_diag
         samples = samples.reshape(n_samples, self.batch_size, self.Y_dim)
+        samples = samples.transpose(0, 1)
+        samples = self.unwhiten_back(samples)
+        samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
-        samples = samples.swapaxes(0, 1)
         return samples
 
     def unwhiten_back(self, pred):
@@ -132,7 +134,7 @@ class BaseGaussianBNNPosterior(ABC):
         Parameters
         ----------
         pred : torch.Tensor
-            network prediction
+            network prediction of shape `[batch_size, self.Y_dim]`
 
         Returns
         -------
@@ -140,9 +142,10 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        whitened_subpred = pred[:, self.whitened_Y_cols_idx]
-        unwhitened_subpred = whitened_subpred*self.Y_std + self.Y_mean
-        pred[:, self.whitened_Y_cols_idx] = unwhitened_subpred
+        pred.unsqueeze_(1)
+        whitened_subpred = pred[:, :, self.whitened_Y_cols_idx]
+        unwhitened_subpred = whitened_subpred*self.Y_std[:, np.newaxis, :] + self.Y_mean[:, np.newaxis, :]
+        pred[:, :, self.whitened_Y_cols_idx] = unwhitened_subpred
         return pred
 
     def exponentiate_back(self, pred):
@@ -151,7 +154,7 @@ class BaseGaussianBNNPosterior(ABC):
         Parameters
         ----------
         pred : torch.Tensor
-            network prediction
+            network prediction of shape `[batch_size, self.Y_dim]`
 
         Returns
         -------
@@ -159,9 +162,10 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        log_subpred = pred[:, self.log_parameterized_Y_cols_idx]
+        pred.unsqueeze_(1)
+        log_subpred = pred[:, :, self.log_parameterized_Y_cols_idx]
         linear_subpred = torch.exp(log_subpred)
-        pred[:, self.log_parameterized_Y_cols_idx] = linear_subpred
+        pred[:, :, self.log_parameterized_Y_cols_idx] = linear_subpred
         return pred
 
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
@@ -200,6 +204,8 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.seed_samples(sample_seed)
         eps = torch.randn(self.batch_size, n_samples, self.Y_dim)
         samples = eps*torch.exp(0.5*self.logvar.unsqueeze(1)) + self.mu.unsqueeze(1)
+        samples = self.unwhiten_back(samples)
+        samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
@@ -285,6 +291,8 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         # Sample from first Gaussian
         samples1 = torch.Tensor(self.sample_low_rank(n_samples, self.mu, self.logvar, self.F))
         samples[~second_gaussian, :] = samples1[~second_gaussian, :]
+        samples = self.unwhiten_back(samples)
+        samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 

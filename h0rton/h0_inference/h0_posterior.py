@@ -6,9 +6,7 @@ from tqdm import tqdm
 from astropy.cosmology import FlatLambdaCDM
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.PointSource.point_source import PointSource
-from lenstronomy.Analysis.lens_properties import LensProp
-import lenstronomy.Util.param_util as param_util
-import h0rton.tdlmc_utils
+from lenstronomy.Analysis.td_cosmography import TDCosmography
 
 __all__ = ['gaussian_ll_pdf', 'H0Posterior']
 
@@ -78,7 +76,6 @@ class H0Posterior:
         self.aniso_param_prior = aniso_param_prior
         self.kwargs_model = kwargs_model
         self.abcd_ordering_i = abcd_ordering_i
-
         self.R_slit = 1.0 # arcsec
         self.dR_slit = 1.0 # arcsec
         self.psf_fwhm = 0.6 # arcsec
@@ -223,17 +220,29 @@ class H0Posterior:
             # Define cosmology
             cosmo = FlatLambdaCDM(H0=H0_candidate, Om0=self.Om0, Ob0=self.Ob0)
             # Tool for getting time delays and velocity dispersions
-            lens_prop = LensProp(self.z_lens, self.z_src, self.kwargs_model, cosmo=cosmo)
+            td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo)
             # Velocity dispersion
+            kwargs_aperture = dict(
+                                aperture_type='slit',
+                                center_ra=0.0,
+                                center_dec=0.0,
+                                width=1.0, # arcsec
+                                length=1.0, # arcsec
+                                angle=0.0,
+                                )
+            kwargs_psf = dict(
+                              psf_type='GAUSSIAN',
+                              fwhm=0.6
+                              )
             if exclude_vel_disp:
                 ll_vd = 0.0
             else:
-                inferred_vd = lens_prop.velocity_dispersion(self.kwargs_lens, r_eff=self.lens_light_R_sersic, R_slit=self.R_slit, dR_slit=self.dR_slit, psf_fwhm=self.psf_fwhm, aniso_param=aniso_param, num_evaluate=5000, kappa_ext=k_ext)
+                inferred_vd = td_cosmo.velocity_dispersion_analytical(theta_E=self.kwargs_lens[0]['theta_E'], gamma=self.kwargs_lens[0]['gamma'], r_ani=aniso_param*self.lens_light.R_sersic, r_eff=self.lens_light.R_sersic, kwargs_aperture=kwargs_aperture, kwargs_psf=kwargs_psf, num_evaluate=5000, kappa_ext=k_ext)
                 ll_vd = gaussian_ll_pdf(inferred_vd,
                                        self.measured_vd,
                                        self.measured_vd_err)
             # Time delays
-            inferred_td = lens_prop.time_delays(self.kwargs_lens, self.kwargs_ps, kappa_ext=k_ext)
+            inferred_td = td_cosmo.time_delays(self.kwargs_lens, self.kwargs_ps, kappa_ext=k_ext)
             if self.requires_reordering:
                 inferred_td = self.reorder_to_tdlmc(inferred_td)
             else:

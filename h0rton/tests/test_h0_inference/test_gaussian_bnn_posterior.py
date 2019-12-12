@@ -1,4 +1,3 @@
-import os, sys
 import unittest
 import numpy as np
 import torch
@@ -13,7 +12,6 @@ class TestGaussianBNNPosterior(unittest.TestCase):
 
         """
         from h0rton.h0_inference import DiagonalGaussianBNNPosterior
-        from scipy.stats import multivariate_normal
         Y_dim = 2
         batch_size = 3
         rank = 2
@@ -43,7 +41,6 @@ class TestGaussianBNNPosterior(unittest.TestCase):
 
         """
         from h0rton.h0_inference import LowRankGaussianBNNPosterior
-        from scipy.stats import multivariate_normal
         Y_dim = 2
         batch_size = 3
         rank = 2
@@ -81,7 +78,6 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         """
         from h0rton.h0_inference import DoubleGaussianBNNPosterior
         from h0rton.losses import sigmoid
-        from scipy.stats import multivariate_normal
         Y_dim = 2
         batch_size = 3
         rank = 2
