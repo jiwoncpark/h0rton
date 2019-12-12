@@ -1,40 +1,12 @@
-import os, sys
+import os
 import numpy as np
 import pandas as pd
 import astropy.io.fits as pyfits
-from scipy import ndimage
 from torch.utils.data import Dataset
-import torchvision.transforms
 import torch
+from baobab.sim_utils import add_g1g2_columns
 
-__all__ = ['XYData', 'XData', 'get_X_normalizer']
-
-#from PIL import Image
-
-def get_X_normalizer(normalize_pixels, mean_pixels, std_pixels):
-    """Instantiate a normalizer for the pixels in images X
-    
-    Parameters
-    ----------
-    normalize_pixels : bool
-        whether to normalize the pixels
-    mean_pixels : array-like
-        each element is the mean of pixel values for that filter
-    std_pixels : array-like
-        each element is the std of pixel values for that filter
-
-    Returns
-    -------
-    torchvision.transforms.Compose object
-        composition of transforms for X normalization
-
-    """
-    if normalize_pixels:
-        normalize = torchvision.transforms.Normalize(mean=mean_pixels, std=std_pixels)
-        X_transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor(), normalize])
-    else:
-        X_transform = torch.Tensor
-    return X_transform
+__all__ = ['XYData', 'XData',]
 
 class XYData(Dataset): # torch.utils.data.Dataset
     """Represents the XYData used to train or validate the BNN
@@ -52,10 +24,12 @@ class XYData(Dataset): # torch.utils.data.Dataset
         """
         self.__dict__ = data_cfg
         self.dataset_dir = dataset_dir
-        self.X_transform = get_X_normalizer(self.normalize_pixels, self.mean_pixels, self.std_pixels)
+        self.X_transform = torch.Tensor
         # Y metadata
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
-        self.Y_df = pd.read_csv(metadata_path, index_col=False)[self.Y_cols + ['img_filename']]
+        Y_df = pd.read_csv(metadata_path, index_col=False)
+        Y_df = add_g1g2_columns(Y_df)
+        self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
         if len(self.Y_cols_to_log_parameterize) > 0:
             self.log_parameterize_Y_cols()
         if len(self.Y_cols_to_whiten) > 0:
@@ -72,18 +46,20 @@ class XYData(Dataset): # torch.utils.data.Dataset
         """Whiten user-defined Y_cols, i.e. shift and scale them so their mean is 0 and std is 1
 
         """
+        original = self.Y_df.loc[:, self.Y_cols_to_whiten].values
+        self.Y_mean = np.mean(original, axis=0, keepdims=True) # shape [1, len(whitened_cols)]
+        self.Y_std = np.std(original, axis=0, keepdims=True) # shape [1, len(whitened_cols)]
         self.Y_df.loc[:, self.Y_cols_to_whiten] = (self.Y_df.loc[:, self.Y_cols_to_whiten].values - self.Y_mean)/self.Y_std
 
     def __getitem__(self, index):
         img_filename = self.Y_df.iloc[index]['img_filename']
         img_path = os.path.join(self.dataset_dir, img_filename)
         img = np.load(img_path)
-        img = ndimage.zoom(img, self.X_dim/self.raw_X_dim, order=1) # TODO: consider order=3
-        img = np.stack([img]*self.n_filters, axis=2).astype(np.float32)
-        Y_row = self.Y_df.iloc[index][self.Y_cols].values.astype(np.float32)
+        img = np.stack([img]*3, axis=0)
+        Y_row = self.Y_df.iloc[index][self.Y_cols].values
         # Transformations
-        img = self.X_transform(img)
-        Y_row = self.Y_transform(Y_row)
+        img = self.X_transform(img.astype(np.float32))
+        Y_row = self.Y_transform(Y_row.astype(np.float32))
 
         return img, Y_row
 
@@ -106,13 +82,12 @@ class XData(Dataset): # torch.utils.data.Dataset
         """
         self.__dict__ = data_cfg
         self.img_paths = img_paths
-        self.X_transform = get_X_normalizer(self.normalize_pixels, self.mean_pixels, self.std_pixels)
+        self.X_transform = torch.Tensor
 
     def __getitem__(self, index):
         hdul = pyfits.open(self.img_paths[index])
         img = hdul['PRIMARY'].data
-        img = ndimage.zoom(img, self.X_dim/self.raw_X_dim, order=1) # TODO: consider order=3
-        img = np.stack([img]*self.n_filters, axis=2).astype(np.float32)
+        img = np.stack([img]*self.n_filters, axis=0).astype(np.float32)
         # Transformations
         img = self.X_transform(img)
 
@@ -125,7 +100,6 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     from torch.utils.data.sampler import SubsetRandomSampler
     import torchvision.transforms as transforms
-    import torch
     #from h0rton.trainval_data import train_tdlmc_diagonal_config
     #from baobab import Config as BaobabConfig
     from h0rton.configs import BNNConfig
