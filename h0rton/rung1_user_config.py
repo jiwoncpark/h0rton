@@ -15,13 +15,13 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
                          'src_light_center_x', 'src_light_center_y',],
                 Y_cols=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma1', 'external_shear_gamma2', 'lens_light_R_sersic',
                          'src_light_center_x', 'src_light_center_y',],
-                n_plotting=100,
+                n_plotting=20,
                 noise_kwargs=dict(
                                   pixel_scale=0.08,
-                                  exposure_time=100.0,
+                                  exposure_time=9600.0,
                                   magnitude_zero_point=25.9463, 
-                                  read_noise=10, 
-                                  ccd_gain=7.0,
+                                  read_noise=12.0, 
+                                  ccd_gain=2.5,
                                   sky_brightness=20.1,
                                   seeing=0.6, 
                                   num_exposures=1, 
@@ -35,8 +35,8 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
 
 # Model
 cfg.model = Dict(architecture='resnet18',
-                 load_state=False,
-                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=39_12-11-2019_17:09.mdl',
+                 load_state=True,
+                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=119_12-12-2019_01:20.mdl',
                  likelihood_class='DoubleGaussianNLL',
                  )
 
@@ -50,7 +50,9 @@ cfg.optim = Dict(n_epochs=200000,
 
 # Logging
 cfg.log = Dict(checkpoint_dir='saved_models', # where to store saved models
-               checkpoint_interval=20, # in epochs
+               checkpoint_interval=1, # in epochs
                logging_interval=5, # in epochs
+               monitor_sample_images=True,
                monitor_1d_marginal_mapping=False,
+               monitor_weight_distributions=False,
                )

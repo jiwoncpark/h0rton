@@ -31,6 +31,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_df = pd.read_csv(metadata_path, index_col=False)
         Y_df = add_g1g2_columns(Y_df)
         self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
+        self.n_data = self.Y_df.shape[0]
         if len(self.Y_cols_to_log_parameterize) > 0:
             self.log_parameterize_Y_cols()
         if len(self.Y_cols_to_whiten) > 0:
