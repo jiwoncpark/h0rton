@@ -5,6 +5,7 @@ import astropy.io.fits as pyfits
 from torch.utils.data import Dataset
 import torch
 from baobab.sim_utils import add_g1g2_columns
+from baobab.data_augmentation import NoiseModelTorch
 
 __all__ = ['XYData', 'XData',]
 
@@ -35,6 +36,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         if len(self.Y_cols_to_whiten) > 0:
             self.whiten_Y_cols()
         self.Y_transform = torch.Tensor
+        self.noise_model = NoiseModelTorch(**data_cfg.noise_kwargs)
 
     def log_parameterize_Y_cols(self):
         """Parameterize user-defined Y_cols in terms of their log
@@ -59,8 +61,8 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_row = self.Y_df.iloc[index][self.Y_cols].values
         # Transformations
         img = self.X_transform(img.astype(np.float32))
+        img += self.noise_model.get_noise_map(img)
         Y_row = self.Y_transform(Y_row.astype(np.float32))
-
         return img, Y_row
 
     def __len__(self):

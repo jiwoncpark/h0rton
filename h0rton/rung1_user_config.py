@@ -16,11 +16,26 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
                 Y_cols=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma1', 'external_shear_gamma2', 'lens_light_R_sersic',
                          'src_light_center_x', 'src_light_center_y',],
                 n_plotting=100,
+                noise_kwargs=dict(
+                                  pixel_scale=0.08,
+                                  exposure_time=100.0,
+                                  magnitude_zero_point=25.9463, 
+                                  read_noise=10, 
+                                  ccd_gain=7.0,
+                                  sky_brightness=20.1,
+                                  seeing=0.6, 
+                                  num_exposures=1, 
+                                  psf_type='GAUSSIAN', 
+                                  kernel_point_source=None, 
+                                  truncation=5,
+                                  data_count_unit='e-', 
+                                  background_noise=None
+                                  )
                 )
 
 # Model
 cfg.model = Dict(architecture='resnet18',
-                 load_state=True,
+                 load_state=False,
                  state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=39_12-11-2019_17:09.mdl',
                  likelihood_class='DoubleGaussianNLL',
                  )
