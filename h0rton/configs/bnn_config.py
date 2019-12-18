@@ -8,6 +8,8 @@ import pandas as pd
 import torch
 from baobab import BaobabConfig
 from addict import Dict
+from baobab.sim_utils import add_g1g2_columns
+from h0rton.trainval_data.data_utils import log_parameterize_Y_cols
 
 class BNNConfig:
     """Nested dictionary representing the configuration for H0rton training, h0_inference, visualization, and analysis
@@ -120,9 +122,19 @@ class BNNConfig:
 
         """
         self.data.Y_dim = len(self.data.Y_cols)
+        # All columns
         Y_col_idx_mapping = dict(zip(self.data.Y_cols, range(self.data.Y_dim)))
+        # Log parameterizing columns
         self.data.Y_cols_to_log_parameterize_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_log_parameterize))
+        # Whitening columns
         self.data.Y_cols_to_whiten_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_whiten))
+        train_metadata_path = os.path.join(self.data.train_dir, 'metadata.csv')
+        train_Y_to_whiten = add_g1g2_columns(pd.read_csv(train_metadata_path, index_col=None))[self.data.Y_cols_to_whiten]
+        train_Y_to_whiten = log_parameterize_Y_cols(train_Y_to_whiten, self.data.Y_cols_to_log_parameterize).values
+        self.data.train_Y_mean = np.mean(train_Y_to_whiten, axis=0, keepdims=True)
+        self.data.train_Y_std = np.std(train_Y_to_whiten, axis=0, keepdims=True)
+        del train_Y_to_whiten # not sure if necessary
+        # Plotting data
         self.data.n_plotting = min(100, self.data.n_plotting) # Plot no more than 100 points when logging.
 
     def set_model_metadata(self):

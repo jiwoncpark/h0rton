@@ -4,8 +4,9 @@ import pandas as pd
 import astropy.io.fits as pyfits
 from torch.utils.data import Dataset
 import torch
-from baobab.sim_utils import add_g1g2_columns
 from baobab.data_augmentation import NoiseModelTorch
+from baobab.sim_utils import add_g1g2_columns
+from .data_utils import log_parameterize_Y_cols, whiten_Y_cols
 
 __all__ = ['XYData', 'XData',]
 
@@ -32,27 +33,14 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_df = add_g1g2_columns(Y_df)
         self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
         self.n_data = self.Y_df.shape[0]
+        # Log parameterizing
         if len(self.Y_cols_to_log_parameterize) > 0:
-            self.log_parameterize_Y_cols()
+            self.Y_df = log_parameterize_Y_cols(self.Y_df, self.Y_cols_to_log_parameterize)
+        # Whitening
         if len(self.Y_cols_to_whiten) > 0:
-            self.whiten_Y_cols()
+            self.Y_df = whiten_Y_cols(self.Y_df, self.Y_cols_to_whiten, self.train_Y_mean, self.train_Y_std)
         self.Y_transform = torch.Tensor
         self.noise_model = NoiseModelTorch(**data_cfg.noise_kwargs)
-
-    def log_parameterize_Y_cols(self):
-        """Parameterize user-defined Y_cols in terms of their log
-
-        """
-        self.Y_df.loc[:, self.Y_cols_to_log_parameterize] = np.log(self.Y_df.loc[:, self.Y_cols_to_log_parameterize].values)
-
-    def whiten_Y_cols(self):
-        """Whiten user-defined Y_cols, i.e. shift and scale them so their mean is 0 and std is 1
-
-        """
-        original = self.Y_df.loc[:, self.Y_cols_to_whiten].values
-        self.Y_mean = np.mean(original, axis=0, keepdims=True) # shape [1, len(whitened_cols)]
-        self.Y_std = np.std(original, axis=0, keepdims=True) # shape [1, len(whitened_cols)]
-        self.Y_df.loc[:, self.Y_cols_to_whiten] = (self.Y_df.loc[:, self.Y_cols_to_whiten].values - self.Y_mean)/self.Y_std
 
     def __getitem__(self, index):
         img_filename = self.Y_df.iloc[index]['img_filename']

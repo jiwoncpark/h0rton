@@ -65,6 +65,10 @@ def main():
     cfg = BNNConfig.from_file(args.user_cfg_path)
     seed_everything(cfg.global_seed)
 
+    ############
+    # Data I/O #
+    ############
+
     # Define training data and loader
     train_data = XYData(cfg.data.train_dir, data_cfg=cfg.data)
     train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True)
@@ -79,6 +83,10 @@ def main():
     if cfg.log.monitor_1d_marginal_mapping:
         plotter = BNNInterpreter(cfg.model.type, cfg.data.Y_dim, cfg.device)
 
+    #########
+    # Model #
+    #########
+
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=cfg.device)
     # Instantiate model
@@ -86,11 +94,16 @@ def main():
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
     net.to(cfg.device)
+
+    ################
+    # Optimization #
+    ################
+
     # Instantiate optimizer
     optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=True, weight_decay=cfg.optim.weight_decay)
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.optim.lr_scheduler.milestones, gamma=cfg.optim.lr_scheduler.gamma)
-    logger = SummaryWriter()
-
+    
+    # Saving/loading state dicts
     if not os.path.exists(cfg.log.checkpoint_dir):
         os.mkdir(cfg.log.checkpoint_dir)
 
@@ -100,6 +113,7 @@ def main():
     else:
         epoch = 0
 
+    logger = SummaryWriter()
     model_path = ''
     epoch_avg_val_loss = np.inf
     print("Training set size: {:d}".format(n_train))
@@ -141,21 +155,34 @@ def main():
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, new_epoch_avg_val_loss))
             
             if (epoch + 1)%(cfg.log.logging_interval) == 0:
-                # Log train and val losses
+                # Subset of validation for plotting
+                # TODO: enforce batch_size >= n_plotting
+                X_plt = X[:cfg.data.n_plotting].cpu().numpy()
+                Y_plt = Y[:cfg.data.n_plotting].cpu().numpy()
+                pred_plt = pred[:cfg.data.n_plotting].cpu().numpy()
+                pred_dict = train_utils.interpret_pred(pred_plt, Y_dim=cfg.data.Y_dim)
+                # Log train and val metrics
                 logger.add_scalars('metrics/loss',
-                                   {'train': epoch_avg_train_loss, 'val': new_epoch_avg_val_loss},
+                                   {
+                                   'train': epoch_avg_train_loss, 
+                                   'val': new_epoch_avg_val_loss
+                                   },
+                                   epoch)
+                transformed_rmse = train_utils.get_transformed_rmse(pred_dict['mu'], Y_plt)
+                logger.add_scalars('metrics/rmse',
+                                   {
+                                   'transformed_rmse': transformed_rmse,
+                                   },
                                    epoch)
                 # Log alpha value
-                logger.add_histogram('val_pred/weight_gaussian2', 0.5/(torch.exp(-pred[:, -1].squeeze()) + 1.0), epoch)
-
+                logger.add_histogram('val_pred/weight_gaussian2', pred_dict['w2'], epoch)
                 # Log histograms of named parameters
                 if cfg.log.monitor_weight_distributions:
                     for param_name, param in net.named_parameters():
                         logger.add_histogram(param_name, param.clone().cpu().data.numpy(), epoch)
-
-                # Get performance data to monitor
+                # Log sample images
                 if cfg.log.monitor_sample_images:
-                    X = X[:3].cpu().numpy()
+                    X = X_plt[:3]
                     #pred = pred.cpu().numpy()
                     logger.add_images('val_images', X, epoch, dataformats='NCHW')
 
@@ -167,6 +194,7 @@ def main():
                         logger.add_figure(tag, fig)
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
+                # FIXME compare to last saved epoch val loss
                 if new_epoch_avg_val_loss < epoch_avg_val_loss:
                     os.remove(model_path) if os.path.exists(model_path) else None
                     model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, epoch_avg_train_loss, new_epoch_avg_val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
