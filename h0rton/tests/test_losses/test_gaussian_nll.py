@@ -7,6 +7,14 @@ class TestGaussianNLL(unittest.TestCase):
     """A suite of tests verifying the PDF evaluation of GaussianNLL
     
     """
+
+    @classmethod
+    def setUpClass(cls):
+        """Set global defaults for tests
+
+        """
+        torch.set_default_tensor_type(torch.DoubleTensor)
+
     def test_diagonal_gaussian_nll(self):
         """Test the PDF evaluation of a single Gaussian with diagonal covariance matrix
 
@@ -32,7 +40,6 @@ class TestGaussianNLL(unittest.TestCase):
             cov_b = np.diagflat(np.exp(logvar[b, :]))
             nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=cov_b)) # real nll, not scaled and shifted
             matched_nll += nll/batch_size
-            print(nll)
             #matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size # kernel version
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
 
@@ -117,6 +124,9 @@ class TestGaussianNLL(unittest.TestCase):
             #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 
             matched_nll += (-np.log((1.0 - w2_b) * np.exp(-nll1) + w2_b * np.exp(-nll2)))/batch_size # logsumexp
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
+
+if __name__ == '__main__':
+    unittest.main()
 
         
 

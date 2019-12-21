@@ -162,7 +162,6 @@ class BaseGaussianNLL(ABC):
 
         """
         batch_size, _ = target.shape
-        rank = 2
         log_ll = torch.empty([batch_size, 2], dtype=None, device=self.device)
         alpha = alpha.reshape(-1)
         log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
