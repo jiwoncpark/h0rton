@@ -1,5 +1,36 @@
 import numpy as np
-__all__ = ['log_parameterize_Y_cols', 'whiten_Y_cols']
+import torch
+__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols']
+
+def rescale_01(unscaled):
+    """Rescale an image of unknown range to values between 0 and 1
+
+    Parameters
+    ----------
+    unscaled : torch.Tensor of shape `[X_dim, X_dim]`
+
+    Returns
+    -------
+    torch.Tensor
+        the image of the same input shape, with values now scaled between 0 and 1
+
+    """
+    return (unscaled - unscaled.min())/(unscaled.max() - unscaled.min())
+
+def stack_rgb(single_channel):
+    """Stack a 1-channel images into a 3-channel one
+
+    Parameters
+    ----------
+    single_channel : torch.Tensor of shape `[X_dim, X_dim]`
+
+    Returns
+    -------
+    torch.Tensor
+        the image duplicated 3 times along the channel axis, of shape `[3, X_dim, X_dim]`
+
+    """
+    return torch.stack([single_channel]*3, dim=0)
 
 def log_parameterize_Y_cols(df, col_names):
     """Log parameterize select columns in the given dataframe

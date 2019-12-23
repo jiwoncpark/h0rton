@@ -53,22 +53,22 @@ class TestXYData(unittest.TestCase):
             X = X_.numpy()
             Y = Y_.numpy()
             # Check shapes for X, Y
-            np.testing.assert_array_equal(X.shape, [batch_size, 3, X_dim, X_dim])
-            np.testing.assert_array_equal(Y.shape, [batch_size, len(data_cfg.Y_cols)])
+            np.testing.assert_array_equal(X.shape, [batch_size, 3, X_dim, X_dim], "X shape")
+            np.testing.assert_array_equal(Y.shape, [batch_size, len(data_cfg.Y_cols)], "Y shape")
             # Check values for X
             single_img = np.arange(X_dim**2).reshape(X_dim, X_dim)
-            X_numpy = np.stack([single_img]*3, axis=0)
+            X_numpy = (single_img - single_img.min())/(single_img.max() - single_img.min())
+            X_numpy = np.stack([X_numpy]*3, axis=0)
+            X_numpy = (X_numpy - np.array([0.485, 0.456, 0.406]).reshape(-1, 1, 1))
+            X_numpy /= np.array([0.229, 0.224, 0.225]).reshape(-1, 1, 1)
             X_numpy = np.stack([X_numpy]*batch_size, axis=0)
-            X_numpy = (X_numpy - X_numpy.min())/(X_numpy.max() - X_numpy.min())
-            X_numpy = (X_numpy - np.array([0.485, 0.456, 0.406]).reshape(1, -1, 1, 1))
-            X_numpy /= np.array([0.229, 0.224, 0.225]).reshape(1, -1, 1, 1)
-            np.testing.assert_array_almost_equal(X, X_numpy)
+            np.testing.assert_array_almost_equal(X, X_numpy, err_msg="X values")
             # Check values for Y
             Y_numpy = np.empty((batch_size, len(data_cfg.Y_cols)))
             Y_numpy[:, 0] = (np.arange(batch_size) - np.mean(np.arange(n_data)))/np.std(np.arange(n_data)) # only whiten
             Y_numpy[:, 1] = (np.log(np.arange(batch_size) + 1) - np.mean(np.log(np.arange(n_data) + 1)))/np.std(np.log(np.arange(n_data) + 1)) # log and whiten
             Y_numpy[:, 2] = np.log(np.arange(batch_size) + 1) # only log
-            np.testing.assert_array_almost_equal(Y, Y_numpy)
+            np.testing.assert_array_almost_equal(Y, Y_numpy, err_msg="Y_values")
             break
         shutil.rmtree(test_data_dir)
 
