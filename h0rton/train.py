@@ -72,12 +72,12 @@ def main():
     # Define training data and loader
     torch.multiprocessing.set_start_method('spawn', force=True)
     train_data = XYData(cfg.data.train_dir, data_cfg=cfg.data)
-    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True, num_workers=0)
+    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
     n_train = train_data.n_data - (train_data.n_data % cfg.optim.batch_size)
 
     # Define val data and loader
     val_data = XYData(cfg.data.val_dir, data_cfg=cfg.data)
-    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=0)
+    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
     n_val = val_data.n_data - (val_data.n_data % cfg.optim.batch_size)
 
     # Define plotting data (subset of val data) and loader
@@ -91,7 +91,7 @@ def main():
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=cfg.device)
     # Instantiate model
-    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=False)
+    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=True)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
     net.to(cfg.device)
@@ -116,7 +116,7 @@ def main():
 
     logger = SummaryWriter()
     model_path = ''
-    epoch_avg_val_loss = np.inf
+    last_saved_val_loss = np.inf
     print("Training set size: {:d}".format(n_train))
     print("Validation set size: {:d}".format(n_val))
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
@@ -146,8 +146,8 @@ def main():
                 X = X_.to(cfg.device)
                 Y = Y_.to(cfg.device)
                 pred = net(X)
-                loss = loss_fn(pred, Y)
-                val_loss += (loss.item() - val_loss)/(1 + batch_idx)
+                nograd_loss = loss_fn(pred, Y)
+                val_loss += (nograd_loss.item() - val_loss)/(1 + batch_idx)
 
             tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
@@ -193,14 +193,17 @@ def main():
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
                 # FIXME compare to last saved epoch val loss
-                if new_epoch_avg_val_loss < epoch_avg_val_loss:
+                if val_loss < last_saved_val_loss:
                     os.remove(model_path) if os.path.exists(model_path) else None
-                    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, epoch_avg_train_loss, new_epoch_avg_val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
+                    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
+                    last_saved_val_loss = val_loss
 
     logger.close()
-    os.remove(model_path) if os.path.exists(model_path) else None
-    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, epoch_avg_train_loss, new_epoch_avg_val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
-    print("Saved model at {:s}".format(os.path.abspath(model_path)))
+    # Save final state dict
+    if val_loss < last_saved_val_loss:
+        os.remove(model_path) if os.path.exists(model_path) else None
+        model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
+        print("Saved model at {:s}".format(os.path.abspath(model_path)))
 
 if __name__ == '__main__':
     main()
