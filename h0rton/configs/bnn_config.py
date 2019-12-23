@@ -129,8 +129,8 @@ class BNNConfig:
         # Whitening columns
         self.data.Y_cols_to_whiten_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_whiten))
         train_metadata_path = os.path.join(self.data.train_dir, 'metadata.csv')
-        train_Y_to_whiten = add_g1g2_columns(pd.read_csv(train_metadata_path, index_col=None))[self.data.Y_cols_to_whiten]
-        train_Y_to_whiten = log_parameterize_Y_cols(train_Y_to_whiten, self.data.Y_cols_to_log_parameterize).values
+        train_Y_to_whiten = add_g1g2_columns(pd.read_csv(train_metadata_path, index_col=None))
+        train_Y_to_whiten = log_parameterize_Y_cols(train_Y_to_whiten, self.data.Y_cols_to_log_parameterize)[self.data.Y_cols_to_whiten].values
         self.data.train_Y_mean = np.mean(train_Y_to_whiten, axis=0, keepdims=True)
         self.data.train_Y_std = np.std(train_Y_to_whiten, axis=0, keepdims=True)
         del train_Y_to_whiten # not sure if necessary
