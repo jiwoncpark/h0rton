@@ -61,8 +61,6 @@ class BaseGaussianNLL(ABC):
         # Restore prefactors
         loss += np.log(2.0*np.pi)
         loss *= 0.5
-        print(torch.sum(loss, dim=1))
-
         return torch.mean(torch.sum(loss, dim=1), dim=0)
 
     def nll_low_rank(self, target, mu, logvar, F, reduce=True):
@@ -92,7 +90,7 @@ class BaseGaussianNLL(ABC):
         rank = 2 # FIXME: hardcoded for rank 2
         F = F.reshape([batch_size, self.Y_dim, rank]) 
         inv_var = torch.exp(-logvar) # [batch_size, self.Y_dim]
-        diag_inv_var = torch.diag_embed(inv_var)  # [batch_size, self.Y_dim, self.Y_dim]
+        diag_inv_var = torch.diag_embed(inv_var).float()  # [batch_size, self.Y_dim, self.Y_dim]
         diag_prod = F**2.0 * inv_var.reshape([batch_size, self.Y_dim, 1]) # [batch_size, self.Y_dim, rank] after broadcasting
         off_diag_prod = torch.prod(F, dim=2)*inv_var # [batch_size, self.Y_dim]
         #batchdiag = torch.diag_embed(torch.exp(logvar)) # [batch_size, self.Y_dim, self.Y_dim]
