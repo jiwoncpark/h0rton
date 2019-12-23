@@ -70,14 +70,15 @@ def main():
     ############
 
     # Define training data and loader
+    torch.multiprocessing.set_start_method('spawn', force=True)
     train_data = XYData(cfg.data.train_dir, data_cfg=cfg.data)
-    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True)
-    n_train = train_data.n_data
+    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True, num_workers=0)
+    n_train = train_data.n_data - (train_data.n_data % cfg.optim.batch_size)
 
     # Define val data and loader
     val_data = XYData(cfg.data.val_dir, data_cfg=cfg.data)
-    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True)
-    n_val = val_data.n_data
+    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=0)
+    n_val = val_data.n_data - (val_data.n_data % cfg.optim.batch_size)
 
     # Define plotting data (subset of val data) and loader
     if cfg.log.monitor_1d_marginal_mapping:
@@ -121,38 +122,35 @@ def main():
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
     for epoch in progress:
         net.train()
-        total_loss = 0.0
+        train_loss = 0.0
 
         for batch_idx, (X_, Y_) in enumerate(train_loader):
-            optimizer.zero_grad()
             X = X_.to(cfg.device)
             Y = Y_.to(cfg.device)
             # Update weights
+            optimizer.zero_grad()
             pred = net(X)
             loss = loss_fn(pred, Y)
             loss.backward()
             optimizer.step()
             # For logging
-            total_loss += loss.item()*cfg.optim.batch_size
+            train_loss += (loss.item() - train_loss)/(1 + batch_idx)
         # Step lr_scheduler every epoch
         lr_scheduler.step()
 
         with torch.no_grad():
             net.eval()
-            total_val_loss = 0.0
+            val_loss = 0.0
 
             for batch_idx, (X_, Y_) in enumerate(val_loader):
                 X = X_.to(cfg.device)
                 Y = Y_.to(cfg.device)
                 pred = net(X)
                 loss = loss_fn(pred, Y)
-                total_val_loss += loss.item()*cfg.optim.batch_size
+                val_loss += (loss.item() - val_loss)/(1 + batch_idx)
 
-            epoch_avg_train_loss = total_loss/n_train
-            new_epoch_avg_val_loss = total_val_loss/n_val
-
-            tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, epoch_avg_train_loss))
-            tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, new_epoch_avg_val_loss))
+            tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
+            tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
             
             if (epoch + 1)%(cfg.log.logging_interval) == 0:
                 # Subset of validation for plotting
@@ -164,8 +162,8 @@ def main():
                 # Log train and val metrics
                 logger.add_scalars('metrics/loss',
                                    {
-                                   'train': epoch_avg_train_loss, 
-                                   'val': new_epoch_avg_val_loss
+                                   'train': train_loss, 
+                                   'val': val_loss
                                    },
                                    epoch)
                 transformed_rmse = train_utils.get_transformed_rmse(pred_dict['mu'], Y_plt)
