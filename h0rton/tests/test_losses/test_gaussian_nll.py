@@ -1,4 +1,3 @@
-import os, sys
 import numpy as np
 import unittest
 import torch
@@ -13,7 +12,7 @@ class TestGaussianNLL(unittest.TestCase):
         """Set global defaults for tests
 
         """
-        torch.set_default_tensor_type(torch.DoubleTensor)
+        torch.set_default_tensor_type(torch.FloatTensor)
 
     def test_diagonal_gaussian_nll(self):
         """Test the PDF evaluation of a single Gaussian with diagonal covariance matrix
@@ -26,11 +25,11 @@ class TestGaussianNLL(unittest.TestCase):
         device = torch.device('cpu')
         diagonal_gaussian_nll = DiagonalGaussianNLL(Y_dim, device)
         # Get h0rton evaluation
-        batch_size = 3
-        target = np.random.randn(batch_size, Y_dim)
+        batch_size = 5
+        target = np.random.randn(batch_size, Y_dim).astype(np.float32)
         mu = np.random.randn(batch_size, Y_dim)
         logvar = np.abs(2.0*np.random.randn(batch_size, Y_dim))
-        pred = np.concatenate([mu, logvar], axis=1)
+        pred = np.concatenate([mu, logvar], axis=1).astype(np.float32)
         h0rton_nll = diagonal_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
         # Get scipy evaluation
         matched_nll = 0.0
@@ -56,11 +55,11 @@ class TestGaussianNLL(unittest.TestCase):
         low_rank_gaussian_nll = LowRankGaussianNLL(Y_dim, device)
         # Get h0rton evaluation
         batch_size = 3
-        target = np.random.randn(batch_size, Y_dim)
+        target = np.random.randn(batch_size, Y_dim).astype(np.float32)
         mu = np.random.randn(batch_size, Y_dim)
         logvar = np.abs(np.random.randn(batch_size, Y_dim))
         F = np.random.randn(batch_size, rank*Y_dim)
-        pred = np.concatenate([mu, logvar, F], axis=1)
+        pred = np.concatenate([mu, logvar, F], axis=1).astype(np.float32)
         h0rton_nll = low_rank_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
         # Get scipy evaluation
         matched_nll = 0.0
@@ -88,7 +87,7 @@ class TestGaussianNLL(unittest.TestCase):
         double_gaussian_nll = DoubleGaussianNLL(Y_dim, device)
         # Get h0rton evaluation
         batch_size = 3
-        target = np.random.randn(batch_size, Y_dim)
+        target = np.random.randn(batch_size, Y_dim).astype(np.float32)
         mu = np.random.randn(batch_size, Y_dim)
         logvar = np.abs(np.random.randn(batch_size, Y_dim))
         F = np.random.randn(batch_size, rank*Y_dim)
@@ -97,7 +96,7 @@ class TestGaussianNLL(unittest.TestCase):
         F2 = np.random.randn(batch_size, rank*Y_dim)
         alpha = np.random.randn(batch_size, 1)
 
-        pred = np.concatenate([mu, logvar, F, mu2, logvar2, F2, alpha], axis=1)
+        pred = np.concatenate([mu, logvar, F, mu2, logvar2, F2, alpha], axis=1).astype(np.float32)
         h0rton_nll = double_gaussian_nll(torch.from_numpy(pred), torch.from_numpy(target))
         # Get scipy evaluation
         matched_nll = 0.0
