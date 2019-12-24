@@ -181,9 +181,9 @@ def main():
                         logger.add_histogram(param_name, param.clone().cpu().data.numpy(), epoch)
                 # Log sample images
                 if cfg.log.monitor_sample_images:
-                    X = X_plt[:3]
+                    sample_img = X_plt[:3]
                     #pred = pred.cpu().numpy()
-                    logger.add_images('val_images', X, epoch, dataformats='NCHW')
+                    logger.add_images('val_images', sample_img, epoch, dataformats='NCHW')
                 # Log 1D marginal mapping
                 if cfg.log.monitor_1d_marginal_mapping:
                     plotter.set_normal_mixture_params(pred_plt)

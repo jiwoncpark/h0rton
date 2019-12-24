@@ -1,20 +1,16 @@
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from addict import Dict
 
-class H0rtonBNNInterpreter:
+class BNNInterpreter:
     """
-    Interprets the network output for making plots
+    Interpreter for the network output, used in making plots
 
     """
-    def __init__(self, cov_mat, Y_dim, device):
-        self.cov_mat = cov_mat
+    def __init__(self, likelihood_class, Y_dim):
+        self.likelihood_class = likelihood_class
         self.Y_dim = Y_dim
-        self.device = device
         self.mixture_cmap = cm.tab20
         self.mixture_norm = colors.Normalize(vmin=0, vmax=20) # FIXME: hardcode max num of normals
 
@@ -36,12 +32,12 @@ class H0rtonBNNInterpreter:
 
         normal = self._slice_pred_params(pred)
         F_tran_F = np.matmul(normal.F, np.swapaxes(normal.F, 1, 2))
-        cov_mat = np.apply_along_axis(np.diag, -1, np.exp(normal.logvar)) + F_tran_F
+        likelihood_class = np.apply_along_axis(np.diag, -1, np.exp(normal.logvar)) + F_tran_F
         cov_diag = np.exp(normal.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
-        assert np.array_equal(cov_mat.shape, [batch_size, self.Y_dim, self.Y_dim])
+        assert np.array_equal(likelihood_class.shape, [batch_size, self.Y_dim, self.Y_dim])
         assert np.array_equal(cov_diag.shape, [batch_size, self.Y_dim])
         normal.update(
-                      cov_mat=cov_mat,
+                      likelihood_class=likelihood_class,
                       cov_diag=cov_diag,
                       )
         return normal
@@ -67,24 +63,24 @@ class H0rtonBNNInterpreter:
         d = self.Y_dim # for readability
         batch_size, self.out_dim = pred.shape
 
-        if self.cov_mat == 'diagonal':
+        if self.likelihood_class == 'DiagonalGaussianNLL':
             mu = pred[:, :d]
             logvar = pred[:, d:2*d]
             normal = Dict(
                           mu=mu,
                           logvar=logvar, 
                           F=None,
-                          cov_mat=np.apply_along_axis(np.diag, -1, np.exp(logvar)),
+                          likelihood_class=np.apply_along_axis(np.diag, -1, np.exp(logvar)),
                           cov_diag=np.exp(logvar),
                           alpha=np.ones(batch_size),
                           )                          
             normal_mixture = [normal]
 
-        elif self.cov_mat == 'low_rank':
+        elif self.likelihood_class == 'LowRankGaussianNLL':
             normal = self._get_normal_params(pred)
             normal_mixture = [normal]
 
-        elif self.cov_mat == 'double':
+        elif self.likelihood_class == 'DoubleGaussianNLL':
             # Boring and arbitrary slicing... bear with me...
             alpha = pred[:, -1]
             normal_mixture = [] # each element is a dict of params for a normal
@@ -148,18 +144,3 @@ class H0rtonBNNInterpreter:
 
     def _sigmoid(self, x):
         return 1.0/(np.exp(-x) + 1.0)
-
-if __name__ == "__main__":
-    from torch.utils.data import DataLoader
-    from torch.utils.data.sampler import SubsetRandomSampler
-    import torchvision.transforms as transforms
-    import torch
-
-    pred_Y = np.ones((17, 2))
-    pred_plt = np.ones((17, 9))
-    plotter = Plotter('double', 2,  torch.device('cuda'))
-    plotter.set_normal_mixture_params(pred_plt)
-    _ = plotter.get_1d_mapping_fig('some param', 1, pred_Y[:, 1])
-
-
-

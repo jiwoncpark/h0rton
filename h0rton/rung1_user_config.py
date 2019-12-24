@@ -36,26 +36,27 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
 
 # Model
 cfg.model = Dict(architecture='resnet18',
-                 load_state=False,
-                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=159_12-12-2019_22:01.mdl',
+                 load_state=True,
+                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=659_12-23-2019_21:34.mdl',
                  likelihood_class='DoubleGaussianNLL',
                  )
 
 # Optimization
 cfg.optim = Dict(n_epochs=200000,
-                 learning_rate=3e-4,
+                 learning_rate=7e-5,
                  weight_decay=1.e-5,
-                 batch_size=400,
-                 lr_scheduler=Dict(milestones=[100000, 150000],
+                 batch_size=500,
+                 lr_scheduler=Dict(milestones=[10, 30, 50], # with respect to resuming point
                                    gamma=0.7))
 
 # Logging
 cfg.log = Dict(checkpoint_dir='saved_models', # where to store saved models
                checkpoint_interval=20, # in epochs
-               logging_interval=5, # in epochs
+               logging_interval=1, # in epochs
                monitor_sample_images=False,
-               monitor_1d_marginal_mapping=False,
+               monitor_1d_marginal_mapping=True,
                monitor_weight_distributions=False,
+               monitor_image_positions=True,
                )
 # H0 inference
 cfg.h0_inference = Dict(
