@@ -109,7 +109,7 @@ def main():
         os.mkdir(cfg.log.checkpoint_dir)
 
     if cfg.model.load_state:
-        net, optimizer, lr_scheduler, epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, lr_scheduler, cfg.optim.n_epochs, cfg.device)
+        epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, cfg.device)
         epoch += 1 # resume with next epoch
         last_saved_val_loss = val_loss
         print(lr_scheduler.state_dict())

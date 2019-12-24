@@ -39,7 +39,7 @@ def save_state_dict(model, optimizer, lr_scheduler, train_loss, val_loss, checkp
     torch.save(state, model_path)
     return model_path
 
-def load_state_dict(checkpoint_path, model, optimizer, lr_scheduler, n_epochs, device):
+def load_state_dict(checkpoint_path, model, optimizer, n_epochs, device, lr_scheduler=None):
     """Load the state dict of the past training
 
     Parameters
@@ -65,14 +65,15 @@ def load_state_dict(checkpoint_path, model, optimizer, lr_scheduler, n_epochs, d
     model.load_state_dict(state['model'])
     model.to(device)
     optimizer.load_state_dict(state['optimizer'])
-    lr_scheduler.load_state_dict(state['lr_scheduler'])
+    if lr_scheduler is not None:
+        lr_scheduler.load_state_dict(state['lr_scheduler'])
     epoch = state['epoch']
     train_loss = state['train_loss']
     val_loss = state['val_loss']
     print("Loaded weights at {:s}".format(checkpoint_path))
     print("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, n_epochs, train_loss))
     print("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, n_epochs, val_loss))
-    return model, optimizer, lr_scheduler, epoch, train_loss, val_loss
+    return epoch, train_loss, val_loss
 
 def load_state_dict_test(checkpoint_path, model, n_epochs, device):
     """Load the state dict of the past training
