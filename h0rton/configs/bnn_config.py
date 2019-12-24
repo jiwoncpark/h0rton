@@ -136,6 +136,8 @@ class BNNConfig:
         del train_Y_to_whiten # not sure if necessary
         # Plotting data
         self.data.n_plotting = min(100, self.data.n_plotting) # Plot no more than 100 points when logging.
+        if self.data.n_plotting > self.optim.batch_size:
+            raise ValueError("data.n_plotting must be smaller than optim.batch_size")
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)
