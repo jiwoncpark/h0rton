@@ -82,7 +82,7 @@ def main():
 
     # Define plotting data (subset of val data) and loader
     if cfg.log.monitor_1d_marginal_mapping:
-        plotter = BNNInterpreter(cfg.model.type, cfg.data.Y_dim, cfg.device)
+        plotter = BNNInterpreter(cfg.model.likelihood_class, cfg.data.Y_dim)
 
     #########
     # Model #
@@ -109,14 +109,16 @@ def main():
         os.mkdir(cfg.log.checkpoint_dir)
 
     if cfg.model.load_state:
-        net, optimizer, lr_scheduler, epoch = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, lr_scheduler, cfg.optim.n_epochs, cfg.device)
+        net, optimizer, lr_scheduler, epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, lr_scheduler, cfg.optim.n_epochs, cfg.device)
         epoch += 1 # resume with next epoch
+        last_saved_val_loss = val_loss
+        print(lr_scheduler.state_dict())
     else:
         epoch = 0
+        last_saved_val_loss = np.inf
 
     logger = SummaryWriter()
     model_path = ''
-    last_saved_val_loss = np.inf
     print("Training set size: {:d}".format(n_train))
     print("Validation set size: {:d}".format(n_val))
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
@@ -154,7 +156,6 @@ def main():
             
             if (epoch + 1)%(cfg.log.logging_interval) == 0:
                 # Subset of validation for plotting
-                # TODO: enforce batch_size >= n_plotting
                 X_plt = X[:cfg.data.n_plotting].cpu().numpy()
                 Y_plt = Y[:cfg.data.n_plotting].cpu().numpy()
                 pred_plt = pred[:cfg.data.n_plotting].cpu().numpy()
@@ -183,12 +184,12 @@ def main():
                     X = X_plt[:3]
                     #pred = pred.cpu().numpy()
                     logger.add_images('val_images', X, epoch, dataformats='NCHW')
-
+                # Log 1D marginal mapping
                 if cfg.log.monitor_1d_marginal_mapping:
-                    plotter.set_normal_mixture_params(pred)
+                    plotter.set_normal_mixture_params(pred_plt)
                     for param_idx, param_name in enumerate(cfg.data.Y_cols):
                         tag = '1d_mapping/{:s}'.format(param_name)
-                        fig = plotter.get_1d_mapping_fig(param_name, param_idx, Y[:, param_idx])
+                        fig = plotter.get_1d_mapping_fig(param_name, param_idx, Y_plt[:, param_idx])
                         logger.add_figure(tag, fig)
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:

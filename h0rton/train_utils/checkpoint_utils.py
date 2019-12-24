@@ -1,7 +1,7 @@
 import os
 import datetime
 import torch
-__all__ = ['save_state_dict', 'load_state_dict']
+__all__ = ['save_state_dict', 'load_state_dict', 'load_state_dict_test']
 
 def save_state_dict(model, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, model_architecture, epoch_idx):
     """Save the state dict of the current training to disk
@@ -72,4 +72,37 @@ def load_state_dict(checkpoint_path, model, optimizer, lr_scheduler, n_epochs, d
     print("Loaded weights at {:s}".format(checkpoint_path))
     print("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, n_epochs, train_loss))
     print("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, n_epochs, val_loss))
-    return model, optimizer, lr_scheduler, epoch
+    return model, optimizer, lr_scheduler, epoch, train_loss, val_loss
+
+def load_state_dict_test(checkpoint_path, model, n_epochs, device):
+    """Load the state dict of the past training
+
+    Parameters
+    ----------
+    checkpoint_path : str or os.path object
+        path of the state dict to load
+    model : torch model
+        trained model to save
+    optimizer : torch.optim object
+    lr_scheduler: torch.optim.lr_scheduler object
+    n_epochs : int
+        total number of epochs to train
+    device : torch.device object
+        device on which to load the model
+
+    Returns
+    -------
+    str or os.path object
+        path to the saved model
+
+    """
+    state = torch.load(checkpoint_path)
+    model.load_state_dict(state['model'])
+    model.to(device)
+    epoch = state['epoch']
+    train_loss = state['train_loss']
+    val_loss = state['val_loss']
+    print("Loaded weights at {:s}".format(checkpoint_path))
+    print("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, n_epochs, train_loss))
+    print("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, n_epochs, val_loss))
+    return model, epoch
