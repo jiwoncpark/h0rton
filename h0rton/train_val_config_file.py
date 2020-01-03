@@ -56,7 +56,6 @@ cfg.log = Dict(checkpoint_dir='saved_models', # where to store saved models
                monitor_sample_images=False,
                monitor_1d_marginal_mapping=True,
                monitor_weight_distributions=False,
-               monitor_image_positions=True,
                )
 # H0 inference
 cfg.h0_inference = Dict(

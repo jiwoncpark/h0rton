@@ -21,12 +21,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
 import torchvision.models
 from torch.utils.tensorboard import SummaryWriter
 # h0rton modules
 from h0rton.trainval_data import XYData
-from h0rton.configs import BNNConfig
+from h0rton.configs import TrainValConfig
 import h0rton.losses
 from h0rton.plotting import BNNInterpreter
 import h0rton.train_utils as train_utils
@@ -62,7 +61,7 @@ def seed_everything(global_seed):
 
 def main():
     args = parse_args()
-    cfg = BNNConfig.from_file(args.user_cfg_path)
+    cfg = TrainValConfig.from_file(args.user_cfg_path)
     seed_everything(cfg.global_seed)
 
     ############
