@@ -1,1 +1,1 @@
-from .bnn_config import BNNConfig
+from .train_val_config import TrainValConfig

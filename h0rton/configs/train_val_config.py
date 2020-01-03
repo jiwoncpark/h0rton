@@ -11,7 +11,7 @@ from addict import Dict
 from baobab.sim_utils import add_g1g2_columns
 from h0rton.trainval_data.data_utils import log_parameterize_Y_cols
 
-class BNNConfig:
+class TrainValConfig:
     """Nested dictionary representing the configuration for H0rton training, h0_inference, visualization, and analysis
 
     """
