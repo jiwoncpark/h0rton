@@ -5,7 +5,6 @@ import json
 import glob
 import numpy as np
 import pandas as pd
-import torch
 from baobab import BaobabConfig
 from addict import Dict
 from baobab.sim_utils import add_g1g2_columns
@@ -26,7 +25,6 @@ class TrainValConfig:
         self.__dict__ = Dict(user_cfg)
         self.validate_user_definition()
         self.preset_default()
-        self.set_device()
         # Data
         self.set_baobab_metadata()
         self.set_XY_metadata()        
@@ -45,11 +43,19 @@ class TrainValConfig:
         dirname, filename = os.path.split(os.path.abspath(user_cfg_path))
         module_name, ext = os.path.splitext(filename)
         sys.path.append(dirname)
-        #user_cfg_file = map(__import__, module_name)
-        #user_cfg = getattr(user_cfg_file, 'cfg')
-        user_cfg_script = importlib.import_module(module_name)
-        user_cfg = getattr(user_cfg_script, 'cfg')
-        return cls(user_cfg)
+        if ext == '.py':
+            #user_cfg_file = map(__import__, module_name)
+            #user_cfg = getattr(user_cfg_file, 'cfg')
+            user_cfg_script = importlib.import_module(module_name)
+            user_cfg = getattr(user_cfg_script, 'cfg')
+            return cls(user_cfg)
+        elif ext == '.json':
+            with open(user_cfg_path, 'r') as f:
+                user_cfg_str = f.read()
+            user_cfg = Dict(json.loads(user_cfg_str))
+            return cls(user_cfg)
+        else:
+            raise NotImplementedError("This extension is not supported.")
 
     def load_baobab_log(self, baobab_out_dir):
         """Load the baobab log
@@ -76,7 +82,6 @@ class TrainValConfig:
 
         """
         import h0rton.losses
-        
         if not hasattr(h0rton.losses, self.model.likelihood_class):
             raise TypeError("Likelihood class supplied in cfg doesn't exist.")
 
@@ -88,22 +93,6 @@ class TrainValConfig:
             raise ValueError("Must provide training data directory.")
         if 'val_dir' not in self.data:
             raise ValueError("Must provide validation data directory.")
-
-    def set_device(self):
-        """Configure the device to use for training
-
-        Note
-        ----
-        Disabling fallback to cpu when cuda is unavailable, for full reproducibility.
-
-        """
-        # Disable this check for reproducibility
-        #self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.device = torch.device(self.device_type)
-        if self.device.type == 'cuda':
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        else:
-            torch.set_default_tensor_type('torch.FloatTensor')
 
     def set_baobab_metadata(self):
         """Migrate some of the metadata in the Baobab configs and check that they are reasonable

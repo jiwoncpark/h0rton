@@ -1,7 +1,47 @@
 import numpy as np
-__all__ = ['get_transformed_rmse', 'interpret_pred']
+from matplotlib.figure import Figure
+__all__ = ['get_1d_mapping_fig', 'get_rmse', 'interpret_pred']
 
-def get_transformed_rmse(pred_mu, true_mu):
+def get_1d_mapping_fig(name, mu, Y):
+    """Plots the marginal 1D mapping of the mean predictions
+
+    Parameters
+    ----------
+    name : str
+        name of the parameter
+    mu : np.array of shape [batch_size,]
+        network prediction of the Gaussian mean
+    Y : np.array of shape [batch_size,]
+        truth label
+    which_normal_i : int
+        which Gaussian (0 for first, 1 for second)
+
+    Returns
+    -------
+    matplotlib.FigureCanvas object
+        plot of network predictions against truth
+
+    """
+    my_dpi = 72.0
+    fig = Figure(figsize=(720/my_dpi, 360/my_dpi), dpi=my_dpi, tight_layout=True)
+    ax = fig.gca()
+
+    # Reference (perfect) mapping
+    perfect = np.linspace(np.min(Y), np.max(Y), 20)
+    ax.plot(perfect, np.zeros_like(perfect), linestyle='--', color='b', label="Perfect mapping")
+
+    # For this param
+    offset = mu - Y
+    ax.scatter(Y, offset, color='tab:blue', marker='o')
+    ax.set_title('offset vs. truth ({:s})'.format(name))
+    ax.set_ylabel('pred - truth')
+    ax.set_xlabel('truth')
+    return fig
+
+def _sigmoid(self, x):
+    return 1.0/(np.exp(-x) + 1.0)
+
+def get_rmse(pred_mu, true_mu):
     """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
 
     Parameters
@@ -31,7 +71,7 @@ def interpret_pred(pred, Y_dim):
 
     Note
     ----
-    Currently hardcoded for `DoubleGaussianNLL`
+    Currently hardcoded for `DoubleGaussianNLL`. (Update: no longer used; slicing function replaced by the BNNPosterior class.)
 
     Returns
     -------

@@ -27,7 +27,7 @@ from torch.utils.tensorboard import SummaryWriter
 from h0rton.trainval_data import XYData
 from h0rton.configs import TrainValConfig
 import h0rton.losses
-from h0rton.plotting import BNNInterpreter
+import h0rton.h0_inference
 import h0rton.train_utils as train_utils
 
 def parse_args():
@@ -62,6 +62,12 @@ def seed_everything(global_seed):
 def main():
     args = parse_args()
     cfg = TrainValConfig.from_file(args.user_cfg_path)
+    # Set device and default data type
+    device = torch.device(cfg.device_type)
+    if device.type == 'cuda':
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+        torch.set_default_tensor_type('torch.FloatTensor')
     seed_everything(cfg.global_seed)
 
     ############
@@ -79,21 +85,19 @@ def main():
     val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
     n_val = val_data.n_data - (val_data.n_data % cfg.optim.batch_size)
 
-    # Define plotting data (subset of val data) and loader
-    if cfg.log.monitor_1d_marginal_mapping:
-        plotter = BNNInterpreter(cfg.model.likelihood_class, cfg.data.Y_dim)
-
     #########
     # Model #
     #########
 
     # Instantiate loss function
-    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=cfg.device)
+    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=device)
+    # Instantiate posterior (for logging)
+    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, val_data.Y_cols_to_whiten_idx, val_data.train_Y_mean, val_data.train_Y_std, val_data.Y_cols_to_log_parameterize_idx, device)
     # Instantiate model
     net = getattr(torchvision.models, cfg.model.architecture)(pretrained=True)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
-    net.to(cfg.device)
+    net.to(device)
 
     ################
     # Optimization #
@@ -108,7 +112,7 @@ def main():
         os.mkdir(cfg.log.checkpoint_dir)
 
     if cfg.model.load_state:
-        epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, cfg.device)
+        epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, device)
         epoch += 1 # resume with next epoch
         last_saved_val_loss = val_loss
         print(lr_scheduler.state_dict())
@@ -126,8 +130,8 @@ def main():
         train_loss = 0.0
 
         for batch_idx, (X_, Y_) in enumerate(train_loader):
-            X = X_.to(cfg.device)
-            Y = Y_.to(cfg.device)
+            X = X_.to(device)
+            Y = Y_.to(device)
             # Update weights
             optimizer.zero_grad()
             pred = net(X)
@@ -144,8 +148,8 @@ def main():
             val_loss = 0.0
 
             for batch_idx, (X_, Y_) in enumerate(val_loader):
-                X = X_.to(cfg.device)
-                Y = Y_.to(cfg.device)
+                X = X_.to(device)
+                Y = Y_.to(device)
                 pred = net(X)
                 nograd_loss = loss_fn(pred, Y)
                 val_loss += (nograd_loss.item() - val_loss)/(1 + batch_idx)
@@ -157,8 +161,12 @@ def main():
                 # Subset of validation for plotting
                 X_plt = X[:cfg.data.n_plotting].cpu().numpy()
                 Y_plt = Y[:cfg.data.n_plotting].cpu().numpy()
-                pred_plt = pred[:cfg.data.n_plotting].cpu().numpy()
-                pred_dict = train_utils.interpret_pred(pred_plt, Y_dim=cfg.data.Y_dim)
+                Y_plt_orig = bnn_post.transform_back(Y[:cfg.data.n_plotting]).cpu().numpy()
+                pred_plt = pred[:cfg.data.n_plotting]
+                # Slice pred_plt into meaningful Gaussian parameters for this batch
+                bnn_post.set_sliced_pred(pred_plt)
+                mu = bnn_post.mu.cpu().numpy()
+                mu_orig = bnn_post.transform_back(bnn_post.mu).cpu().numpy()
                 # Log train and val metrics
                 logger.add_scalars('metrics/loss',
                                    {
@@ -166,14 +174,16 @@ def main():
                                    'val': val_loss
                                    },
                                    epoch)
-                transformed_rmse = train_utils.get_transformed_rmse(pred_dict['mu'], Y_plt)
+                rmse = train_utils.get_rmse(mu, Y_plt)
+                rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
                 logger.add_scalars('metrics/rmse',
                                    {
-                                   'transformed_rmse': transformed_rmse,
+                                   'rmse': rmse,
+                                   'rmse_orig': rmse_orig,
                                    },
                                    epoch)
                 # Log alpha value
-                logger.add_histogram('val_pred/weight_gaussian2', pred_dict['w2'], epoch)
+                logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
                 # Log histograms of named parameters
                 if cfg.log.monitor_weight_distributions:
                     for param_name, param in net.named_parameters():
@@ -185,10 +195,9 @@ def main():
                     logger.add_images('val_images', sample_img, epoch, dataformats='NCHW')
                 # Log 1D marginal mapping
                 if cfg.log.monitor_1d_marginal_mapping:
-                    plotter.set_normal_mixture_params(pred_plt)
                     for param_idx, param_name in enumerate(cfg.data.Y_cols):
                         tag = '1d_mapping/{:s}'.format(param_name)
-                        fig = plotter.get_1d_mapping_fig(param_name, param_idx, Y_plt[:, param_idx])
+                        fig = train_utils.get_1d_mapping_fig(param_name, mu_orig[:, param_idx], Y_plt_orig[:, param_idx])
                         logger.add_figure(tag, fig)
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
