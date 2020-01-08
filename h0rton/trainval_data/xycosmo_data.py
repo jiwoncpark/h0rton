@@ -1,7 +1,6 @@
 import os
 import numpy as np
 import pandas as pd
-import astropy.io.fits as pyfits
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
@@ -9,9 +8,9 @@ from baobab.data_augmentation import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
 from .data_utils import rescale_01, stack_rgb, log_parameterize_Y_cols, whiten_Y_cols
 
-__all__ = ['XYData', 'XData',]
+__all__ = ['XYCosmoData',]
 
-class XYData(Dataset): # torch.utils.data.Dataset
+class XYCosmoData(Dataset): # torch.utils.data.Dataset
     """Represents the XYData used to train or validate the BNN
 
     """
@@ -34,9 +33,11 @@ class XYData(Dataset): # torch.utils.data.Dataset
         #self.Y_transform = torch.Tensor
         # Y metadata
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
-        Y_df = pd.read_csv(metadata_path, index_col=False)
-        Y_df = add_g1g2_columns(Y_df)
-        self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
+        metadata_df = pd.read_csv(metadata_path, index_col=False, converters={'measured_td': eval})
+        metadata_df = add_g1g2_columns(metadata_df)
+        self.Y_df = metadata_df[self.Y_cols + ['img_filename']].copy()
+        self.cosmo_df = metadata_df[['z_lens', 'z_src', 'H0', 'x_image_0', 'x_image_1', 'x_image_2', 'x_image_3', 'y_image_0', 'y_image_1', 'y_image_2', 'y_image_3', 'measured_vd', 'measured_vd_err', 'measured_td', 'measured_td_err']].copy()
+        del metadata_df
         self.n_data = self.Y_df.shape[0]
         self.Y_dim = len(self.Y_cols)
         # Log parameterizing
@@ -61,36 +62,6 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_row = self.Y_df.iloc[index][self.Y_cols].values.astype(np.float32)
         Y_row = torch.as_tensor(Y_row)
         return img, Y_row
-
-    def __len__(self):
-        return self.n_data
-
-class XData(Dataset): # torch.utils.data.Dataset
-    """Represents the XData used to test the BNN
-
-    """
-    def __init__(self, img_paths, data_cfg):
-        """
-        Parameters
-        ----------
-        img_paths : list
-            list of image paths. Indexing is based on order in this list.
-        data_cfg : dict or Dict
-            copy of the `data` field of `BNNConfig`
-
-        """
-        self.__dict__ = data_cfg
-        self.img_paths = img_paths
-        self.X_transform = torch.Tensor
-
-    def __getitem__(self, index):
-        hdul = pyfits.open(self.img_paths[index])
-        img = hdul['PRIMARY'].data
-        img = np.stack([img]*self.n_filters, axis=0).astype(np.float32)
-        # Transformations
-        img = self.X_transform(img)
-
-        return img
 
     def __len__(self):
         return self.n_data
