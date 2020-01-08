@@ -24,6 +24,18 @@ class BaseGaussianNLL(ABC):
         self.logsigmoid = torch.nn.LogSigmoid()
 
     @abstractmethod
+    def slice(self, pred):
+        """Slice the raw network prediction into meaningful Gaussian parameters
+
+        Parameters
+        ----------
+        pred : torch.Tensor of shape `[batch_size, self.Y_dim]`
+            the network prediction
+
+        """
+        return NotImplemented
+
+    @abstractmethod
     def __call__(self, pred, target):
         """Evaluate the NLL. Must be overridden by subclasses.
 
@@ -174,15 +186,23 @@ class DiagonalGaussianNLL(BaseGaussianNLL):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
+    posterior_name = 'DiagonalGaussianBNNPosterior'
+
     def __init__(self, Y_dim, device):
         super(DiagonalGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*2
 
     def __call__(self, pred, target):
+        sliced = self.slice(pred)
+        return self.nll_diagonal(target, **sliced)
+
+    def slice(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d]
-        logvar = pred[:, d:]
-        return self.nll_diagonal(target, mu, logvar)
+        sliced = dict(
+                      mu=pred[:, :d],
+                      logvar=pred[:, d:]
+                      )
+        return sliced
 
 class LowRankGaussianNLL(BaseGaussianNLL):
     """The negative log likelihood (NLL) for a single Gaussian with a full but constrained as low-rank plus diagonal covariance matrix
@@ -190,16 +210,24 @@ class LowRankGaussianNLL(BaseGaussianNLL):
     Only rank 2 is currently supported. `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
+    posterior_name = 'LowRankGaussianBNNPosterior'
+
     def __init__(self, Y_dim, device):
         super(LowRankGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*4
 
     def __call__(self, pred, target):
+        sliced = self.slice(pred)
+        return self.nll_low_rank(target, **sliced, reduce=True)
+
+    def slice(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d]
-        logvar = pred[:, d:2*d]
-        F = pred[:, 2*d:]
-        return self.nll_low_rank(target, mu, logvar, F, reduce=True)
+        sliced = dict(
+                      mu=pred[:, :d],
+                      logvar=pred[:, d:2*d],
+                      F=pred[:, 2*d:],
+                      )
+        return sliced
 
 class DoubleGaussianNLL(BaseGaussianNLL):
     """The negative log likelihood (NLL) for a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance 
@@ -207,17 +235,25 @@ class DoubleGaussianNLL(BaseGaussianNLL):
     Only rank 2 is currently supported. `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
+    posterior_name = 'DoubleGaussianBNNPosterior'
+
     def __init__(self, Y_dim, device):
         super(DoubleGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*8 + 1
 
     def __call__(self, pred, target):
+        sliced = self.slice(pred)
+        return self.nll_mixture(target, **sliced)
+
+    def slice(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d]
-        logvar = pred[:, d:2*d]
-        F = pred[:, 2*d:4*d]
-        mu2 = pred[:, 4*d:5*d]
-        logvar2 = pred[:, 5*d:6*d]
-        F2 = pred[:, 6*d:8*d]
-        alpha = pred[:, -1]
-        return self.nll_mixture(target, mu, logvar, F, mu2, logvar2, F2, alpha)
+        sliced = dict(
+                      mu=pred[:, :d],
+                      logvar=pred[:, d:2*d],
+                      F=pred[:, 2*d:4*d],
+                      mu2=pred[:, 4*d:5*d],
+                      logvar2=pred[:, 5*d:6*d],
+                      F2=pred[:, 6*d:8*d],
+                      alpha=pred[:, -1]
+                      )
+        return sliced
