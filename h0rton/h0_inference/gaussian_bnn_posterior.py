@@ -10,7 +10,7 @@ class BaseGaussianBNNPosterior(ABC):
     Gaussian posteriors or mixtures thereof with various forms of the covariance matrix inherit from this class.
 
     """
-    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
         """
         Parameters
         ----------
@@ -29,8 +29,6 @@ class BaseGaussianBNNPosterior(ABC):
         device : torch.device object
 
         """
-        self.pred = pred
-        self.batch_size = pred.shape[0]
         self.Y_dim = Y_dim
         self.whitened_Y_cols_idx = whitened_Y_cols_idx
         self.Y_mean = torch.Tensor(Y_mean)
@@ -39,18 +37,6 @@ class BaseGaussianBNNPosterior(ABC):
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
         self.logsigmoid = torch.nn.LogSigmoid()
-
-    def _check_input_shape(self, out_dim):
-        """Check if the input tensors have the shapes consistent with the number of parameters to predict
-
-        Parameters
-        ----------
-        out_dim : int
-            dimension of the output expected from `self.Y_dim`
-
-        """
-        if self.pred.shape[1] != out_dim:
-            raise ValueError("Value supplied for `Y_dim` and the shape of `pred` are not consistent.")
 
     def seed_samples(self, sample_seed):
         """Seed the sampling for reproducibility
@@ -93,6 +79,24 @@ class BaseGaussianBNNPosterior(ABC):
         """
         return NotImplemented
 
+    def transform_back(self, tensor):
+        """Transform back, i.e. unwhiten and unlog, the tensor
+
+        Parameters
+        ----------
+        tensor : torch.Tensor of shape `[batch_size, Y_dim]`
+
+        Returns
+        -------
+        torch.tensor of shape `[batch_size, Y_dim]`
+            the original tensor
+
+        """
+        tensor = tensor.unsqueeze(1)
+        tensor = self.unwhiten_back(tensor)
+        tensor = self.exponentiate_back(tensor)
+        return tensor.squeeze()
+
     def sample_low_rank(self, n_samples, mu, logvar, F):
         """Sample from a single Gaussian posterior with a full but low-rank plus diagonal covariance matrix
 
@@ -128,13 +132,13 @@ class BaseGaussianBNNPosterior(ABC):
         samples = samples.data.cpu().numpy()
         return samples
 
-    def unwhiten_back(self, pred):
+    def unwhiten_back(self, sample):
         """Scale and shift back to the unwhitened state
 
         Parameters
         ----------
         pred : torch.Tensor
-            network prediction of shape `[batch_size, self.Y_dim]`
+            network prediction of shape `[batch_size, n_samples, self.Y_dim]`
 
         Returns
         -------
@@ -142,19 +146,18 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        pred.unsqueeze_(1)
-        whitened_subpred = pred[:, :, self.whitened_Y_cols_idx]
-        unwhitened_subpred = whitened_subpred*self.Y_std[:, np.newaxis, :] + self.Y_mean[:, np.newaxis, :]
-        pred[:, :, self.whitened_Y_cols_idx] = unwhitened_subpred
-        return pred
+        unwhitened_sub = sample[:, :, self.whitened_Y_cols_idx]
+        unwhitened_sub = unwhitened_sub*self.Y_std[:, np.newaxis, :] + self.Y_mean[:, np.newaxis, :]
+        sample[:, :, self.whitened_Y_cols_idx] = unwhitened_sub
+        return sample
 
-    def exponentiate_back(self, pred):
+    def exponentiate_back(self, sample):
         """Exponentiate back the log-parameterized Y values
 
         Parameters
         ----------
         pred : torch.Tensor
-            network prediction of shape `[batch_size, self.Y_dim]`
+            network prediction of shape `[batch_size, n_samples, self.Y_dim]`
 
         Returns
         -------
@@ -162,11 +165,10 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        pred.unsqueeze_(1)
-        log_subpred = pred[:, :, self.log_parameterized_Y_cols_idx]
-        linear_subpred = torch.exp(log_subpred)
-        pred[:, :, self.log_parameterized_Y_cols_idx] = linear_subpred
-        return pred
+        log_sub = sample[:, :, self.log_parameterized_Y_cols_idx]
+        linear_sub = torch.exp(log_sub)
+        sample[:, :, self.log_parameterized_Y_cols_idx] = linear_sub
+        return sample
 
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
@@ -174,16 +176,22 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(DiagonalGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
-        out_dim = self.Y_dim*2
-        self._check_input_shape(out_dim)
+    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(DiagonalGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+        self.out_dim = self.Y_dim*2
+
+    def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d].reshape(self.batch_size, -1)
-        #mu = self.unwhiten_back(mu)
-        #mu = self.exponentiate_back(mu)
-        self.mu = mu
-        self.logvar = pred[:, d:].reshape(self.batch_size, -1)
+        self.batch_size = pred.shape[0]
+        self.mu = pred[:, :d]
+        self.logvar = pred[:, d:]
+        #self.cov_diag = np.exp(self.logvar)
+        #F_tran_F = np.matmul(normal.F, np.swapaxes(normal.F, 1, 2))
+        #cov_mat = np.apply_along_axis(np.diag, -1, np.exp(normal.logvar)) + F_tran_F
+        #cov_diag = np.exp(normal.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
+        #assert np.array_equal(cov_mat.shape, [batch_size, self.Y_dim, self.Y_dim])
+        #assert np.array_equal(cov_diag.shape, [batch_size, self.Y_dim])
+        #np.apply_along_axis(np.diag, -1, np.exp(logvar)) # for diagonal
 
     def sample(self, n_samples, sample_seed):
         """Sample from a Gaussian posterior with diagonal covariance matrix
@@ -218,18 +226,19 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(LowRankGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
-        out_dim = self.Y_dim*4
-        self._check_input_shape(out_dim)
+    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(LowRankGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+        self.out_dim = self.Y_dim*4
         self.rank = 2 # FIXME: hardcoded
+
+    def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d].reshape(self.batch_size, -1)
-        #mu = self.unwhiten_back(mu)
-        #mu = self.exponentiate_back(mu)
-        self.mu = mu
-        self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
-        self.F = pred[:, 2*d:].reshape(self.batch_size, self.Y_dim, self.rank)
+        self.batch_size = pred.shape[0]
+        self.mu = pred[:, :d]
+        self.logvar = pred[:, d:2*d]
+        self.F = pred[:, 2*d:].reshape([self.batch_size, self.Y_dim, self.rank])
+        #F_tran_F = np.matmul(self.F, np.swapaxes(self.F, 1, 2))
+        #self.cov_diag = np.exp(self.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
 
     def sample(self, n_samples, sample_seed):
         self.seed_samples(sample_seed)
@@ -244,25 +253,25 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(DoubleGaussianBNNPosterior, self).__init__(pred, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
-        out_dim = self.Y_dim*8 + 1
-        self._check_input_shape(out_dim)
+    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+        self.out_dim = self.Y_dim*8 + 1
         self.rank = 2 # FIXME: hardcoded
+
+    def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        mu = pred[:, :d].reshape(self.batch_size, -1)
-        #mu = self.unwhiten_back(mu)
-        #mu = self.exponentiate_back(mu)
-        self.mu = mu
-        self.logvar = pred[:, d:2*d].reshape(self.batch_size, -1)
-        self.F = pred[:, 2*d:4*d].reshape(self.batch_size, self.Y_dim, self.rank)
-        mu2 = pred[:, 4*d:5*d].reshape(self.batch_size, -1)
-        #mu2 = self.unwhiten_back(mu2)
-        #mu2 = self.exponentiate_back(mu2)
-        self.mu2 = mu2
-        self.logvar2 = pred[:, 5*d:6*d].reshape(self.batch_size, -1)
-        self.F2 = pred[:, 6*d:8*d].reshape(self.batch_size, self.Y_dim, self.rank)
-        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(self.batch_size, -1))
+        self.batch_size = pred.shape[0]
+        self.mu = pred[:, :d]
+        self.logvar = pred[:, d:2*d]
+        self.F = pred[:, 2*d:4*d].reshape([self.batch_size, self.Y_dim, self.rank])
+        #F_tran_F = np.matmul(self.F, np.swapaxes(self.F, 1, 2))
+        #self.cov_diag = np.exp(self.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
+        self.mu2 = pred[:, 4*d:5*d]
+        self.logvar2 = pred[:, 5*d:6*d]
+        self.F2 = pred[:, 6*d:8*d].reshape([self.batch_size, self.Y_dim, self.rank])
+        #F_tran_F2 = np.matmul(self.F2, np.swapaxes(self.F2, 1, 2))
+        #self.cov_diag2 = np.exp(self.logvar2) + np.diagonal(F_tran_F2, axis1=1, axis2=2)
+        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         
     def sample(self, n_samples, sample_seed):
         """Sample from a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance

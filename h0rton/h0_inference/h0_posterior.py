@@ -4,6 +4,7 @@ import numpy as np
 import mpmath as mp
 from tqdm import tqdm
 from astropy.cosmology import FlatLambdaCDM
+import baobab.sim_utils.kinematics_utils as kinematics_utils
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.PointSource.point_source import PointSource
 from lenstronomy.Analysis.td_cosmography import TDCosmography
@@ -30,7 +31,7 @@ class H0Posterior:
     """Represents the posterior over H0
 
     """
-    def __init__(self, z_lens, z_src, lens_mass_dict, ext_shear_dict, ps_dict, measured_vd, measured_vd_err, measured_td, measured_td_err, lens_light_R_sersic, H0_prior, kappa_ext_prior, aniso_param_prior, kwargs_model, abcd_ordering_i):
+    def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, kinematics=None):
         """
 
         Parameters
@@ -62,36 +63,30 @@ class H0Posterior:
             dictionary defining which models (parameterizations) are used to define `lens_mass_dict`, `ext_shear_dict`, `ps_dict`
         abcd_ordering_i : list
             ABCD in an increasing dec order if the keys ABCD mapped to values 0123, respectively, e.g. [3, 1, 0, 2] if D (value 3) is lowest, B (value 1) is second lowest
+        exclude_vel_disp : bool
+            whether to exclude the velocity dispersion likelihood. Default: False
         
         """
-        self.z_lens = z_lens
-        self.z_src = z_src
-        self.measured_vd = measured_vd
-        self.measured_vd_err = measured_vd_err
-        self.measured_td = np.array(measured_td)
-        self.measured_td_err = np.array(measured_td_err)
-        self.lens_light_R_sersic = lens_light_R_sersic
         self.H0_prior = H0_prior
         self.kappa_ext_prior = kappa_ext_prior
         self.aniso_param_prior = aniso_param_prior
+        self.exclude_vel_disp = exclude_vel_disp
         self.kwargs_model = kwargs_model
-        self.abcd_ordering_i = abcd_ordering_i
-        self.R_slit = 1.0 # arcsec
-        self.dR_slit = 1.0 # arcsec
-        self.psf_fwhm = 0.6 # arcsec
-        self.Om0 = 0.27 # Omega matter
-        self.Ob0 = 0.0 # Omega baryons
-        # Number of AGN images
-        self.n_img = len(measured_td)
-        # TODO: key checking depending on kwargs_model
-        self.kwargs_lens = [lens_mass_dict, ext_shear_dict]
-        self.set_kwargs_ps(ps_dict)
+        self.baobab_time_delays = baobab_time_delays
+        self.kinematics = kinematics
+        self.Om0 = Om0 # Omega matter
         # Always define point source in terms of `LENSED_POSITION` for speed
         self.kwargs_model.update(dict(point_source_model_list=['LENSED_POSITION']))
 
-        # Pre-store for reordering image arrays
-        dec_image = self.kwargs_ps[0]['dec_image']
-        self.increasing_dec_i = np.argsort(dec_image)
+        if self.kinematics.anisotropy_model == 'analytic':
+            self.get_velocity_dispersion = getattr(kinematics_utils, 'velocity_dispersion_analytic')
+        else:
+            # TODO: currently not available, as BNN does not predict lens light profile
+            self.get_velocity_disperison = getattr(kinematics_utils, 'velocity_dispersion_numerical')
+
+        if not self.exclude_vel_disp:
+            if self.kinematics is None:
+                raise ValueError("kinematics is required to calculate velocity dispersion.")
 
     @classmethod
     def from_dict(cls, lens_dict):
@@ -104,6 +99,47 @@ class H0Posterior:
 
         """
         return cls(lens_dict.items())
+
+    def set_cosmology_observables(self, z_lens, z_src, measured_vd, measured_vd_err, measured_td, measured_td_err, abcd_ordering_i):
+        """Set the cosmology observables for a given lens system
+
+        """
+        self.z_lens = z_lens
+        self.z_src = z_src
+        self.measured_vd = measured_vd
+        self.measured_vd_err = measured_vd_err
+        self.measured_td = np.array(measured_td)
+        self.measured_td_err = np.array(measured_td_err)
+        self.abcd_ordering_i = abcd_ordering_i
+        # Number of AGN images
+        self.n_img = len(measured_td)
+
+    def set_lens_model(self, bnn_sample):
+        """Set the lens model parameters for a given lens mass model
+
+        """
+        # Lens mass
+        # FIXME: hardcoded for SPEMD
+        kwargs_spemd = {'theta_E': bnn_sample['lens_mass_theta_E'],
+                        'center_x': 0, 
+                        'center_y': 0,
+                        'e1': bnn_sample['lens_mass_e1'], 
+                        'e2': bnn_sample['lens_mass_e2'], 
+                        'gamma': bnn_sample['lens_mass_gamma'],}
+        # External shear
+        kwargs_shear = {'gamma_ext': bnn_sample['external_shear_gamma_ext'],
+                        'psi_ext': bnn_sample['external_shear_psi_ext'],}
+        # AGN point source
+        kwargs_ps = {'ra_source': bnn_sample['src_light_center_x'],
+                      'dec_source': bnn_sample['src_light_center_y'],}
+        
+        self.lens_light_R_sersic = bnn_sample['lens_light_R_sersic']
+        # TODO: key checking depending on kwargs_model
+        self.kwargs_lens = [kwargs_spemd, kwargs_shear]
+        self.set_kwargs_ps(kwargs_ps)
+        # Pre-store for reordering image arrays
+        dec_image = self.kwargs_ps[0]['dec_image']
+        self.increasing_dec_i = np.argsort(dec_image)
 
     def set_kwargs_ps(self, ps_dict):
         """Sets the kwargs_ps class attribute as those coresponding to the point source model `LENSED_POSITION`
@@ -183,90 +219,54 @@ class H0Posterior:
         img_array = np.array(img_array)[self.increasing_dec_i][self.abcd_ordering_i]
         return img_array
 
-    def get_samples(self, n_samples, seed, exclude_vel_disp=False):
+    def get_sample(self):
         """Get samples from the H0Posterior
 
         Parameters
         ----------
         n_samples : int
-        seed : int
-            random seed to use
-        exclude_vel_disp : bool
-            whether to exclude the velocity dispersion likelihood. Default: False
 
         Returns
         -------
-        dict
-            keys are `H0_samples` (array of shape (n_samples,)), `H0_weights` (array of shape (n_samples,)), `inferred_vd` (inferred velocity dispersions, array of shape (n_samples,)), `ll_vd` (log likelihood of the inferred velocity dispersions, array of shape (n_samples,)), `inferred_td` (inferred time delays, array of shape (n_samples, n_images)), `ll_td` (log likelihood of the inferred time delays, array of shape (n_samples, n_images))
+        tuple of floats
+            the candidate H0 and its weight
 
         """
-        # Seed for reproducibility
-        random.seed(seed)
-        np.random.seed(seed)
-        # Initialize output dict
-        samples_dict = dict(
-                            H0_samples=np.zeros(n_samples),
-                            H0_weights=np.zeros(n_samples),
-                            inferred_vd=np.zeros(n_samples),
-                            ll_vd=np.zeros(n_samples),
-                            inferred_td=np.zeros((n_samples, self.n_img)),
-                            ll_td=np.zeros((n_samples, self.n_img)),
-                            )
-
-        for n in tqdm(range(n_samples)):
-            H0_candidate = self.sample_H0()
-            k_ext = self.sample_kappa_ext()
-            aniso_param = self.sample_aniso_param()
-            # Define cosmology
-            cosmo = FlatLambdaCDM(H0=H0_candidate, Om0=self.Om0, Ob0=self.Ob0)
-            # Tool for getting time delays and velocity dispersions
-            td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo)
-            # Velocity dispersion
-            kwargs_aperture = dict(
-                                aperture_type='slit',
-                                center_ra=0.0,
-                                center_dec=0.0,
-                                width=1.0, # arcsec
-                                length=1.0, # arcsec
-                                angle=0.0,
-                                )
-            kwargs_psf = dict(
-                              psf_type='GAUSSIAN',
-                              fwhm=0.6
-                              )
-            if exclude_vel_disp:
-                ll_vd = 0.0
-            else:
-                inferred_vd = td_cosmo.velocity_dispersion_analytical(theta_E=self.kwargs_lens[0]['theta_E'], gamma=self.kwargs_lens[0]['gamma'], r_ani=aniso_param*self.lens_light.R_sersic, r_eff=self.lens_light.R_sersic, kwargs_aperture=kwargs_aperture, kwargs_psf=kwargs_psf, num_evaluate=5000, kappa_ext=k_ext)
-                ll_vd = gaussian_ll_pdf(inferred_vd,
-                                       self.measured_vd,
-                                       self.measured_vd_err)
-            # Time delays
-            inferred_td = td_cosmo.time_delays(self.kwargs_lens, self.kwargs_ps, kappa_ext=k_ext)
-            if self.requires_reordering:
-                inferred_td = self.reorder_to_tdlmc(inferred_td)
-            else:
-                inferred_td = np.array(inferred_td)
-            inferred_td = inferred_td[1:] - inferred_td[0]
-            ll_td = np.sum(gaussian_ll_pdf(inferred_td, self.measured_td, self.measured_td_err))
-            log_w = ll_vd + ll_td
-            w = mp.exp(log_w)
-
-            if n == 0 and np.isnan(float(w)):
-                warnings.warn("Weight is nan. Double check `abcd_ordering`.")
-
-            samples_dict['H0_samples'][n] = H0_candidate
-            samples_dict['H0_weights'][n] = w
-            if not exclude_vel_disp:
-                samples_dict['inferred_vd'][n] = inferred_vd
-                samples_dict['ll_vd'][n] = ll_vd
-            samples_dict['inferred_td'][n, :] = inferred_td
-            samples_dict['ll_td'][n] = ll_td
-
-        # Normalize weights to unity
-        samples_dict['H0_weights'] /= np.sum(samples_dict['H0_weights'])
-
-        return samples_dict
+        h0_candidate = self.sample_H0()
+        k_ext = self.sample_kappa_ext()
+        aniso_param = self.sample_aniso_param()
+        # Define cosmology
+        cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
+        # Tool for getting time delays and velocity dispersions
+        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo)
+        # Velocity dispersion
+        if self.exclude_vel_disp:
+            ll_vd = 0.0
+        else:
+            inferred_vd = self.get_velocity_dispersion(
+                                                       td_cosmo, 
+                                                       self.kwargs_lens, 
+                                                       None, #FIXME: only analytic
+                                                       aniso_param*self.lens_light_R_sersic, 
+                                                       self.kinematics.kwargs_aperture, 
+                                                       self.kinematics.kwargs_psf, 
+                                                       self.kinematics.anisotropy_model, 
+                                                       self.lens_light_R_sersic,
+                                                       self.kinematics.kwargs_numerics,
+                                                       k_ext
+                                                       )
+            ll_vd = gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
+        # Time delays
+        inferred_td = td_cosmo.time_delays(self.kwargs_lens, self.kwargs_ps, kappa_ext=k_ext)
+        if self.requires_reordering:
+            inferred_td = self.reorder_to_tdlmc(inferred_td)
+        else:
+            inferred_td = np.array(inferred_td)
+        inferred_td = inferred_td[1:] - inferred_td[0]
+        ll_td = np.sum(gaussian_ll_pdf(inferred_td, self.measured_td, self.measured_td_err))
+        log_w = ll_vd + ll_td
+        weight = mp.exp(log_w)
+        return h0_candidate, weight 
 
 
 

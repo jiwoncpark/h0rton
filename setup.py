@@ -21,7 +21,7 @@ setup(
       #dependency_links=['http://github.com/jiwoncpark/corner.py/tarball/master#egg=corner_jiwoncpark'],
       include_package_data=True,
       entry_points={
-      'console_scripts': ['train=h0rton.train:main'],
+      'console_scripts': ['train=h0rton.train:main', 'infer_h0=h0rton.infer_h0:main'],
       },
       test_suite='nose.collector',
       tests_require=['nose'],
