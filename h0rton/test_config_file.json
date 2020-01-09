@@ -1,14 +1,16 @@
 {
     "device_type": "cuda",
     "global_seed": 1234,
-    "state_dict_path": "/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=719_12-23-2019_22:22.mdl",
+    "use_truth_lens_model": true,
+    "fractional_error_added_to_truth": 0.02,
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=779_01-07-2020_15:37.mdl",
     "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/h0rton/train_val_config_file.py", 
     "data": {
         "test_dir": "/home/jwp/stage/sl/h0rton/Rung1_test_prior=DiagonalCosmoBNNPrior_seed=1234",
-        "n_test": 1
+        "n_test": 5
     },
     "h0_posterior": {
-        "n_samples": 100,
+        "n_samples": 1000,
         "exclude_velocity_dispersion": true
     },
     "h0_prior": {
