@@ -6,6 +6,7 @@
 *.txt
 *.h5
 *.hdf5
+*.png
 out_data/*
 h0rton/tdlmc_data/*
 saved_models/*
