@@ -10,7 +10,7 @@ class BaseGaussianBNNPosterior(ABC):
     Gaussian posteriors or mixtures thereof with various forms of the covariance matrix inherit from this class.
 
     """
-    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
+    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
         """
         Parameters
         ----------
@@ -31,8 +31,10 @@ class BaseGaussianBNNPosterior(ABC):
         """
         self.Y_dim = Y_dim
         self.whitened_Y_cols_idx = whitened_Y_cols_idx
-        self.Y_mean = torch.Tensor(Y_mean)
-        self.Y_std = torch.Tensor(Y_std)
+        if Y_mean is not None:
+            self.Y_mean = torch.Tensor(Y_mean)
+        if Y_std is not None:
+            self.Y_std = torch.Tensor(Y_std)
         self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
@@ -127,8 +129,10 @@ class BaseGaussianBNNPosterior(ABC):
         samples = torch.bmm(F, eps_low_rank).squeeze() + mu + half_var*eps_diag
         samples = samples.reshape(n_samples, self.batch_size, self.Y_dim)
         samples = samples.transpose(0, 1)
-        samples = self.unwhiten_back(samples)
-        samples = self.exponentiate_back(samples)
+        if self.whitened_Y_cols_idx is not None:
+            samples = self.unwhiten_back(samples)
+        if self.log_parameterized_Y_cols_idx is not None:
+            samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
@@ -176,8 +180,8 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(DiagonalGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
+        super(DiagonalGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
         self.out_dim = self.Y_dim*2
 
     def set_sliced_pred(self, pred):
@@ -212,8 +216,10 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.seed_samples(sample_seed)
         eps = torch.randn(self.batch_size, n_samples, self.Y_dim)
         samples = eps*torch.exp(0.5*self.logvar.unsqueeze(1)) + self.mu.unsqueeze(1)
-        samples = self.unwhiten_back(samples)
-        samples = self.exponentiate_back(samples)
+        if self.whitened_Y_cols_idx is not None:
+            samples = self.unwhiten_back(samples)
+        if self.log_parameterized_Y_cols_idx is not None:
+            samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
@@ -226,8 +232,8 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(LowRankGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
+        super(LowRankGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
         self.out_dim = self.Y_dim*4
         self.rank = 2 # FIXME: hardcoded
 
@@ -253,8 +259,8 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device):
-        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx, device)
+    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
+        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
         self.out_dim = self.Y_dim*8 + 1
         self.rank = 2 # FIXME: hardcoded
 
@@ -290,7 +296,7 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
         """
         self.seed_samples(sample_seed)
-        samples = torch.empty([self.batch_size, n_samples, self.Y_dim], device=self.device)
+        samples = torch.zeros([self.batch_size, n_samples, self.Y_dim], device=self.device)
         # Determine first vs. second Gaussian
         unif2 = torch.rand(self.batch_size, n_samples)
         second_gaussian = (self.w2 > unif2)
@@ -300,8 +306,10 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         # Sample from first Gaussian
         samples1 = torch.Tensor(self.sample_low_rank(n_samples, self.mu, self.logvar, self.F))
         samples[~second_gaussian, :] = samples1[~second_gaussian, :]
-        samples = self.unwhiten_back(samples)
-        samples = self.exponentiate_back(samples)
+        #if self.whitened_Y_cols_idx is not None:
+        #    samples = self.unwhiten_back(samples)
+        #if self.log_parameterized_Y_cols_idx is not None:
+        #    samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
