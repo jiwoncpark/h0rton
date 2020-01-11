@@ -4,7 +4,7 @@ cfg = Dict()
 
 # Global configs
 cfg.device_type = 'cuda'
-cfg.global_seed = 1225
+cfg.global_seed = 1234
 
 # Data
 cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalCosmoBNNPrior_seed=1113',
@@ -37,7 +37,7 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
 # Model
 cfg.model = Dict(architecture='resnet18',
                  load_state=True,
-                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=779_01-07-2020_15:37.mdl',
+                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=719_12-23-2019_22:22.mdl',
                  likelihood_class='DoubleGaussianNLL',
                  )
 

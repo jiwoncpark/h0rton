@@ -2,7 +2,8 @@
     "device_type": "cuda",
     "global_seed": 1234,
     "use_truth_lens_model": true,
-    "fractional_error_added_to_truth": 0.02,
+    "fractional_error_added_to_truth": 0.03,
+    "out_dir": "/home/jwp/stage/sl/h0rton/3_percent_around_truth",
     "state_dict_path": "/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=779_01-07-2020_15:37.mdl",
     "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/h0rton/train_val_config_file.py", 
     "data": {
@@ -11,7 +12,7 @@
     },
     "h0_posterior": {
         "n_samples": 1000,
-        "exclude_velocity_dispersion": true
+        "exclude_velocity_dispersion": false
     },
     "h0_prior": {
         "dist": "uniform", 

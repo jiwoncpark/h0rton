@@ -1,8 +1,5 @@
-import random
-import warnings
 import numpy as np
 import mpmath as mp
-from tqdm import tqdm
 from astropy.cosmology import FlatLambdaCDM
 import baobab.sim_utils.kinematics_utils as kinematics_utils
 from lenstronomy.LensModel.lens_model import LensModel
@@ -31,6 +28,7 @@ class H0Posterior:
     """Represents the posterior over H0
 
     """
+    required_params = ['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic', 'src_light_center_x', 'src_light_center_y',]
     def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, kinematics=None):
         """
 
@@ -103,6 +101,15 @@ class H0Posterior:
     def set_cosmology_observables(self, z_lens, z_src, measured_vd, measured_vd_err, measured_td, measured_td_err, abcd_ordering_i):
         """Set the cosmology observables for a given lens system
 
+        Parameters
+        ----------
+        measured_td : np.array of shape `[n_images - 1,]`
+            the measured time delays in days (offset from the image with the smallest dec)
+        measured_td_err : float
+            the time delay measurement error in days
+        abcd_ordering_i : np.array of shape `[n_images,]`
+            the image ordering followed by `measured_td` in increasing dec. Example: if the `measured_td` are [a, b, c, d] and the corresponding image dec are [0.3, -0.1, 0.8, 0.4], then `abcd_ordering_i` are [1, 0, 3, 2].
+
         """
         self.z_lens = z_lens
         self.z_src = z_src
@@ -112,7 +119,7 @@ class H0Posterior:
         self.measured_td_err = np.array(measured_td_err)
         self.abcd_ordering_i = abcd_ordering_i
         # Number of AGN images
-        self.n_img = len(measured_td)
+        self.n_img = len(measured_td) + 1
 
     def set_lens_model(self, bnn_sample):
         """Set the lens model parameters for a given lens mass model
@@ -128,7 +135,9 @@ class H0Posterior:
                         'gamma': bnn_sample['lens_mass_gamma'],}
         # External shear
         kwargs_shear = {'gamma_ext': bnn_sample['external_shear_gamma_ext'],
-                        'psi_ext': bnn_sample['external_shear_psi_ext'],}
+                        'psi_ext': bnn_sample['external_shear_psi_ext'],
+                        'ra_0': 0.0,
+                        'dec_0': 0.0}
         # AGN point source
         kwargs_ps = {'ra_source': bnn_sample['src_light_center_x'],
                       'dec_source': bnn_sample['src_light_center_y'],}
