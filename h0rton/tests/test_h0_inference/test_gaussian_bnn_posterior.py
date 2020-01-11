@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import pandas as pd
 import torch
 
 class TestGaussianBNNPosterior(unittest.TestCase):
@@ -21,7 +22,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         logvar = np.abs(np.random.randn(batch_size, Y_dim))
         pred = np.concatenate([mu, logvar], axis=1)
         # Get h0rton samples
-        diagonal_bnn_post = DiagonalGaussianBNNPosterior(torch.Tensor(pred), Y_dim, device)
+        diagonal_bnn_post = DiagonalGaussianBNNPosterior(Y_dim, device)
+        diagonal_bnn_post.set_sliced_pred(torch.Tensor(pred))
         h0rton_samples = diagonal_bnn_post.sample(10**6, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
@@ -53,7 +55,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         FFT = np.matmul(F_unraveled, np.swapaxes(F_unraveled, 1, 2))
         pred = np.concatenate([mu, logvar, F], axis=1)
         # Get h0rton samples
-        low_rank_bnn_post = LowRankGaussianBNNPosterior(torch.Tensor(pred), Y_dim, device)
+        low_rank_bnn_post = LowRankGaussianBNNPosterior(Y_dim, device)
+        low_rank_bnn_post.set_sliced_pred(torch.Tensor(pred),)
         h0rton_samples = low_rank_bnn_post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
@@ -98,7 +101,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         alpha = np.random.randn(batch_size, 1)
         pred = np.concatenate([mu, logvar, F, mu2, logvar2, F2, alpha], axis=1)
         # Get h0rton samples
-        double_bnn_post = DoubleGaussianBNNPosterior(torch.Tensor(pred), Y_dim, device)
+        double_bnn_post = DoubleGaussianBNNPosterior(Y_dim, device)
+        double_bnn_post.set_sliced_pred(torch.Tensor(pred),)
         h0rton_samples = double_bnn_post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
@@ -107,6 +111,40 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         w1 = 1.0 - w2
         exp_mean = mu*w1 + mu2*w2
         np.testing.assert_array_almost_equal(h0rton_mean, exp_mean, decimal=2)
+
+    def test_reverse_transformation(self):
+        """Test the reverse transformation of the samples (unwhitening and exponentiating)
+
+        """
+        from h0rton.h0_inference import DoubleGaussianBNNPosterior
+        import h0rton.trainval_data.data_utils as data_utils
+        batch_size = 5
+        Y_dim = 3
+        n_samples = 10
+        Y_cols = ['a', 'b', 'c']
+        cols_to_whiten = ['a', 'b']
+        cols_to_log_parameterize = ['b', 'c']
+        col_mapping = dict(zip(Y_cols, np.arange(Y_dim)))
+        cols_to_whiten_idx = list(map(col_mapping.get, cols_to_whiten))
+        cols_to_log_parameterize_idx = list(map(col_mapping.get, cols_to_log_parameterize))
+        mean = np.array([0.5, 0.4]).reshape(1, -1)
+        std = np.array([0.6, 0.7]).reshape(1, -1)
+
+        samples = pd.DataFrame(np.abs(np.random.randn(batch_size, Y_dim)), columns=['a', 'b', 'c'])
+        data_utils
+        # Transform
+        trans_samples = data_utils.log_parameterize_Y_cols(samples.copy(), cols_to_log_parameterize)
+        trans_samples = data_utils.whiten_Y_cols(trans_samples, cols_to_whiten, mean, std)
+        trans_samples = trans_samples.values[:, np.newaxis, :]
+        # Reverse transform
+        dummy_bnn_post = DoubleGaussianBNNPosterior(Y_dim, 'cpu', whitened_Y_cols_idx=cols_to_whiten_idx, Y_mean=mean, Y_std=std, log_parameterized_Y_cols_idx=cols_to_log_parameterize_idx)
+        #print(trans_samples.squeeze())
+        returned_samples = dummy_bnn_post.unwhiten_back(torch.Tensor(trans_samples))
+        #print(returned_samples.squeeze())
+        returned_samples = dummy_bnn_post.exponentiate_back(returned_samples)
+        #print(returned_samples.squeeze())
+
+        np.testing.assert_array_almost_equal(returned_samples.squeeze(), samples[Y_cols].values, err_msg='transformed-back samples not equal to the original samples')
 
 if __name__ == '__main__':
     unittest.main()
