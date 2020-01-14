@@ -9,13 +9,12 @@ cfg.global_seed = 1234
 # Data
 cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalCosmoBNNPrior_seed=1113',
                 val_dir='/home/jwp/stage/sl/h0rton/Rung1_val_prior=DiagonalCosmoBNNPrior_seed=1225',
-                Y_cols_to_log_parameterize=['lens_mass_gamma', 'lens_mass_theta_E',
-                         'lens_light_R_sersic',],
+                Y_cols_to_log_parameterize=[],
                 Y_cols_to_whiten=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma1', 'external_shear_gamma2', 'lens_light_R_sersic',
                          'src_light_center_x', 'src_light_center_y',],
                 Y_cols=['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma1', 'external_shear_gamma2', 'lens_light_R_sersic',
                          'src_light_center_x', 'src_light_center_y',],
-                n_plotting=400,
+                n_plotting=100,
                 add_noise=True,
                 noise_kwargs=dict(
                                   pixel_scale=0.08,
@@ -36,17 +35,17 @@ cfg.data = Dict(train_dir='/home/jwp/stage/sl/h0rton/Rung1_train_prior=DiagonalC
 
 # Model
 cfg.model = Dict(architecture='resnet18',
-                 load_state=True,
-                 state_path='/home/jwp/stage/sl/h0rton/saved_models/resnet18_epoch=719_12-23-2019_22:22.mdl',
+                 load_state=False,
+                 state_path=None,
                  likelihood_class='DoubleGaussianNLL',
                  )
 
 # Optimization
-cfg.optim = Dict(n_epochs=200000,
-                 learning_rate=7e-5,
+cfg.optim = Dict(n_epochs=10000,
+                 learning_rate=3e-4,
                  weight_decay=1.e-5,
                  batch_size=500,
-                 lr_scheduler=Dict(milestones=[10, 30, 50], # with respect to resuming point
+                 lr_scheduler=Dict(milestones=[500], # with respect to resuming point
                                    gamma=0.5))
 
 # Logging

@@ -92,7 +92,7 @@ def main():
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=device)
     # Instantiate posterior (for logging)
-    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, val_data.Y_cols_to_whiten_idx, val_data.train_Y_mean, val_data.train_Y_std, val_data.Y_cols_to_log_parameterize_idx, device)
+    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.Y_cols_to_whiten_idx, val_data.train_Y_mean, val_data.train_Y_std, val_data.Y_cols_to_log_parameterize_idx)
     # Instantiate model
     net = getattr(torchvision.models, cfg.model.architecture)(pretrained=True)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
@@ -174,11 +174,11 @@ def main():
                                    'val': val_loss
                                    },
                                    epoch)
-                rmse = train_utils.get_rmse(mu, Y_plt)
+                #rmse = train_utils.get_rmse(mu, Y_plt)
                 rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
                 logger.add_scalars('metrics/rmse',
                                    {
-                                   'rmse': rmse,
+                                   #'rmse': rmse,
                                    'rmse_orig': rmse_orig,
                                    },
                                    epoch)
