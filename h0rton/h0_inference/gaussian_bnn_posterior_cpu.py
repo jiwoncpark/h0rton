@@ -31,17 +31,15 @@ class BaseGaussianBNNPosterior(ABC):
         """
         self.Y_dim = Y_dim
         self.whitened_Y_cols_idx = whitened_Y_cols_idx
+        self.Y_mean = Y_mean
+        self.Y_std = Y_std
         self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
         if len(self.whitened_Y_cols_idx) == 0 or self.whitened_Y_cols_idx is None:
             self.whitened_Y_cols_idx = None
             self.Y_mean = None
             self.Y_std = None
-        else:
-            self.Y_mean = torch.Tensor(Y_mean)
-            self.Y_std = torch.Tensor(Y_std)
         if len(self.log_parameterized_Y_cols_idx) == 0 or self.log_parameterized_Y_cols_idx is None:
             self.log_parameterized_Y_cols_idx = None
-        self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
         self.logsigmoid = torch.nn.LogSigmoid()
@@ -100,11 +98,9 @@ class BaseGaussianBNNPosterior(ABC):
             the original tensor
 
         """
-        tensor = tensor.unsqueeze(1)
-        if self.whitened_Y_cols_idx is not None:
-            tensor = self.unwhiten_back(tensor)
-        if self.log_parameterized_Y_cols_idx is not None:
-            tensor = self.exponentiate_back(tensor)
+        tensor = np.expand_dims(tensor, axis=1)
+        tensor = self.unwhiten_back(tensor)
+        tensor = self.exponentiate_back(tensor)
         return tensor.squeeze()
 
     def sample_low_rank(self, n_samples, mu, logvar, F):
@@ -128,23 +124,22 @@ class BaseGaussianBNNPosterior(ABC):
 
         """
         #F = torch.unsqueeze(F, dim=1).repeat(1, n_samples, 1, 1) # [self.batch_size, n_samples, self.Y_dim, self.rank]
-        F = F.repeat(n_samples, 1, 1) # [self.batch_size*n_samples, self.Y_dim, self.rank]
-        mu = mu.repeat(n_samples, 1) # [self.batch_size*n_samples, self.Y_dim]
-        logvar = logvar.repeat(n_samples, 1) # [self.batch_size*n_samples, self.Y_dim]
-        eps_low_rank = torch.randn(self.batch_size*n_samples, self.rank, 1)
-        eps_diag = torch.randn(self.batch_size*n_samples, self.Y_dim)
-        half_var = torch.exp(0.5*logvar) # [self.batch_size*n_samples, self.Y_dim]
-        samples = torch.bmm(F, eps_low_rank).squeeze() + mu + half_var*eps_diag
-        samples = samples.reshape(n_samples, self.batch_size, self.Y_dim)
-        samples = samples.transpose(0, 1)
-        #print("before", samples[:, :, 2])
+        F = np.repeat(F, repeats=n_samples, axis=0) # [self.batch_size*n_samples, self.Y_dim, self.rank]
+        mu = np.repeat(mu, repeats=n_samples, axis=0) # [self.batch_size*n_samples, self.Y_dim]
+        logvar = np.repeat(logvar, repeats=n_samples, axis=0) # [self.batch_size*n_samples, self.Y_dim]
+        eps_low_rank = np.random.randn(self.batch_size*n_samples, self.rank, 1)
+        eps_diag = np.random.randn(self.batch_size*n_samples, self.Y_dim)
+        half_var = np.exp(0.5*logvar) # [self.batch_size*n_samples, self.Y_dim]
+        samples = np.matmul(F, eps_low_rank).squeeze() + mu + half_var*eps_diag # [self.batch_size*n_samples, self.Y_dim]
+        samples = samples.reshape(self.batch_size, n_samples, self.Y_dim)
+        #samples = samples.transpose((1, 0, 2)) # [self.batch_size, n_samples, self.Y_dim]
+        print("before", samples[:, :, 2])
         if self.whitened_Y_cols_idx is not None:
             samples = self.unwhiten_back(samples)
-        #print("after unwhiten", samples[:, :, 2])
+        print("after unwhiten", samples[:, :, 2])
         if self.log_parameterized_Y_cols_idx is not None:
             samples = self.exponentiate_back(samples)
-        #print("after exp", samples[:, :, 2])
-        samples = samples.data.cpu().numpy()
+        print("after exp", samples[:, :, 2])
         return samples
 
     def unwhiten_back(self, sample):
@@ -161,7 +156,7 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        unwhitened_sub = sample[:, :, self.whitened_Y_cols_idx]
+        unwhitened_sub = sample[:, :, self.whitened_Y_cols_idx] # [batch_size, n_samples, n_cols_to_whiten]
         unwhitened_sub = unwhitened_sub*self.Y_std[:, np.newaxis, :] + self.Y_mean[:, np.newaxis, :]
         sample[:, :, self.whitened_Y_cols_idx] = unwhitened_sub
         return sample
@@ -180,9 +175,7 @@ class BaseGaussianBNNPosterior(ABC):
             the unwhitened pred
         
         """
-        log_sub = sample[:, :, self.log_parameterized_Y_cols_idx]
-        linear_sub = torch.exp(log_sub)
-        sample[:, :, self.log_parameterized_Y_cols_idx] = linear_sub
+        sample[:, :, self.log_parameterized_Y_cols_idx] = np.exp(sample[:, :, self.log_parameterized_Y_cols_idx])
         return sample
 
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
@@ -197,6 +190,7 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
+        pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:]
@@ -225,13 +219,12 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
         """
         self.seed_samples(sample_seed)
-        eps = torch.randn(self.batch_size, n_samples, self.Y_dim)
-        samples = eps*torch.exp(0.5*self.logvar.unsqueeze(1)) + self.mu.unsqueeze(1)
+        eps = np.random.randn(self.batch_size, n_samples, self.Y_dim)
+        samples = eps*np.exp(0.5*np.expand_dims(self.logvar, axis=1)) + np.expand_dims(self.mu, 1)
         if self.whitened_Y_cols_idx is not None:
             samples = self.unwhiten_back(samples)
         if self.log_parameterized_Y_cols_idx is not None:
             samples = self.exponentiate_back(samples)
-        samples = samples.data.cpu().numpy()
         return samples
 
     def get_hpd_interval(self):
@@ -250,6 +243,7 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
+        pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
@@ -277,6 +271,8 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
+        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1)).cpu().numpy()
+        pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
@@ -288,7 +284,7 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.F2 = pred[:, 6*d:8*d].reshape([self.batch_size, self.Y_dim, self.rank])
         #F_tran_F2 = np.matmul(self.F2, np.swapaxes(self.F2, 1, 2))
         #self.cov_diag2 = np.exp(self.logvar2) + np.diagonal(F_tran_F2, axis1=1, axis2=2)
-        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
+        
         
     def sample(self, n_samples, sample_seed):
         """Sample from a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance
@@ -307,21 +303,20 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
         """
         self.seed_samples(sample_seed)
-        samples = torch.zeros([self.batch_size, n_samples, self.Y_dim], device=self.device)
+        samples = np.zeros([self.batch_size, n_samples, self.Y_dim])
         # Determine first vs. second Gaussian
-        unif2 = torch.rand(self.batch_size, n_samples)
+        unif2 = np.random.rand(self.batch_size, n_samples)
         second_gaussian = (self.w2 > unif2)
         # Sample from second Gaussian
-        samples2 = torch.Tensor(self.sample_low_rank(n_samples, self.mu2, self.logvar2, self.F2))
+        samples2 = self.sample_low_rank(n_samples, self.mu2, self.logvar2, self.F2)
         samples[second_gaussian, :] = samples2[second_gaussian, :]
         # Sample from first Gaussian
-        samples1 = torch.Tensor(self.sample_low_rank(n_samples, self.mu, self.logvar, self.F))
+        samples1 = self.sample_low_rank(n_samples, self.mu, self.logvar, self.F)
         samples[~second_gaussian, :] = samples1[~second_gaussian, :]
         #if self.whitened_Y_cols_idx is not None:
         #    samples = self.unwhiten_back(samples)
         #if self.log_parameterized_Y_cols_idx is not None:
         #    samples = self.exponentiate_back(samples)
-        samples = samples.data.cpu().numpy()
         return samples
 
     def get_hpd_interval(self):
