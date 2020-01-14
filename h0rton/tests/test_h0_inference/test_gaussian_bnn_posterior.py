@@ -115,12 +115,15 @@ class TestGaussianBNNPosterior(unittest.TestCase):
     def test_reverse_transformation(self):
         """Test the reverse transformation of the samples (unwhitening and exponentiating)
 
+        Note
+        ----
+        Transformation is done on the predicted output that equals the labels, rather than on the samples.
+
         """
         from h0rton.h0_inference import DoubleGaussianBNNPosterior
         import h0rton.trainval_data.data_utils as data_utils
         batch_size = 5
         Y_dim = 3
-        n_samples = 10
         Y_cols = ['a', 'b', 'c']
         cols_to_whiten = ['a', 'b']
         cols_to_log_parameterize = ['b', 'c']
@@ -130,21 +133,21 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         mean = np.array([0.5, 0.4]).reshape(1, -1)
         std = np.array([0.6, 0.7]).reshape(1, -1)
 
-        samples = pd.DataFrame(np.abs(np.random.randn(batch_size, Y_dim)), columns=['a', 'b', 'c'])
+        orig_Y = pd.DataFrame(np.abs(np.random.randn(batch_size, Y_dim)), columns=['a', 'b', 'c'])
         data_utils
         # Transform
-        trans_samples = data_utils.log_parameterize_Y_cols(samples.copy(), cols_to_log_parameterize)
-        trans_samples = data_utils.whiten_Y_cols(trans_samples, cols_to_whiten, mean, std)
-        trans_samples = trans_samples.values[:, np.newaxis, :]
+        trans_Y = data_utils.log_parameterize_Y_cols(orig_Y.copy(), cols_to_log_parameterize)
+        trans_Y = data_utils.whiten_Y_cols(trans_Y, cols_to_whiten, mean, std)
+        trans_Y = trans_Y.values[:, np.newaxis, :]
         # Reverse transform
         dummy_bnn_post = DoubleGaussianBNNPosterior(Y_dim, 'cpu', whitened_Y_cols_idx=cols_to_whiten_idx, Y_mean=mean, Y_std=std, log_parameterized_Y_cols_idx=cols_to_log_parameterize_idx)
         #print(trans_samples.squeeze())
-        returned_samples = dummy_bnn_post.unwhiten_back(torch.Tensor(trans_samples))
+        returned_pred = dummy_bnn_post.unwhiten_back(torch.Tensor(trans_Y))
         #print(returned_samples.squeeze())
-        returned_samples = dummy_bnn_post.exponentiate_back(returned_samples)
+        returned_pred = dummy_bnn_post.exponentiate_back(returned_pred)
         #print(returned_samples.squeeze())
 
-        np.testing.assert_array_almost_equal(returned_samples.squeeze(), samples[Y_cols].values, err_msg='transformed-back samples not equal to the original samples')
+        np.testing.assert_array_almost_equal(returned_pred.squeeze(), orig_Y[Y_cols].values, err_msg='transformed-back pred not equal to the original Y')
 
 if __name__ == '__main__':
     unittest.main()
