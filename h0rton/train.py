@@ -94,7 +94,7 @@ def main():
     # Instantiate posterior (for logging)
     bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.Y_cols_to_whiten_idx, val_data.train_Y_mean, val_data.train_Y_std, val_data.Y_cols_to_log_parameterize_idx)
     # Instantiate model
-    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=True)
+    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=False)
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
     net.to(device)
@@ -198,7 +198,7 @@ def main():
                     for param_idx, param_name in enumerate(cfg.data.Y_cols):
                         tag = '1d_mapping/{:s}'.format(param_name)
                         fig = train_utils.get_1d_mapping_fig(param_name, mu_orig[:, param_idx], Y_plt_orig[:, param_idx])
-                        logger.add_figure(tag, fig)
+                        logger.add_figure(tag, fig, global_step=epoch)
 
             if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
                 # FIXME compare to last saved epoch val loss
