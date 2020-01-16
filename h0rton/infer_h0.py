@@ -202,7 +202,7 @@ def main():
                                           abcd_ordering_i=np.arange(len(cosmo['measured_td']) + 1)
                                           )
         # Initialize output array
-        h0_samples = np.zeros(n_samples)
+        h0_samples = np.zeros(n_samples) - 1
         h0_weights = np.zeros(n_samples)
         for sample_i in tqdm(range(n_samples)):
             single_bnn_sample = bnn_sample_df.iloc[sample_i]
@@ -214,12 +214,9 @@ def main():
                 continue
             h0_samples[sample_i] = h0
             h0_weights[sample_i] = weight
-        # Remove samples with nan weights
-        is_nan_mask = np.isnan(h0_weights)
-        h0_samples = h0_samples[~is_nan_mask]
-        h0_weights = h0_weights[~is_nan_mask]
         # Normalize weights to unity
-        h0_weights /= np.sum(h0_weights)
+        is_nan_mask = np.isnan(h0_weights)
+        h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
         h0_dict = dict(
                        h0_samples=h0_samples,
                        h0_weights=h0_weights,
