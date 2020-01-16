@@ -186,7 +186,7 @@ def main():
     
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
-    for lens_i in tqdm(range(n_test)):
+    for lens_i in tqdm(range(28, n_test)):
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
@@ -202,7 +202,7 @@ def main():
                                           abcd_ordering_i=np.arange(len(cosmo['measured_td']) + 1)
                                           )
         # Initialize output array
-        h0_samples = np.zeros(n_samples) - 1
+        h0_samples = np.full(n_samples, np.nan) # nan if the sample errored and was skipped
         h0_weights = np.zeros(n_samples)
         for sample_i in tqdm(range(n_samples)):
             single_bnn_sample = bnn_sample_df.iloc[sample_i]
@@ -223,7 +223,7 @@ def main():
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
-        mean_h0, std_h0 = plot_h0_histogram(h0_dict, lens_i, cosmo['H0'], save_dir=out_dir)
+        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
     h0_stats = dict(
