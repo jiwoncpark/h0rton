@@ -128,21 +128,6 @@ def main():
             pred = net(X)
             break
 
-    #################
-    # BNN Posterior #
-    #################
-    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.Y_cols_to_whiten_idx, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std, train_val_cfg.data.Y_cols_to_log_parameterize_idx)
-    bnn_post.set_sliced_pred(pred)
-    # Ground truth
-    Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, -1)
-    Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
-    if 'external_shear_gamma1' in Y_orig_df.columns:
-        Y_orig_df = baobab.sim_utils.add_gamma_psi_ext_columns(Y_orig_df)
-    augmented_Y_dim = len(Y_orig_df.columns.values)
-
-    n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
-    bnn_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim)
-
     ################
     # H0 Posterior #
     ################
@@ -171,17 +156,39 @@ def main():
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
         if 'abcd_ordering_i' not in cosmo_df:
             raise ValueError("If the time delay measurements were not generated using Baobab, the user must specify the order of image positions in which the time delays are listed, in order of increasing dec.")
-    bnn_samples = pd.DataFrame(bnn_samples, columns=train_val_cfg.data.Y_cols)
-    # Convert shear and ellipticity to gamma/psi and e1/e2, respectively
-    if 'external_shear_gamma1' in bnn_samples.columns:
-        bnn_samples = baobab.sim_utils.add_gamma_psi_ext_columns(bnn_samples)
     required_params = h0_post.required_params
-    bnn_samples_values = bnn_samples[required_params].values.reshape(n_test, n_samples, -1)
+
+    ########################
+    # Lens Model Posterior #
+    ########################
+    n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
+    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.Y_cols_to_whiten_idx, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std, train_val_cfg.data.Y_cols_to_log_parameterize_idx)
+    # Sampling must precede reverse transformation b/c of sticky variable bug.
+    if test_cfg.use_truth_lens_model:
+        # Add artificial noise around the truth values
+        Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
+        Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
+        # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
+        if 'external_shear_gamma1' in Y_orig_df.columns:
+            Y_orig_df = baobab.sim_utils.add_gamma_psi_ext_columns(Y_orig_df) # [n_test, augmented_Y_dim]
+        Y_orig_values = Y_orig_df[required_params].values[:, np.newaxis, :] # [n_test, 1, Y_dim]
+        artificial_noise = np.random.randn(n_test, n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, n_samples, Y_dim]
+        lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, n_samples, Y_dim]
+    else:
+        # Sample from the BNN posterior
+        bnn_post.set_sliced_pred(pred)
+        lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
+        lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
+        # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
+        if 'external_shear_gamma1' in lens_model_samples_df.columns:
+            lens_model_samples_df = baobab.sim_utils.add_gamma_psi_ext_columns(lens_model_samples_df)
+        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, n_samples, -1)
+    
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
     for lens_i in tqdm(range(n_test)):
         # BNN samples for lens_i
-        bnn_sample_df = pd.DataFrame(bnn_samples_values[lens_i, :, :], columns=required_params)
+        bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
         cosmo = cosmo_df.iloc[lens_i]
         #print("TRUTH", Y_orig[lens_i, :])
@@ -198,10 +205,7 @@ def main():
         h0_samples = np.zeros(n_samples)
         h0_weights = np.zeros(n_samples)
         for sample_i in tqdm(range(n_samples)):
-            if test_cfg.use_truth_lens_model:
-                single_bnn_sample = Y_orig_df.iloc[lens_i] + np.random.randn(augmented_Y_dim)*Y_orig_df.iloc[lens_i]*test_cfg.fractional_error_added_to_truth
-            else:
-                single_bnn_sample = bnn_sample_df.iloc[sample_i]
+            single_bnn_sample = bnn_sample_df.iloc[sample_i]
             h0_post.set_lens_model(bnn_sample=single_bnn_sample)
             #print("PRED", bnn_sample_df.iloc[sample_i])
             try:
@@ -210,6 +214,10 @@ def main():
                 continue
             h0_samples[sample_i] = h0
             h0_weights[sample_i] = weight
+        # Remove samples with nan weights
+        is_nan_mask = np.isnan(h0_weights)
+        h0_samples = h0_samples[~is_nan_mask]
+        h0_weights = h0_weights[~is_nan_mask]
         # Normalize weights to unity
         h0_weights /= np.sum(h0_weights)
         h0_dict = dict(
