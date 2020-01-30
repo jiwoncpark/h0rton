@@ -15,6 +15,7 @@ import argparse
 import random
 from addict import Dict
 from tqdm import tqdm
+from ast import literal_eval
 import json
 import glob
 import numpy as np
@@ -122,11 +123,17 @@ def main():
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)
     with torch.no_grad():
         net.eval()
-        for _, (X_, Y_) in enumerate(test_loader):
+        for X_, Y_ in test_loader:
             X = X_.to(device)
             Y = Y_.to(device)
             pred = net(X)
             break
+
+    # Export the input images X for later error analysis
+    if test_cfg.export_images:
+        for lens_i in range(n_test):
+            X_img_path = os.path.join(out_dir, 'X_{0:04d}.npy'.format(lens_i))
+            np.save(X_img_path, X[lens_i, 0, :, :].cpu().numpy())
 
     ################
     # H0 Posterior #
@@ -164,17 +171,7 @@ def main():
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
     bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.Y_cols_to_whiten_idx, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std, train_val_cfg.data.Y_cols_to_log_parameterize_idx)
     # Sampling must precede reverse transformation b/c of sticky variable bug.
-    if test_cfg.use_truth_lens_model:
-        # Add artificial noise around the truth values
-        Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
-        Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
-        # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
-        if 'external_shear_gamma1' in Y_orig_df.columns:
-            Y_orig_df = baobab.sim_utils.add_gamma_psi_ext_columns(Y_orig_df) # [n_test, augmented_Y_dim]
-        Y_orig_values = Y_orig_df[required_params].values[:, np.newaxis, :] # [n_test, 1, Y_dim]
-        artificial_noise = np.random.randn(n_test, n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, n_samples, Y_dim]
-        lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, n_samples, Y_dim]
-    else:
+    if not test_cfg.use_truth_lens_model:
         # Sample from the BNN posterior
         bnn_post.set_sliced_pred(pred)
         lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
@@ -183,23 +180,48 @@ def main():
         if 'external_shear_gamma1' in lens_model_samples_df.columns:
             lens_model_samples_df = baobab.sim_utils.add_gamma_psi_ext_columns(lens_model_samples_df)
         lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, n_samples, -1)
-    
+
+    # Add artificial noise around the truth values
+    Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
+    Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
+    # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
+    if 'external_shear_gamma1' in Y_orig_df.columns:
+        Y_orig_df = baobab.sim_utils.add_gamma_psi_ext_columns(Y_orig_df) # [n_test, augmented_Y_dim]
+    Y_orig_values = Y_orig_df[required_params].values # [n_test, Y_dim]
+    if test_cfg.export_reverse_transformed_truth:
+        pd.DataFrame(Y_orig_values, columns=required_params).to_csv(os.path.join(out_dir, 'Y_truth.csv'), index=False)
+    if test_cfg.export_reverse_transformed_mu:
+        pred_values = bnn_post.transform_back(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
+        pred_df = pd.DataFrame(pred_values, columns=train_val_cfg.data.Y_cols)
+        # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
+        if 'external_shear_gamma1' in pred_df.columns:
+            pred_df = baobab.sim_utils.add_gamma_psi_ext_columns(pred_df) # [n_test, augmented_Y_dim]
+        pred_df[required_params].to_csv(os.path.join(out_dir, 'pred_mu.csv'), index=False)
+    if test_cfg.use_truth_lens_model:
+        Y_orig_values = Y_orig_values[:, np.newaxis, :] # [n_test, 1, Y_dim]
+        artificial_noise = np.random.randn(n_test, n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, n_samples, Y_dim]
+        lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, n_samples, Y_dim]
+
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
-    for lens_i in tqdm(range(28, n_test)):
+    for lens_i in tqdm(range(n_test)):
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
         cosmo = cosmo_df.iloc[lens_i]
+        #print()
         #print("TRUTH", Y_orig[lens_i, :])
+        true_td = np.array(literal_eval(cosmo['true_td']))
+        true_img_dec = np.trim_zeros(cosmo[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
         h0_post.set_cosmology_observables(
                                           z_lens=cosmo['z_lens'], 
                                           z_src=cosmo['z_src'], 
-                                          measured_vd=cosmo['measured_vd'], 
-                                          measured_vd_err=cosmo['measured_vd_err'], 
-                                          measured_td=cosmo['measured_td'],
-                                          measured_td_err=cosmo['measured_td_err'], 
-                                          abcd_ordering_i=np.arange(len(cosmo['measured_td']) + 1)
+                                          measured_vd=cosmo['true_vd']*(1.0 + np.random.randn()*test_cfg.error_model.velocity_dispersion_frac_error), 
+                                          measured_vd_err=test_cfg.velocity_dispersion_likelihood.sigma, 
+                                          measured_td=true_td + np.random.randn(*true_td.shape)*test_cfg.error_model.time_delay_error,
+                                          measured_td_err=test_cfg.time_delay_likelihood.sigma, 
+                                          abcd_ordering_i=np.arange(len(true_td)),
+                                          true_img_dec=true_img_dec,
                                           )
         # Initialize output array
         h0_samples = np.full(n_samples, np.nan) # nan if the sample errored and was skipped
@@ -215,7 +237,7 @@ def main():
             h0_samples[sample_i] = h0
             h0_weights[sample_i] = weight
         # Normalize weights to unity
-        is_nan_mask = np.isnan(h0_weights)
+        is_nan_mask = np.logical_or(np.isnan(h0_weights), ~np.isfinite(h0_weights))
         h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
         h0_dict = dict(
                        h0_samples=h0_samples,
