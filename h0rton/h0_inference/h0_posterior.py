@@ -28,7 +28,7 @@ class H0Posterior:
     """Represents the posterior over H0
 
     """
-    required_params = ['lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic', 'src_light_center_x', 'src_light_center_y',]
+    required_params = ['lens_mass_center_x', 'lens_mass_center_y', 'lens_mass_gamma', 'lens_mass_theta_E', 'lens_mass_e1', 'lens_mass_e2', 'external_shear_gamma_ext', 'external_shear_psi_ext', 'lens_light_R_sersic', 'src_light_center_x', 'src_light_center_y',]
     def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, kinematics=None):
         """
 
@@ -98,17 +98,19 @@ class H0Posterior:
         """
         return cls(lens_dict.items())
 
-    def set_cosmology_observables(self, z_lens, z_src, measured_vd, measured_vd_err, measured_td, measured_td_err, abcd_ordering_i):
-        """Set the cosmology observables for a given lens system
+    def set_cosmology_observables(self, z_lens, z_src, measured_vd, measured_vd_err, measured_td, measured_td_err, abcd_ordering_i, true_img_dec):
+        """Set the cosmology observables for a given lens system, persistent across all the samples for that system
 
         Parameters
         ----------
-        measured_td : np.array of shape `[n_images - 1,]`
-            the measured time delays in days (offset from the image with the smallest dec)
+        measured_td : np.array of shape `[n_images,]`
+            the measured time delays in days 
         measured_td_err : float
             the time delay measurement error in days
         abcd_ordering_i : np.array of shape `[n_images,]`
             the image ordering followed by `measured_td` in increasing dec. Example: if the `measured_td` are [a, b, c, d] and the corresponding image dec are [0.3, -0.1, 0.8, 0.4], then `abcd_ordering_i` are [1, 0, 3, 2].
+        true_img_dec : np.array of shape `[n_images, ]`
+            dec of the true image positions in arcsec
 
         """
         self.z_lens = z_lens
@@ -118,8 +120,18 @@ class H0Posterior:
         self.measured_td = np.array(measured_td)
         self.measured_td_err = np.array(measured_td_err)
         self.abcd_ordering_i = abcd_ordering_i
+        self.true_img_dec = true_img_dec
+        self._reorder_measured_td_to_tdlmc()
         # Number of AGN images
-        self.n_img = len(measured_td) + 1
+        self.n_img = len(measured_td)
+
+    def _reorder_measured_td_to_tdlmc(self):
+        """Reorder the measured time delays (same for all lens model samples)
+
+        """
+        reordered_measured_td = self.reorder_to_tdlmc(self.measured_td, np.argsort(self.true_img_dec), self.abcd_ordering_i)
+        # Measured time in days (offset from the image with the smallest dec)
+        self.measured_td_wrt0 = reordered_measured_td[1:] - reordered_measured_td[0]
 
     def set_lens_model(self, bnn_sample):
         """Set the lens model parameters for a given lens mass model
@@ -128,16 +140,16 @@ class H0Posterior:
         # Lens mass
         # FIXME: hardcoded for SPEMD
         kwargs_spemd = {'theta_E': bnn_sample['lens_mass_theta_E'],
-                        'center_x': 0, 
-                        'center_y': 0,
+                        'center_x': bnn_sample['lens_mass_center_x'], 
+                        'center_y': bnn_sample['lens_mass_center_y'],
                         'e1': bnn_sample['lens_mass_e1'], 
                         'e2': bnn_sample['lens_mass_e2'], 
                         'gamma': bnn_sample['lens_mass_gamma'],}
         # External shear
         kwargs_shear = {'gamma_ext': bnn_sample['external_shear_gamma_ext'],
                         'psi_ext': bnn_sample['external_shear_psi_ext'],
-                        'ra_0': 0.0,
-                        'dec_0': 0.0}
+                        'ra_0': bnn_sample['lens_mass_center_x'],
+                        'dec_0': bnn_sample['lens_mass_center_y']}
         # AGN point source
         kwargs_ps = {'ra_source': bnn_sample['src_light_center_x'],
                       'dec_source': bnn_sample['src_light_center_y'],}
@@ -200,11 +212,11 @@ class H0Posterior:
         model_ra = self.kwargs_ps[0]['ra_image']
         model_dec = self.kwargs_ps[0]['dec_image']
         if self.requires_reordering:
-            model_ra = self.reorder_to_tdlmc(model_ra)
-            model_dec = self.reorder_to_tdlmc(model_dec)
+            model_ra = self.reorder_to_tdlmc(model_ra, self.increasing_dec_i, self.abcd_ordering_i)
+            model_dec = self.reorder_to_tdlmc(model_dec, self.increasing_dec_i, self.abcd_ordering_i)
         
         ra_offset = model_ra - true_img_ra
-        dec_offset = model_dec - true_img_dec
+        dec_offset = model_dec - self.true_img_dec
 
         ra_offset = ra_offset.reshape(-1, 1)
         dec_offset = dec_offset.reshape(-1, 1)
@@ -212,7 +224,7 @@ class H0Posterior:
         offset = np.concatenate([ra_offset, dec_offset], axis=1)
         return np.linalg.norm(offset, axis=1)
 
-    def reorder_to_tdlmc(self, img_array):
+    def reorder_to_tdlmc(self, img_array, increasing_dec_i, abcd_ordering_i):
         """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
 
         Parameters
@@ -225,7 +237,8 @@ class H0Posterior:
         array-like
             `img_array` reordered to the TDLMC order
         """
-        img_array = np.array(img_array)[self.increasing_dec_i][self.abcd_ordering_i]
+        #print(img_array.shape, self.increasing_dec_i.shape, self.abcd_ordering_i.shape)
+        img_array = np.array(img_array)[increasing_dec_i][abcd_ordering_i]
         return img_array
 
     def get_sample(self):
@@ -268,19 +281,12 @@ class H0Posterior:
         # Time delays
         inferred_td = td_cosmo.time_delays(self.kwargs_lens, self.kwargs_ps, kappa_ext=k_ext)
         if self.requires_reordering:
-            inferred_td = self.reorder_to_tdlmc(inferred_td)
+            inferred_td = self.reorder_to_tdlmc(inferred_td, self.increasing_dec_i, self.abcd_ordering_i)
         else:
             inferred_td = np.array(inferred_td)
-        inferred_td = inferred_td[1:] - inferred_td[0]
-        ll_td = np.sum(gaussian_ll_pdf(inferred_td, self.measured_td, self.measured_td_err))
+        inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]
+        #print(inferred_td, self.measured_td)
+        ll_td = np.sum(gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
         log_w = ll_vd + ll_td
         weight = mp.exp(log_w)
         return h0_candidate, weight 
-
-
-
-
-
-
-
-
