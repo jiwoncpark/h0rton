@@ -27,6 +27,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         """
         self.__dict__ = data_cfg
         self.dataset_dir = dataset_dir
+        # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(rescale_01)
         stack = transforms.Lambda(stack_rgb)
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
@@ -36,8 +37,14 @@ class XYData(Dataset): # torch.utils.data.Dataset
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
         Y_df = pd.read_csv(metadata_path, index_col=False)
         Y_df = add_g1g2_columns(Y_df)
+        # Define source light position as offset from lens mass
+        Y_df['src_light_center_x'] = Y_df['src_light_center_x'] - Y_df['lens_mass_center_x']
+        Y_df['src_light_center_y'] = Y_df['src_light_center_y'] - Y_df['lens_mass_center_y']
+        # Take only the columns we need
         self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
+        # Size of dataset
         self.n_data = self.Y_df.shape[0]
+        # Number of predictive columns
         self.Y_dim = len(self.Y_cols)
         # Log parameterizing
         if len(self.Y_cols_to_log_parameterize) > 0:

@@ -26,6 +26,7 @@ class XYCosmoData(Dataset): # torch.utils.data.Dataset
         """
         self.__dict__ = data_cfg
         self.dataset_dir = dataset_dir
+        # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(rescale_01)
         stack = transforms.Lambda(stack_rgb)
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
@@ -35,10 +36,17 @@ class XYCosmoData(Dataset): # torch.utils.data.Dataset
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
         metadata_df = pd.read_csv(metadata_path, index_col=False, converters={'measured_td': eval})
         metadata_df = add_g1g2_columns(metadata_df)
+        # Define source light position as offset from lens mass
+        metadata_df['src_light_center_x'] = metadata_df['src_light_center_x'] - metadata_df['lens_mass_center_x']
+        metadata_df['src_light_center_y'] = metadata_df['src_light_center_y'] - metadata_df['lens_mass_center_y']
+        # Take only the columns we need
         self.Y_df = metadata_df[self.Y_cols + ['img_filename']].copy()
-        self.cosmo_df = metadata_df[['z_lens', 'z_src', 'H0', 'x_image_0', 'x_image_1', 'x_image_2', 'x_image_3', 'y_image_0', 'y_image_1', 'y_image_2', 'y_image_3', 'measured_vd', 'measured_vd_err', 'measured_td', 'measured_td_err']].copy()
+        # Cosmology-related metadata we need for H0 inference
+        self.cosmo_df = metadata_df[['z_lens', 'z_src', 'H0', 'x_image_0', 'x_image_1', 'x_image_2', 'x_image_3', 'y_image_0', 'y_image_1', 'y_image_2', 'y_image_3', 'true_vd', 'true_td']].copy()
         del metadata_df
+        # Size of dataset
         self.n_data = self.Y_df.shape[0]
+        # Number of predictive columns
         self.Y_dim = len(self.Y_cols)
         # Log parameterizing
         if len(self.Y_cols_to_log_parameterize) > 0:
