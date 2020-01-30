@@ -1,17 +1,24 @@
 {
     "device_type": "cuda",
     "global_seed": 1234,
-    "use_truth_lens_model": true,
+    "use_truth_lens_model": false,
+    "error_model": {
+        "time_delay_error": 0.25,
+        "velocity_dispersion_frac_error": 0.05  
+    },
     "fractional_error_added_to_truth": 0.01,
-    "out_dir": "/home/jwp/stage/sl/h0rton/1_percent_around_truth",
-    "state_dict_path": "/home/jwp/stage/sl/h0rton/overnight_models/resnet34_epoch=864_01-15-2020_04:36.mdl",
-    "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/h0rton/train_val_config_file.py", 
+    "export_images": true,
+    "export_reverse_transformed_truth": true,
+    "export_reverse_transformed_mu": true,
+    "out_dir": "/home/jwp/stage/sl/h0rton/lens_pos_default_bnn",
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/lens_pos_models/resnet34_epoch=854_01-28-2020_04:31.mdl",
+    "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/h0rton/v2_train_val_config_file.py", 
     "data": {
-        "test_dir": "/home/jwp/stage/sl/h0rton/Rung1_test_prior=DiagonalCosmoBNNPrior_seed=1234",
+        "test_dir": "/home/jwp/stage/sl/h0rton/Rung1_v2_test_prior=DiagonalCosmoBNNPrior_seed=1234",
         "n_test": 100
     },
     "h0_posterior": {
-        "n_samples": 1000,
+        "n_samples": 5000,
         "exclude_velocity_dispersion": true
     },
     "h0_prior": {
@@ -36,6 +43,10 @@
         }
     },
     "time_delay_likelihood": {
-        "baobab_time_delays": true
+        "baobab_time_delays": true,
+        "sigma": 0.25
+    },
+    "velocity_dispersion_likelihood": {
+        "sigma": 20
     }
 }

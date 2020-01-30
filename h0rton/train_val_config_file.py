@@ -51,7 +51,7 @@ cfg.optim = Dict(n_epochs=1000,
                                    gamma=0.5))
 
 # Logging
-cfg.log = Dict(checkpoint_dir='overnight_models', # where to store saved models
+cfg.log = Dict(checkpoint_dir='lens_pos_models', # where to store saved models
                checkpoint_interval=5, # in epochs
                logging_interval=5, # in epochs
                monitor_sample_images=False,
