@@ -169,9 +169,10 @@ def main():
     # Lens Model Posterior #
     ########################
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
+
+    # Sampling must precede any reverse transformation b/c of sticky variable bug.
     bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.Y_cols_to_whiten_idx, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std, train_val_cfg.data.Y_cols_to_log_parameterize_idx)
-    # Sampling must precede reverse transformation b/c of sticky variable bug.
-    if not test_cfg.use_truth_lens_model:
+    if test_cfg.lens_posterior_type == 'bnn':
         # Sample from the BNN posterior
         bnn_post.set_sliced_pred(pred)
         lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
@@ -181,15 +182,18 @@ def main():
             lens_model_samples_df = baobab.sim_utils.add_gamma_psi_ext_columns(lens_model_samples_df)
         lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, n_samples, -1)
 
-    # Add artificial noise around the truth values
     Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
     Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
     # Gamma needs to be in gamma/psi, not g1/g2 for h0 posterior
     if 'external_shear_gamma1' in Y_orig_df.columns:
         Y_orig_df = baobab.sim_utils.add_gamma_psi_ext_columns(Y_orig_df) # [n_test, augmented_Y_dim]
     Y_orig_values = Y_orig_df[required_params].values # [n_test, Y_dim]
+
+    # Optionally export the truth parameters Y, reverse-transformed
     if test_cfg.export_reverse_transformed_truth:
         pd.DataFrame(Y_orig_values, columns=required_params).to_csv(os.path.join(out_dir, 'Y_truth.csv'), index=False)
+
+    # Optionally export the mean of the primary Gaussian, reverse-transformed
     if test_cfg.export_reverse_transformed_mu:
         pred_values = bnn_post.transform_back(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
         pred_df = pd.DataFrame(pred_values, columns=train_val_cfg.data.Y_cols)
@@ -197,20 +201,22 @@ def main():
         if 'external_shear_gamma1' in pred_df.columns:
             pred_df = baobab.sim_utils.add_gamma_psi_ext_columns(pred_df) # [n_test, augmented_Y_dim]
         pred_df[required_params].to_csv(os.path.join(out_dir, 'pred_mu.csv'), index=False)
-    if test_cfg.use_truth_lens_model:
+
+    # Add artificial noise around the truth values
+    if test_cfg.lens_posterior_type == 'truth':
         Y_orig_values = Y_orig_values[:, np.newaxis, :] # [n_test, 1, Y_dim]
         artificial_noise = np.random.randn(n_test, n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, n_samples, Y_dim]
         lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, n_samples, Y_dim]
 
+    # Placeholders for mean and std of H0 samples per system
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
+    # For each lens system...
     for lens_i in tqdm(range(n_test)):
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
         cosmo = cosmo_df.iloc[lens_i]
-        #print()
-        #print("TRUTH", Y_orig[lens_i, :])
         true_td = np.array(literal_eval(cosmo['true_td']))
         true_img_dec = np.trim_zeros(cosmo[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
         h0_post.set_cosmology_observables(
@@ -226,10 +232,10 @@ def main():
         # Initialize output array
         h0_samples = np.full(n_samples, np.nan) # nan if the sample errored and was skipped
         h0_weights = np.zeros(n_samples)
+        # For each sample from the lens model posterior of this lens system...
         for sample_i in tqdm(range(n_samples)):
             single_bnn_sample = bnn_sample_df.iloc[sample_i]
             h0_post.set_lens_model(bnn_sample=single_bnn_sample)
-            #print("PRED", bnn_sample_df.iloc[sample_i])
             try:
                 h0, weight = h0_post.get_sample()
             except:
@@ -245,7 +251,7 @@ def main():
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
-        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], save_dir=out_dir)
+        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plot_fit_gaussian, save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
     h0_stats = dict(
