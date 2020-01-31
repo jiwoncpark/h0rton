@@ -151,8 +151,10 @@ class H0Posterior:
                         'ra_0': bnn_sample['lens_mass_center_x'],
                         'dec_0': bnn_sample['lens_mass_center_y']}
         # AGN point source
-        kwargs_ps = {'ra_source': bnn_sample['src_light_center_x'],
-                      'dec_source': bnn_sample['src_light_center_y'],}
+        kwargs_ps = {
+        'ra_source': bnn_sample['src_light_center_x'] + bnn_sample['lens_mass_center_x'],
+        'dec_source': bnn_sample['src_light_center_y'] + bnn_sample['lens_mass_center_y'],
+        }
         
         self.lens_light_R_sersic = bnn_sample['lens_light_R_sersic']
         # TODO: key checking depending on kwargs_model
