@@ -254,8 +254,9 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
         self.F = pred[:, 2*d:].reshape([self.batch_size, self.Y_dim, self.rank])
-        #F_tran_F = np.matmul(self.F, np.swapaxes(self.F, 1, 2))
-        #self.cov_diag = np.exp(self.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
+        F_tran_F = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
+        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_tran_F, dim1=1, dim2=2) # [n_lenses, d]
+        self.cov_mat = torch.diag_embed(self.logvar) + F_tran_F
 
     def sample(self, n_samples, sample_seed):
         self.seed_samples(sample_seed)
@@ -278,16 +279,20 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
         self.batch_size = pred.shape[0]
+        # First gaussian
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
         self.F = pred[:, 2*d:4*d].reshape([self.batch_size, self.Y_dim, self.rank])
-        #F_tran_F = np.matmul(self.F, np.swapaxes(self.F, 1, 2))
-        #self.cov_diag = np.exp(self.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
+        F_tran_F = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
+        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_tran_F, dim1=1, dim2=2) # [n_lenses, d]
+        self.cov_mat = torch.diag_embed(self.logvar) + F_tran_F
+        # Second gaussian
         self.mu2 = pred[:, 4*d:5*d]
         self.logvar2 = pred[:, 5*d:6*d]
         self.F2 = pred[:, 6*d:8*d].reshape([self.batch_size, self.Y_dim, self.rank])
-        #F_tran_F2 = np.matmul(self.F2, np.swapaxes(self.F2, 1, 2))
-        #self.cov_diag2 = np.exp(self.logvar2) + np.diagonal(F_tran_F2, axis1=1, axis2=2)
+        F_tran_F2 = torch.bmm(self.F2, torch.transpose(self.F2, 1, 2))
+        self.cov_diag2 = torch.exp(self.logvar2) + torch.diagonal(F_tran_F2, dim1=1, dim2=2)
+        self.cov_mat2 = torch.diag_embed(self.logvar2) + F_tran_F2
         self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         
     def sample(self, n_samples, sample_seed):
