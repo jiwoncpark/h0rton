@@ -10,7 +10,7 @@ class BaseGaussianBNNPosterior(ABC):
     Gaussian posteriors or mixtures thereof with various forms of the covariance matrix inherit from this class.
 
     """
-    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
         """
         Parameters
         ----------
@@ -30,18 +30,8 @@ class BaseGaussianBNNPosterior(ABC):
 
         """
         self.Y_dim = Y_dim
-        self.whitened_Y_cols_idx = whitened_Y_cols_idx
-        self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
-        if len(self.whitened_Y_cols_idx) == 0 or self.whitened_Y_cols_idx is None:
-            self.whitened_Y_cols_idx = None
-            self.Y_mean = None
-            self.Y_std = None
-        else:
-            self.Y_mean = torch.Tensor(Y_mean)
-            self.Y_std = torch.Tensor(Y_std)
-        if len(self.log_parameterized_Y_cols_idx) == 0 or self.log_parameterized_Y_cols_idx is None:
-            self.log_parameterized_Y_cols_idx = None
-        self.log_parameterized_Y_cols_idx = log_parameterized_Y_cols_idx
+        self.Y_mean = torch.Tensor(Y_mean)
+        self.Y_std = torch.Tensor(Y_std)
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
         self.logsigmoid = torch.nn.LogSigmoid()
@@ -87,8 +77,8 @@ class BaseGaussianBNNPosterior(ABC):
         """
         return NotImplemented
 
-    def transform_back(self, tensor):
-        """Transform back, i.e. unwhiten and unlog, the tensor
+    def transform_back_mu(self, tensor):
+        """Transform back, i.e. unwhiten, the tensor of central values
 
         Parameters
         ----------
@@ -101,11 +91,57 @@ class BaseGaussianBNNPosterior(ABC):
 
         """
         tensor = tensor.unsqueeze(1)
-        if self.whitened_Y_cols_idx is not None:
-            tensor = self.unwhiten_back(tensor)
-        if self.log_parameterized_Y_cols_idx is not None:
-            tensor = self.exponentiate_back(tensor)
+        tensor = self.unwhiten_back(tensor)
         return tensor.squeeze()
+
+    def transform_back_logvar(self, logvar):
+        """Transform back, i.e. unwhiten, the tensor of predicted log of the diagonal entries of the cov mat
+
+        Parameters
+        ----------
+        tensor : torch.Tensor of shape `[batch_size, Y_dim]`
+
+        Returns
+        -------
+        torch.tensor of shape `[batch_size, Y_dim]`
+            the original tensor
+
+        """
+        natural_logvar = logvar*self.Y_std*self.Y_std # note self.Y_std is shape [1, Y_dim]
+        return natural_logvar
+
+    def transform_back_cov_mat(self, cov_mat):
+        """Transform back, i.e. unwhiten, the tensor of predicted covariance matrix
+
+        Parameters
+        ----------
+        tensor : torch.Tensor of shape `[batch_size, Y_dim, Y_dim]`
+
+        Returns
+        -------
+        torch.tensor of shape `[batch_size, Y_dim]`
+            the original tensor
+
+        """
+        natural_cov_mat = cov_mat*self.Y_std.unsqueeze(-1)*self.Y_std.unsqueeze(0)
+        return natural_cov_mat
+
+    def unwhiten_back(self, sample):
+        """Scale and shift back to the unwhitened state
+
+        Parameters
+        ----------
+        pred : torch.Tensor
+            network prediction of shape `[batch_size, n_samples, self.Y_dim]`
+
+        Returns
+        -------
+        torch.Tensor
+            the unwhitened pred
+        
+        """
+        sample = sample*self.Y_std.unsqueeze(1) + self.Y_mean.unsqueeze(1)
+        return sample
 
     def sample_low_rank(self, n_samples, mu, logvar, F):
         """Sample from a single Gaussian posterior with a full but low-rank plus diagonal covariance matrix
@@ -137,53 +173,9 @@ class BaseGaussianBNNPosterior(ABC):
         samples = torch.bmm(F, eps_low_rank).squeeze() + mu + half_var*eps_diag
         samples = samples.reshape(n_samples, self.batch_size, self.Y_dim)
         samples = samples.transpose(0, 1)
-        #print("before", samples[:, :, 2])
-        if self.whitened_Y_cols_idx is not None:
-            samples = self.unwhiten_back(samples)
-        #print("after unwhiten", samples[:, :, 2])
-        if self.log_parameterized_Y_cols_idx is not None:
-            samples = self.exponentiate_back(samples)
-        #print("after exp", samples[:, :, 2])
+        samples = self.unwhiten_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
-
-    def unwhiten_back(self, sample):
-        """Scale and shift back to the unwhitened state
-
-        Parameters
-        ----------
-        pred : torch.Tensor
-            network prediction of shape `[batch_size, n_samples, self.Y_dim]`
-
-        Returns
-        -------
-        torch.Tensor
-            the unwhitened pred
-        
-        """
-        unwhitened_sub = sample[:, :, self.whitened_Y_cols_idx]
-        unwhitened_sub = unwhitened_sub*self.Y_std[:, np.newaxis, :] + self.Y_mean[:, np.newaxis, :]
-        sample[:, :, self.whitened_Y_cols_idx] = unwhitened_sub
-        return sample
-
-    def exponentiate_back(self, sample):
-        """Exponentiate back the log-parameterized Y values
-
-        Parameters
-        ----------
-        pred : torch.Tensor
-            network prediction of shape `[batch_size, n_samples, self.Y_dim]`
-
-        Returns
-        -------
-        torch.Tensor
-            the unwhitened pred
-        
-        """
-        log_sub = sample[:, :, self.log_parameterized_Y_cols_idx]
-        linear_sub = torch.exp(log_sub)
-        sample[:, :, self.log_parameterized_Y_cols_idx] = linear_sub
-        return sample
 
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
@@ -191,8 +183,8 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
-        super(DiagonalGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
+        super(DiagonalGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
         self.out_dim = self.Y_dim*2
 
     def set_sliced_pred(self, pred):
@@ -200,13 +192,7 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:]
-        #self.cov_diag = np.exp(self.logvar)
-        #F_tran_F = np.matmul(normal.F, np.swapaxes(normal.F, 1, 2))
-        #cov_mat = np.apply_along_axis(np.diag, -1, np.exp(normal.logvar)) + F_tran_F
-        #cov_diag = np.exp(normal.logvar) + np.diagonal(F_tran_F, axis1=1, axis2=2)
-        #assert np.array_equal(cov_mat.shape, [batch_size, self.Y_dim, self.Y_dim])
-        #assert np.array_equal(cov_diag.shape, [batch_size, self.Y_dim])
-        #np.apply_along_axis(np.diag, -1, np.exp(logvar)) # for diagonal
+        self.cov_diag = np.exp(self.logvar)
 
     def sample(self, n_samples, sample_seed):
         """Sample from a Gaussian posterior with diagonal covariance matrix
@@ -227,10 +213,7 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.seed_samples(sample_seed)
         eps = torch.randn(self.batch_size, n_samples, self.Y_dim)
         samples = eps*torch.exp(0.5*self.logvar.unsqueeze(1)) + self.mu.unsqueeze(1)
-        if self.whitened_Y_cols_idx is not None:
-            samples = self.unwhiten_back(samples)
-        if self.log_parameterized_Y_cols_idx is not None:
-            samples = self.exponentiate_back(samples)
+        samples = self.unwhiten_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
@@ -243,8 +226,8 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
-        super(LowRankGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
+        super(LowRankGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
         self.out_dim = self.Y_dim*4
         self.rank = 2 # FIXME: hardcoded
 
@@ -254,9 +237,9 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
         self.F = pred[:, 2*d:].reshape([self.batch_size, self.Y_dim, self.rank])
-        F_tran_F = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
-        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_tran_F, dim1=1, dim2=2) # [n_lenses, d]
-        self.cov_mat = torch.diag_embed(self.logvar) + F_tran_F
+        F_F_tran = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
+        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_F_tran, dim1=1, dim2=2) # [n_lenses, d]
+        self.cov_mat = torch.diag_embed(self.logvar) + F_F_tran
 
     def sample(self, n_samples, sample_seed):
         self.seed_samples(sample_seed)
@@ -271,8 +254,8 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
-    def __init__(self, Y_dim, device, whitened_Y_cols_idx=None, Y_mean=None, Y_std=None, log_parameterized_Y_cols_idx=None):
-        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, device, whitened_Y_cols_idx, Y_mean, Y_std, log_parameterized_Y_cols_idx)
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
+        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
         self.out_dim = self.Y_dim*8 + 1
         self.rank = 2 # FIXME: hardcoded
 
@@ -283,16 +266,16 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
         self.F = pred[:, 2*d:4*d].reshape([self.batch_size, self.Y_dim, self.rank])
-        F_tran_F = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
-        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_tran_F, dim1=1, dim2=2) # [n_lenses, d]
-        self.cov_mat = torch.diag_embed(self.logvar) + F_tran_F
+        F_F_tran = torch.bmm(self.F, torch.transpose(self.F, 1, 2)) # [n_lenses, d, d]
+        self.cov_diag = torch.exp(self.logvar) + torch.diagonal(F_F_tran, dim1=1, dim2=2) # [n_lenses, d]
+        self.cov_mat = torch.diag_embed(self.logvar) + F_F_tran
         # Second gaussian
         self.mu2 = pred[:, 4*d:5*d]
         self.logvar2 = pred[:, 5*d:6*d]
         self.F2 = pred[:, 6*d:8*d].reshape([self.batch_size, self.Y_dim, self.rank])
-        F_tran_F2 = torch.bmm(self.F2, torch.transpose(self.F2, 1, 2))
-        self.cov_diag2 = torch.exp(self.logvar2) + torch.diagonal(F_tran_F2, dim1=1, dim2=2)
-        self.cov_mat2 = torch.diag_embed(self.logvar2) + F_tran_F2
+        F_F_tran2 = torch.bmm(self.F2, torch.transpose(self.F2, 1, 2))
+        self.cov_diag2 = torch.exp(self.logvar2) + torch.diagonal(F_F_tran2, dim1=1, dim2=2)
+        self.cov_mat2 = torch.diag_embed(self.logvar2) + F_F_tran2
         self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         
     def sample(self, n_samples, sample_seed):
@@ -322,10 +305,6 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         # Sample from first Gaussian
         samples1 = torch.Tensor(self.sample_low_rank(n_samples, self.mu, self.logvar, self.F))
         samples[~second_gaussian, :] = samples1[~second_gaussian, :]
-        #if self.whitened_Y_cols_idx is not None:
-        #    samples = self.unwhiten_back(samples)
-        #if self.log_parameterized_Y_cols_idx is not None:
-        #    samples = self.exponentiate_back(samples)
         samples = samples.data.cpu().numpy()
         return samples
 
