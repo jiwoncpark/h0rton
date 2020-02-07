@@ -55,7 +55,7 @@ def seed_everything(global_seed):
     np.random.seed(global_seed)
     random.seed(global_seed)
     torch.manual_seed(global_seed)
-    torch.cuda.manual_seed(global_seed)
+    torch.cuda.manual_seed_all(global_seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
@@ -108,8 +108,9 @@ def main():
     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.optim.lr_scheduler.milestones, gamma=cfg.optim.lr_scheduler.gamma)
     
     # Saving/loading state dicts
-    if not os.path.exists(cfg.log.checkpoint_dir):
-        os.mkdir(cfg.log.checkpoint_dir)
+    checkpoint_dir = cfg.checkpoint.save_dir
+    if not os.path.exists(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
 
     if cfg.model.load_state:
         epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, device)
@@ -157,12 +158,13 @@ def main():
             tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
             
-            if (epoch + 1)%(cfg.log.logging_interval) == 0:
+            if (epoch + 1)%(cfg.monitoring.interval) == 0:
                 # Subset of validation for plotting
-                X_plt = X[:cfg.data.n_plotting].cpu().numpy()
-                Y_plt = Y[:cfg.data.n_plotting].cpu().numpy()
-                Y_plt_orig = bnn_post.transform_back(Y[:cfg.data.n_plotting]).cpu().numpy()
-                pred_plt = pred[:cfg.data.n_plotting]
+                n_plotting = cfg.monitoring.n_plotting
+                X_plt = X[:n_plotting].cpu().numpy()
+                Y_plt = Y[:n_plotting].cpu().numpy()
+                Y_plt_orig = bnn_post.transform_back(Y[:n_plotting]).cpu().numpy()
+                pred_plt = pred[:n_plotting]
                 # Slice pred_plt into meaningful Gaussian parameters for this batch
                 bnn_post.set_sliced_pred(pred_plt)
                 mu = bnn_post.mu.cpu().numpy()
@@ -185,33 +187,33 @@ def main():
                 # Log alpha value
                 logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
                 # Log histograms of named parameters
-                if cfg.log.monitor_weight_distributions:
+                if cfg.monitoring.weight_distributions:
                     for param_name, param in net.named_parameters():
                         logger.add_histogram(param_name, param.clone().cpu().data.numpy(), epoch)
                 # Log sample images
-                if cfg.log.monitor_sample_images:
-                    sample_img = X_plt[:3]
+                if cfg.monitoring.sample_images:
+                    sample_img = X_plt[:5]
                     #pred = pred.cpu().numpy()
                     logger.add_images('val_images', sample_img, epoch, dataformats='NCHW')
                 # Log 1D marginal mapping
-                if cfg.log.monitor_1d_marginal_mapping:
+                if cfg.monitoring.marginal_1d_mapping:
                     for param_idx, param_name in enumerate(cfg.data.Y_cols):
                         tag = '1d_mapping/{:s}'.format(param_name)
                         fig = train_utils.get_1d_mapping_fig(param_name, mu_orig[:, param_idx], Y_plt_orig[:, param_idx])
                         logger.add_figure(tag, fig, global_step=epoch)
 
-            if (epoch + 1)%(cfg.log.checkpoint_interval) == 0:
+            if (epoch + 1)%(cfg.checkpoint.interval) == 0:
                 # FIXME compare to last saved epoch val loss
                 if val_loss < last_saved_val_loss:
-                    os.remove(model_path) if os.path.exists(model_path) else None
-                    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
-                    last_saved_val_loss = val_loss
+                    #os.remove(model_path) if os.path.exists(model_path) else None
+                    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
+                    last_saved_val_loss = train_loss
 
     logger.close()
     # Save final state dict
     if val_loss < last_saved_val_loss:
-        os.remove(model_path) if os.path.exists(model_path) else None
-        model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, cfg.log.checkpoint_dir, cfg.model.architecture, epoch)
+        #os.remove(model_path) if os.path.exists(model_path) else None
+        model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
         print("Saved model at {:s}".format(os.path.abspath(model_path)))
 
 if __name__ == '__main__':

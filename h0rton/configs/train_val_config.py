@@ -110,28 +110,22 @@ class TrainValConfig:
         """Set general metadata relevant to network architecture and optimization
 
         """
+        # Y metadata
         self.data.Y_dim = len(self.data.Y_cols)
-        # All columns
         Y_col_idx_mapping = dict(zip(self.data.Y_cols, range(self.data.Y_dim)))
-        # Log parameterizing columns (empty list if `Y_cols_to_log_parameterize` is empty)
-        self.data.Y_cols_to_log_parameterize_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_log_parameterize))
-        # Whitening columns (empty list if `Y_cols_to_whiten` is empty)
-        self.data.Y_cols_to_whiten_idx = list(map(Y_col_idx_mapping.get, self.data.Y_cols_to_whiten))
+        # Get training-set mean and std for whitening
         train_metadata_path = os.path.join(self.data.train_dir, 'metadata.csv')
         train_Y_to_whiten = pd.read_csv(train_metadata_path, index_col=None)
-        train_Y_to_whiten = add_g1g2_columns(train_Y_to_whiten)
-        if len(self.data.Y_cols_to_log_parameterize_idx) > 0:
-            train_Y_to_whiten = log_parameterize_Y_cols(train_Y_to_whiten, self.data.Y_cols_to_log_parameterize)
-        train_Y_to_whiten = train_Y_to_whiten[self.data.Y_cols_to_whiten].values
+        train_Y_to_whiten = add_g1g2_columns(train_Y_to_whiten)[self.data.Y_cols]
         self.data.train_Y_mean = np.mean(train_Y_to_whiten, axis=0, keepdims=True)
         self.data.train_Y_std = np.std(train_Y_to_whiten, axis=0, keepdims=True)
         del train_Y_to_whiten # not sure if necessary
-        # Plotting data
-        self.data.n_plotting = min(100, self.data.n_plotting) # Plot no more than 100 points when logging
-        if self.data.n_plotting > 100:
-            warnings.warn("Only plotting 100 points during training")
-        if self.data.n_plotting > self.optim.batch_size:
-            raise ValueError("data.n_plotting must be smaller than optim.batch_size")
+        # Data to plot during monitoring
+        if self.monitoring.n_plotting > 100:
+            warnings.warn("Only plotting allowed max of 100 datapoints during training")
+            self.monitoring.n_plotting = 100
+        if self.monitoring.n_plotting > self.optim.batch_size:
+            raise ValueError("monitoring.n_plotting must be smaller than optim.batch_size")
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)

@@ -5,7 +5,7 @@ import astropy.io.fits as pyfits
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
-from baobab.data_augmentation import NoiseModelTorch
+from baobab.data_augmentation.noise_torch import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
 from .data_utils import rescale_01, stack_rgb, log_parameterize_Y_cols, whiten_Y_cols
 
@@ -38,8 +38,9 @@ class XYData(Dataset): # torch.utils.data.Dataset
         Y_df = pd.read_csv(metadata_path, index_col=False)
         Y_df = add_g1g2_columns(Y_df)
         # Define source light position as offset from lens mass
-        Y_df['src_light_center_x'] = Y_df['src_light_center_x'] - Y_df['lens_mass_center_x']
-        Y_df['src_light_center_y'] = Y_df['src_light_center_y'] - Y_df['lens_mass_center_y']
+        if self.define_src_pos_wrt_lens:
+            Y_df['src_light_center_x'] -= Y_df['lens_mass_center_x']
+            Y_df['src_light_center_y'] -= Y_df['lens_mass_center_y']
         # Take only the columns we need
         self.Y_df = Y_df[self.Y_cols + ['img_filename']].copy()
         # Size of dataset
@@ -47,11 +48,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         # Number of predictive columns
         self.Y_dim = len(self.Y_cols)
         # Log parameterizing
-        if len(self.Y_cols_to_log_parameterize) > 0:
-            self.Y_df = log_parameterize_Y_cols(self.Y_df, self.Y_cols_to_log_parameterize)
-        # Whitening
-        if len(self.Y_cols_to_whiten) > 0:
-            self.Y_df = whiten_Y_cols(self.Y_df, self.Y_cols_to_whiten, self.train_Y_mean, self.train_Y_std)
+        self.Y_df = whiten_Y_cols(self.Y_df, self.train_Y_mean, self.train_Y_std, self.Y_cols)
         if self.add_noise:
             self.noise_model = NoiseModelTorch(**data_cfg.noise_kwargs)
 

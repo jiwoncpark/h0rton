@@ -50,18 +50,18 @@ def log_parameterize_Y_cols(df, col_names):
     df.loc[:, col_names] = np.log(df.loc[:, col_names].values)
     return df
 
-def whiten_Y_cols(df, col_names, mean, std):
+def whiten_Y_cols(df, mean, std, col_names):
     """Whiten select columns in the given dataframe, i.e. shift and scale then so that they have the desired mean and std
 
     Parameters
     ----------
     df : pd.DataFrame
-    col_names : list
-        names of columns to whiten
     mean : array-like
         target mean
     std : array-like
         target std
+    col_names : list
+        names of columns to whiten
 
     Returns
     -------
