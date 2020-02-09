@@ -21,12 +21,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import torchvision.models
 from torch.utils.tensorboard import SummaryWriter
 # h0rton modules
 from h0rton.trainval_data import XYData
 from h0rton.configs import TrainValConfig
 import h0rton.losses
+import h0rton.models
 import h0rton.h0_inference
 import h0rton.train_utils as train_utils
 
@@ -92,9 +92,9 @@ def main():
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=device)
     # Instantiate posterior (for logging)
-    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.Y_cols_to_whiten_idx, val_data.train_Y_mean, val_data.train_Y_std, val_data.Y_cols_to_log_parameterize_idx)
+    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.train_Y_mean, val_data.train_Y_std)
     # Instantiate model
-    net = getattr(torchvision.models, cfg.model.architecture)(pretrained=False)
+    net = getattr(h0rton.models, cfg.model.architecture)()
     n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
     net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
     net.to(device)
@@ -163,12 +163,12 @@ def main():
                 n_plotting = cfg.monitoring.n_plotting
                 X_plt = X[:n_plotting].cpu().numpy()
                 Y_plt = Y[:n_plotting].cpu().numpy()
-                Y_plt_orig = bnn_post.transform_back(Y[:n_plotting]).cpu().numpy()
+                Y_plt_orig = bnn_post.transform_back_mu(Y[:n_plotting]).cpu().numpy()
                 pred_plt = pred[:n_plotting]
                 # Slice pred_plt into meaningful Gaussian parameters for this batch
                 bnn_post.set_sliced_pred(pred_plt)
                 mu = bnn_post.mu.cpu().numpy()
-                mu_orig = bnn_post.transform_back(bnn_post.mu).cpu().numpy()
+                mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
                 # Log train and val metrics
                 logger.add_scalars('metrics/loss',
                                    {

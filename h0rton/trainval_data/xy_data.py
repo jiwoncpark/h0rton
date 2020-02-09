@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from baobab.data_augmentation.noise_torch import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
-from .data_utils import rescale_01, stack_rgb, log_parameterize_Y_cols, whiten_Y_cols
+from .data_utils import rescale_01, whiten_Y_cols
 
 __all__ = ['XYData', 'XData',]
 
@@ -29,9 +29,9 @@ class XYData(Dataset): # torch.utils.data.Dataset
         self.dataset_dir = dataset_dir
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(rescale_01)
-        stack = transforms.Lambda(stack_rgb)
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
-        self.X_transform = transforms.Compose([rescale, stack, normalize])
+        #stack = transforms.Lambda(stack_rgb)
+        #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
+        self.X_transform = transforms.Compose([rescale])
         #self.Y_transform = torch.Tensor
         # Y metadata
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
@@ -60,7 +60,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         img = torch.as_tensor(img.astype(np.float32)) # np array type must match with default tensor type
         if self.add_noise:
             img += self.noise_model.get_noise_map(img)
-        img = self.X_transform(img)
+        img = self.X_transform(img).unsqueeze(0)
         # Label Y
         Y_row = self.Y_df.iloc[index][self.Y_cols].values.astype(np.float32)
         Y_row = torch.as_tensor(Y_row)

@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols']
+import re
+__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols',]
 
 def rescale_01(unscaled):
     """Rescale an image of unknown range to values between 0 and 1
