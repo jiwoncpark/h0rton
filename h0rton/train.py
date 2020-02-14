@@ -169,6 +169,8 @@ def main():
                 bnn_post.set_sliced_pred(pred_plt)
                 mu = bnn_post.mu.cpu().numpy()
                 mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
+                mu2 = bnn_post.mu2.cpu().numpy()
+                mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
                 # Log train and val metrics
                 logger.add_scalars('metrics/loss',
                                    {
@@ -178,10 +180,12 @@ def main():
                                    epoch)
                 #rmse = train_utils.get_rmse(mu, Y_plt)
                 rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
+                rmse_orig2 = train_utils.get_rmse(mu2_orig, Y_plt_orig)
                 logger.add_scalars('metrics/rmse',
                                    {
                                    #'rmse': rmse,
-                                   'rmse_orig': rmse_orig,
+                                   'rmse_orig1': rmse_orig,
+                                   'rmse_orig2': rmse_orig2,
                                    },
                                    epoch)
                 # Log alpha value
