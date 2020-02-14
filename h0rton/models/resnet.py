@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from .basics import BasicBlock, Bottleneck, conv1x1
 
-__all__ = ['ResNet', 'resnet34',]
+__all__ = ['ResNet', 'resnet18', 'resnet34',]
 
 
 class ResNet(nn.Module):
@@ -107,6 +107,17 @@ class ResNet(nn.Module):
 def _resnet(arch, block, layers, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     return model
+
+def resnet18(progress=True, **kwargs):
+    r"""ResNet-18 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], progress,
+                   **kwargs)
 
 def resnet34(progress=True, **kwargs):
     r"""ResNet-34 model from
