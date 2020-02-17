@@ -73,7 +73,7 @@ def load_state_dict(checkpoint_path, model, optimizer, n_epochs, device, lr_sche
     print("Loaded weights at {:s}".format(checkpoint_path))
     print("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, n_epochs, train_loss))
     print("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, n_epochs, val_loss))
-    return epoch, train_loss, val_loss
+    return epoch, model, optimizer, train_loss, val_loss
 
 def load_state_dict_test(checkpoint_path, model, n_epochs, device):
     """Load the state dict of the past training
