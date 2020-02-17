@@ -1,7 +1,22 @@
 import numpy as np
 import torch
 import re
-__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols',]
+__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols', 'plus_1_log']
+
+def plus_1_log(linear):
+    """Add 1 and take the log10 of an image
+
+    Parameters
+    ----------
+    linear : torch.Tensor of shape `[X_dim, X_dim]`
+
+    Returns
+    -------
+    torch.Tensor
+        the image of the same input shape, with values now logged
+
+    """
+    return torch.log(linear + 1.0)
 
 def rescale_01(unscaled):
     """Rescale an image of unknown range to values between 0 and 1

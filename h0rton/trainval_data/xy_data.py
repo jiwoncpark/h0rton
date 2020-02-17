@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from baobab.data_augmentation.noise_torch import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
-from .data_utils import rescale_01, whiten_Y_cols
+from .data_utils import rescale_01, whiten_Y_cols, plus_1_log
 
 __all__ = ['XYData', 'XData',]
 
@@ -29,9 +29,18 @@ class XYData(Dataset): # torch.utils.data.Dataset
         self.dataset_dir = dataset_dir
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(rescale_01)
+        log = transforms.Lambda(plus_1_log)
         #stack = transforms.Lambda(stack_rgb)
         #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
-        self.X_transform = transforms.Compose([rescale])
+        transforms_list = []
+        if self.log_pixels:
+            transforms_list.append(log)
+        if self.rescale_pixels:
+            transforms_list.append(rescale)
+        if len(transforms_list) == 0:
+            self.X_transform = None
+        else:
+            self.X_transform = transforms.Compose(transforms_list)
         #self.Y_transform = torch.Tensor
         # Y metadata
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
