@@ -103,7 +103,6 @@ class ResNet(nn.Module):
     def forward(self, x):
         return self._forward_impl(x)
 
-
 def _resnet(arch, block, layers, progress, **kwargs):
     model = ResNet(block, layers, **kwargs)
     return model

@@ -94,9 +94,7 @@ def main():
     # Instantiate posterior (for logging)
     bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.train_Y_mean, val_data.train_Y_std)
     # Instantiate model
-    net = getattr(h0rton.models, cfg.model.architecture)()
-    n_filters = net.fc.in_features # number of output nodes in 2nd-to-last layer
-    net.fc = nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
+    net = getattr(h0rton.models, cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
 
     ################
@@ -113,7 +111,7 @@ def main():
         os.mkdir(checkpoint_dir)
 
     if cfg.model.load_state:
-        epoch, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, device)
+        epoch, net, optimizer, train_loss, val_loss = train_utils.load_state_dict(cfg.model.state_path, net, optimizer, cfg.optim.n_epochs, device)
         epoch += 1 # resume with next epoch
         last_saved_val_loss = val_loss
         print(lr_scheduler.state_dict())
@@ -186,6 +184,11 @@ def main():
                                    #'rmse': rmse,
                                    'rmse_orig1': rmse_orig,
                                    'rmse_orig2': rmse_orig2,
+                                   'rmse_lens_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 0),
+                                   'rmse_src_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 1),
+                                   'rmse_lens_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 2),
+                                   'rmse_src_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 3),
+                                   'rmse_gamma': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 4),
                                    },
                                    epoch)
                 # Log alpha value
