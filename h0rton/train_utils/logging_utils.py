@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib.figure import Figure
-__all__ = ['get_1d_mapping_fig', 'get_rmse', 'interpret_pred']
+__all__ = ['get_1d_mapping_fig', 'get_rmse', 'get_rmse_param', 'interpret_pred']
 
 def get_1d_mapping_fig(name, mu, Y):
     """Plots the marginal 1D mapping of the mean predictions
@@ -54,10 +54,29 @@ def get_rmse(pred_mu, true_mu):
     Returns
     -------
     float
-        total sum of the RMSE for that batch
+        total mean of the RMSE for that batch
 
     """
-    rmse = np.sum(np.mean((pred_mu - true_mu)**2.0, axis=1))
+    rmse = np.mean((np.mean((pred_mu - true_mu)**2.0, axis=1))**0.5)
+    return rmse
+
+def get_rmse_param(pred_mu, true_mu, param_idx):
+    """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
+
+    Parameters
+    ----------
+    pred_mu : np.array of shape `[batch_size, Y_dim]`
+        predicted means of the primary Gaussian
+    true_mu : np.array of shape `[batch_size, Y_dim]`
+        true (label) Gaussian means
+
+    Returns
+    -------
+    float
+        RMSE for that batch
+
+    """
+    rmse = np.mean((pred_mu[:, param_idx] - true_mu[:, param_idx])**2.0)**0.5
     return rmse
 
 def interpret_pred(pred, Y_dim):
