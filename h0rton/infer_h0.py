@@ -23,7 +23,7 @@ import pandas as pd
 import scipy.stats as stats
 import torch
 from torch.utils.data import DataLoader
-import torchvision.models
+import h0rton.models
 # Baobab modules
 import baobab.sim_utils
 from baobab import BaobabConfig
@@ -114,10 +114,12 @@ def main():
     ######################
     # Load trained state #
     ######################
+    # Instantiate loss function
     loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim, device=device)
-    net = getattr(torchvision.models, train_val_cfg.model.architecture)(pretrained=False)
-    n_filters = net.fc.in_features
-    net.fc = torch.nn.Linear(in_features=n_filters, out_features=loss_fn.out_dim) # replace final layer
+    # Instantiate posterior (for logging)
+    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(train_val_cfg.data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
+    # Instantiate model
+    net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)
@@ -157,7 +159,8 @@ def main():
                           kwargs_model=kwargs_model,
                           baobab_time_delays=test_cfg.time_delay_likelihood.baobab_time_delays,
                           kinematics=baobab_cfg.bnn_omega.kinematics,
-                          Om0=baobab_cfg.bnn_omega.cosmology.Om0
+                          Om0=baobab_cfg.bnn_omega.cosmology.Om0,
+                          define_src_pos_wrt_lens=train_val_cfg.data.define_src_pos_wrt_lens,
                           )
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
@@ -171,14 +174,14 @@ def main():
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
 
     # Sampling must precede any reverse transformation b/c of sticky variable bug.
-    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.Y_cols_to_whiten_idx, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std, train_val_cfg.data.Y_cols_to_log_parameterize_idx)
+    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
     # Sample from the BNN posterior
     bnn_post.set_sliced_pred(pred)
     lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
     lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
     lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, n_samples, -1)
 
-    Y_orig = bnn_post.transform_back(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
+    Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
     Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
     Y_orig_values = Y_orig_df[required_params].values # [n_test, Y_dim]
 
@@ -189,7 +192,7 @@ def main():
     # Optionally export the predictions, properly reverse-transformed
     if test_cfg.export.pred:
         # Primary mu
-        pred_mu = bnn_post.transform_back(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
+        pred_mu = bnn_post.transform_back_mu(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
         pred_mu_df = pd.DataFrame(pred_mu, columns=train_val_cfg.data.Y_cols)
         # Second gaussian weights
         pred_mu_df['w2'] = bnn_post.w2.cpu().numpy().squeeze()
@@ -235,10 +238,7 @@ def main():
         # For each sample from the lens model posterior of this lens system...
         for sample_i in tqdm(range(n_samples)):
             sampled_lens_model_raw = bnn_sample_df.iloc[sample_i]
-            try:
-                h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw)
-            except:
-                continue
+            h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw)
             h0_samples[sample_i] = h0
             h0_weights[sample_i] = weight
         # Normalize weights to unity
@@ -250,7 +250,7 @@ def main():
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
-        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plot_fit_gaussian, save_dir=out_dir)
+        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
     h0_stats = dict(

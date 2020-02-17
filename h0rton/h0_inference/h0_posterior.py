@@ -170,15 +170,16 @@ class H0Posterior:
             'ra_source': sample['src_light_center_x'],
             'dec_source': sample['src_light_center_y'],
             }
+        kwargs_lens = [kwargs_spemd, kwargs_shear]
         # Raytrace to get point source kwargs in image plane
-        kwargs_img, requires_reordering = self.get_img_pos(kwargs_ps)
+        kwargs_img, requires_reordering = self.get_img_pos(kwargs_ps, kwargs_lens)
         # Pre-store for reordering image arrays
         dec_image = kwargs_img[0]['dec_image']
         increasing_dec_i = np.argsort(dec_image)
 
         formatted_lens_model = dict(
                           # TODO: key checking depending on kwargs_model
-                          kwargs_lens=[kwargs_spemd, kwargs_shear],
+                          kwargs_lens=kwargs_lens,
                           kwargs_img=kwargs_img,
                           requires_reordering=requires_reordering,
                           increasing_dec_i=increasing_dec_i,
@@ -186,7 +187,7 @@ class H0Posterior:
                           )
         return formatted_lens_model
 
-    def get_img_pos(self, ps_dict):
+    def get_img_pos(self, ps_dict, kwargs_lens):
         """Sets the kwargs_ps class attribute as those coresponding to the point source model `LENSED_POSITION`
 
         Parameters
@@ -200,7 +201,7 @@ class H0Posterior:
             lens_model_class = LensModel(self.kwargs_model['lens_model_list'])
             ps_class = PointSource(['SOURCE_POSITION'], lens_model_class)
             kwargs_ps_source = [ps_dict]
-            ra_image, dec_image = ps_class.image_position(kwargs_ps_source, self.kwargs_lens)
+            ra_image, dec_image = ps_class.image_position(kwargs_ps_source, kwargs_lens)
             kwargs_image = [dict(ra_image=ra_image[0],
                                    dec_image=dec_image[0])]
             requires_reordering = True # Since the ra_image is coming out of lenstronomy, we need to reorder it to agree with TDLMC
@@ -310,7 +311,7 @@ class H0Posterior:
                                                        )
             ll_vd = gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
         # Time delays
-        inferred_td = td_cosmo.time_delays(kwargs_lens, kwargs_img, kappa_ext=k_ext)
+        inferred_td = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_img'], kappa_ext=k_ext)
         if lens_prior_sample['requires_reordering']:
             inferred_td = self.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
         else:
