@@ -6,7 +6,6 @@ import pandas as pd
 from addict import Dict
 from torch.utils.data import DataLoader
 from h0rton.trainval_data import XYData
-from h0rton.trainval_data.data_utils import log_parameterize_Y_cols
 
 class TestXYData(unittest.TestCase):
     """A suite of tests verifying that the input PDFs and the sample distributions
@@ -23,8 +22,6 @@ class TestXYData(unittest.TestCase):
         # Generate fake data
         data_cfg = Dict(
                         data_dir=test_data_dir,
-                        Y_cols_to_log_parameterize=['external_shear_psi_ext', 'c'],
-                        Y_cols_to_whiten=['external_shear_gamma_ext', 'external_shear_psi_ext'],
                         Y_cols=['external_shear_gamma_ext', 'external_shear_psi_ext', 'c'],
                         add_noise=False,
                         )
