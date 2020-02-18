@@ -4,7 +4,6 @@
 Created on Tue Oct  9 14:29:37 2018
 
 @author: Dartoon
-@modified by: Ji Won Park (jiwoncpark) for Python3
 
 Read each seed.
 """
@@ -13,40 +12,41 @@ import matplotlib.pyplot as plt
 import matplotlib as matt
 matt.rcParams['font.family'] = 'STIXGeneral'
 
-seed_name = [ 'seed101',
- 'seed102',
- 'seed103',
- 'seed104',
- 'seed105',
- 'seed107',
- 'seed108',
- 'seed109',
- 'seed110',
- 'seed111',
- 'seed113',
- 'seed114',
- 'seed115',
- 'seed116',
- 'seed117',
- 'seed118']
+seed_name=['seed135',
+ 'seed136',
+ 'seed137',
+ 'seed138',
+ 'seed139',
+ 'seed140',
+ 'seed141',
+ 'seed142',
+ 'seed143',
+ 'seed144',
+ 'seed145',
+ 'seed146',
+ 'seed147',
+ 'seed148',
+ 'seed149',
+ 'seed150']
 
 import os
 import glob
 dirpath = os.getcwd()
-folders = ['Tak', 'MartinMillon','freeform','Rathnakumar', 'Rathnakumar1', 'BNN']
+folders = ['Tak', 'Martin', 'freeform', 'Park']
 subnames = []
 for folder in folders:
-    subnames += sorted(glob.glob('/home/jwp/stage/sl/h0rton/h0rton/tdlmc_utils/rung1_submit_result/{:s}/*'.format(folder)))
+    subnames += sorted(glob.glob('../rung3_submit_result/{0}/*'.format(folder)))
 
 label_name = []  
 efficiencys, goodnesses, precisions, accuracys =[], [], [] ,[]   
-h0_rung1 = 74.151
+h0_rung3 = 65.413
 for subname in subnames:
     if 'h0' in subname or 'txt' in subname:
         sub_name = subname
-        root_name, ext_name = os.path.splitext(subname) #sub_name[1:].split(".")[-2]
-        folder, subname = os.path.split(subname)
-        filename = sub_name
+        root_name = sub_name[1:].split(".")[-2]
+        folder,  subname = root_name.split("/")[2:]
+    
+        filename = dirpath+ '/' + sub_name
         openfile = open(filename, "r")
         lines = openfile.readlines()
         #filename.readline()
@@ -56,36 +56,36 @@ for subname in subnames:
                 line = lines[i].split('\t')
             else:
                 line = lines[i].split(' ')
-            if "seed" in line[0] and 'rung1' in line[0]:
+            if "rung" in line[0]:
                 result[line[0]] = np.array([float(line[1]),float(line[2])])
         #==============================================================================
         # Calculate the metric
         #==============================================================================
         submit = []
-        for key, value in result.items():
-            if value[0]>0:
+        for key, value in result.iteritems():
+            if "seed" in key and value[0]>0:
                 submit.append(value)
         submit = np.asarray(submit)
         if len(submit) > 0:
-            efficiency = len(submit)/len(result.items())
-            goodness = round(np.mean(((submit[:,0]-h0_rung1)/submit[:,1])**2), 3)
-            precision = round(np.mean(submit[:,1]/h0_rung1)*100, 3)
-            accuracy = round(np.mean((submit[:,0]-h0_rung1)/h0_rung1)*100, 3)
+            efficiency = len(submit)/16.
+            goodness = round(1/float(len(submit))*np.sum(((submit[:,0]-h0_rung3)/submit[:,1])**2),3)
+            precision = round(1/float(len(submit))*np.sum(submit[:,1]/h0_rung3)*100, 3)
+            accuracy = round(1/float(len(submit))*np.sum((submit[:,0]-h0_rung3)/h0_rung3)*100, 3)
             label_name.append(filename)
             efficiencys.append(efficiency)
             goodnesses.append(goodness)
             precisions.append(precision)
             accuracys.append(accuracy)
                               
-num_boxes = 3
-gridshape = (num_boxes, num_boxes)
-num_plots = num_boxes**2 - num_boxes
-print("Our multivariate grid will therefore be of shape", gridshape, "with a total of", num_plots, "plots")
-fig = plt.figure(figsize=(12, 12))
+num_boxs = 3
+gridshape = (num_boxs, num_boxs)
+num_plots = num_boxs**2 - num_boxs
+print "Our multivariate grid will therefore be of shape", gridshape, "with a total of", num_plots, "plots"
+fig = plt.figure(figsize=(12, 11))
 n=1
-axes = [[False for i in range(num_boxes)] for j in range(num_boxes)]
+axes = [[False for i in range(num_boxs)] for j in range(num_boxs)]
 catlog = folders
-color_list = ['red', 'green', 'blue','c', 'khaki', 'k', 'lime', 'maroon']
+color_list = ['red', 'green', 'blue','c', 'khaki', 'grey', 'lime', 'maroon']
 ma = ['o','d','s','D','*','p','<','>','^','v','P','X' ]
 #axis_lab = ["efficiency", "log10(goodness)", "log10(precision)", "accuracy"]
 axis_lab = ["efficiency ", r"log$_{10}(\chi^2)$", "precision (%)", "accuracy (%)"]
@@ -97,39 +97,34 @@ metric_target = [(0,1),(np.log10(0.4), np.log10(2.)),(0, 6),(-2,2)]
 metric= [[efficiencys[i], np.log10(goodnesses[i]), precisions[i], accuracys[i]] for i in range(len(label_name))]
 label = [label_name[i].split('/')[-2] +'-' + label_name[i].split('/')[-1].replace('_','.').replace('-','.').split('.')[-2] for i in range(len(label_name))]
 
-for j in range(num_boxes): # j = column idx
-    for i in range(num_boxes): # i = row idx
-        if i <= j : # lower triangle
+for j in range(num_boxs):
+    for i in range(num_boxs):
+        if i <= j :
             y_j = j+1
-            ax = fig.add_subplot(num_boxes, num_boxes, n)
-            plt.setp(ax.spines.values(), linewidth=2) # set property
+            ax = fig.add_subplot(num_boxs, num_boxs, n)
+            plt.setp(ax.spines.values(),linewidth=2)
             ax.tick_params(labelsize=12)
             ax.get_xaxis().set_tick_params(direction='in', width=1.5, length=6)
             ax.get_yaxis().set_tick_params(direction='in', width=1.5, length=6)
             ax.yaxis.set_ticks_position('both')
             ax.xaxis.set_ticks_position('both')
-            for k in range(len(metric)): # Plot each metric
+            for k in range(len(metric)):
                 c_ind = [x for x in range(len(catlog)) if catlog[x] in label[k]][0]
-                ma_ind = k-k//(len(ma))*len(ma)
+                ma_ind = k-k/(len(ma))*len(ma)
                 ax.scatter(metric[k][i], metric[k][y_j], color=color_list[c_ind], marker = ma[ma_ind], label = label[k], s=70)
 #            label = "_nolegend_"
-            # Plot target range
             target_x, target_y = metric_target[i][0], metric_target[y_j][0]
             target_wx, target_wy = metric_target[i][1]-metric_target[i][0], metric_target[y_j][1]-metric_target[y_j][0]
-            rectangle = plt.Rectangle((target_x, target_y), target_wx, target_wy, facecolor='gray', alpha =0.2)
+            rectangle = plt.Rectangle((target_x, target_y), target_wx, target_wy, facecolor='gray',alpha =0.2)
             plt.gca().add_patch(rectangle)
-            # Plot efficiency
             if i == 0:
                 plt.ylabel('j+1={0}={1}'.format(axis_lab[y_j],y_j), fontsize=15)
                 plt.ylabel('{0}'.format(axis_lab[y_j]), fontsize=15)
                 plt.xlim(0,1.08)   #plot the limit for effciency for x axis
-            # Plot goodness
             elif i == 1:
                 plt.xlim(-1.2,3)   #plot the limit for goodness for x axis
-            # Plot precision
             elif i ==2:
-                plt.xlim(0,20)   #plot the limit for precision for x axis
-            # Plot accuracy
+                plt.xlim(0,30)   #plot the limit for precision for x axis
             if y_j == 3:
                 plt.xlabel('i={0}={1}'.format(axis_lab[i],i), fontsize =15)
                 plt.xlabel('{0}'.format(axis_lab[i]), fontsize =15)
@@ -145,12 +140,12 @@ for j in range(num_boxes): # j = column idx
         
         n += 1
         if i==1 and j ==0:
-            ax.legend(bbox_to_anchor=(3.5, -0.5), loc='center left', borderaxespad=0., prop={'size': 16})
+            ax.legend(bbox_to_anchor=(2.1, 1), loc=2, borderaxespad=0.,prop={'size': 14})
             axes[j][i] = ax
-
-fig.subplots_adjust()
-fig.tight_layout(h_pad=-1.15, w_pad=-0.7)
-plt.savefig('Rung1_metrics.png', bbox_inches='tight')
+        
+fig.tight_layout(h_pad=-1.15,w_pad=-0.7)
+#plt.savefig('../Rung3_metrics.pdf')
+plt.show()
 
 ##%%Print for table
 #for i in range(len(label)):

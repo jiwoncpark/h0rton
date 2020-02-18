@@ -145,7 +145,7 @@ for j in range(num_boxs):
 fig.tight_layout() 
 #fig.tight_layout(h_pad=-1.15,w_pad=-0.7)
 #plt.savefig('../Rung2_metrics.pdf')
-plt.show()
+plt.savefig('Rung2_metrics.png')
 
 ##%%Print for table
 #for i in range(len(label)):
