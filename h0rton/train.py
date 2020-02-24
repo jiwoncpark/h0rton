@@ -84,6 +84,11 @@ def main():
     val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
     n_val = val_data.n_data - (val_data.n_data % cfg.optim.batch_size)
 
+    if cfg.data.test_dir is not None:
+        test_data = XYData(cfg.data.test_dir, data_cfg=cfg.data)
+        test_loader = DataLoader(test_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
+        n_test = test_data.n_data - (test_data.n_data % cfg.optim.batch_size)
+
     #########
     # Model #
     #########
@@ -122,18 +127,21 @@ def main():
     model_path = ''
     print("Training set size: {:d}".format(n_train))
     print("Validation set size: {:d}".format(n_val))
+    if cfg.data.test_dir is not None:
+        print("Test set size: {:d}".format(n_test))
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
     for epoch in progress:
         net.train()
+        net.apply(h0rton.models.deactivate_batchnorm)
         train_loss = 0.0
 
-        for batch_idx, (X_, Y_) in enumerate(train_loader):
-            X = X_.to(device)
-            Y = Y_.to(device)
+        for batch_idx, (X_tr, Y_tr) in enumerate(train_loader):
+            X_tr = X_tr.to(device)
+            Y_tr = Y_tr.to(device)
             # Update weights
             optimizer.zero_grad()
-            pred = net(X)
-            loss = loss_fn(pred, Y)
+            pred = net(X_tr)
+            loss = loss_fn(pred, Y_tr)
             loss.backward()
             optimizer.step()
             # For logging
@@ -143,38 +151,46 @@ def main():
 
         with torch.no_grad():
             net.eval()
+            net.apply(h0rton.models.deactivate_batchnorm)
             val_loss = 0.0
+            test_loss = 0.0
 
-            for batch_idx, (X_, Y_) in enumerate(val_loader):
-                X = X_.to(device)
-                Y = Y_.to(device)
-                pred = net(X)
-                nograd_loss = loss_fn(pred, Y)
+            if cfg.data.test_dir is not None:
+                for batch_idx, (X_t, Y_t) in enumerate(test_loader):
+                    X_t = X_t.to(device)
+                    Y_t = Y_t.to(device)
+                    pred = net(X_t)
+                    nograd_loss = loss_fn(pred, Y_t)
+                    test_loss += (nograd_loss.item() - test_loss)/(1 + batch_idx)
+
+            for batch_idx, (X_v, Y_v) in enumerate(val_loader):
+                X_v = X_v.to(device)
+                Y_v = Y_v.to(device)
+                pred = net(X_v)
+                nograd_loss = loss_fn(pred, Y_v)
                 val_loss += (nograd_loss.item() - val_loss)/(1 + batch_idx)
 
             tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
+            if cfg.data.test_dir is not None:
+                tqdm.write("Epoch [{}/{}]: TEST Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, test_loss))
             
             if (epoch + 1)%(cfg.monitoring.interval) == 0:
                 # Subset of validation for plotting
                 n_plotting = cfg.monitoring.n_plotting
-                X_plt = X[:n_plotting].cpu().numpy()
-                Y_plt = Y[:n_plotting].cpu().numpy()
-                Y_plt_orig = bnn_post.transform_back_mu(Y[:n_plotting]).cpu().numpy()
+                X_plt = X_v[:n_plotting].cpu().numpy()
+                #Y_plt = Y[:n_plotting].cpu().numpy()
+                Y_plt_orig = bnn_post.transform_back_mu(Y_v[:n_plotting]).cpu().numpy()
                 pred_plt = pred[:n_plotting]
                 # Slice pred_plt into meaningful Gaussian parameters for this batch
                 bnn_post.set_sliced_pred(pred_plt)
-                mu = bnn_post.mu.cpu().numpy()
                 mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
-                mu2 = bnn_post.mu2.cpu().numpy()
                 mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
                 # Log train and val metrics
-                logger.add_scalars('metrics/loss',
-                                   {
-                                   'train': train_loss, 
-                                   'val': val_loss
-                                   },
-                                   epoch)
+                scalar_dict = {'train': train_loss, 'val': val_loss}
+                if cfg.data.test_dir is not None:
+                    scalar_dict.update(test=test_loss)
+                logger.add_scalars('metrics/loss', scalar_dict, epoch)
                 #rmse = train_utils.get_rmse(mu, Y_plt)
                 rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
                 rmse_orig2 = train_utils.get_rmse(mu2_orig, Y_plt_orig)

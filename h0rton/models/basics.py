@@ -1,6 +1,15 @@
+import torch
 import torch.nn as nn
 
-__all__ = ['conv3x3', 'conv1x1', 'BasicBlock', 'Bottleneck']
+__all__ = ['conv3x3', 'conv1x1', 'BasicBlock', 'Bottleneck', 'deactivate_batchnorm']
+
+def deactivate_batchnorm(m):
+    if isinstance(m, nn.BatchNorm2d):
+        m.reset_parameters()
+        m.eval()
+        with torch.no_grad():
+            m.weight.fill_(1.0)
+            m.bias.zero_()
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
