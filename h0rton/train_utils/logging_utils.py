@@ -57,7 +57,7 @@ def get_rmse(pred_mu, true_mu):
         total mean of the RMSE for that batch
 
     """
-    rmse = np.mean((np.mean((pred_mu - true_mu)**2.0, axis=1))**0.5)
+    rmse = np.mean((np.sum((pred_mu - true_mu)**2.0, axis=1))**0.5)
     return rmse
 
 def get_rmse_param(pred_mu, true_mu, param_idx):
