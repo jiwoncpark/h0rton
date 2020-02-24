@@ -173,9 +173,8 @@ def main():
     ########################
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
 
-    # Sampling must precede any reverse transformation b/c of sticky variable bug.
-    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
     # Sample from the BNN posterior
+    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
     bnn_post.set_sliced_pred(pred)
     lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
     lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
