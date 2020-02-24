@@ -7,16 +7,18 @@
 *.h5
 *.hdf5
 *.png
-out_data/*
 h0rton/tdlmc_data/*
-saved_models/*
+h0rton/tdlmc_utils/*
 
 # Logs
 runs/*
 
 # Personal config files under development
-my_configs/*
+experiments/*
 in_progress/*
+*_models/*
+*DiagonalCosmoBNNPrior_*/*
+baobab_configs/*
 
 # HTML builds
 docs/_build/*
