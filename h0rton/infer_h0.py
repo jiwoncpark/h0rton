@@ -13,8 +13,10 @@ import os
 import sys
 import argparse
 import random
+import time
 from addict import Dict
 from tqdm import tqdm
+import progressbar
 from ast import literal_eval
 import json
 import glob
@@ -33,6 +35,16 @@ import h0rton.losses
 import h0rton.train_utils as train_utils
 from h0rton.h0_inference import DoubleGaussianBNNPosterior, H0Posterior, plot_h0_histogram
 from h0rton.trainval_data import XYCosmoData
+
+def up():
+    # My terminal breaks if we don't flush after the escape-code
+    sys.stdout.write('\x1b[1A')
+    sys.stdout.flush()
+
+def down():
+    # I could use '\x1b[1B' here, but newline is faster and easier
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 def parse_args():
     """Parse command-line arguments
@@ -174,11 +186,12 @@ def main():
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
 
     # Sample from the BNN posterior
+    sampling_buffer = 3
     bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
     bnn_post.set_sliced_pred(pred)
-    lens_model_samples = bnn_post.sample(n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
+    lens_model_samples = bnn_post.sample(sampling_buffer*n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
     lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
-    lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, n_samples, -1)
+    lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, sampling_buffer*n_samples, -1)
 
     Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
     Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
@@ -205,14 +218,20 @@ def main():
     # Add artificial noise around the truth values
     if test_cfg.lens_posterior_type == 'truth':
         Y_orig_values = Y_orig_values[:, np.newaxis, :] # [n_test, 1, Y_dim]
-        artificial_noise = np.random.randn(n_test, n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, n_samples, Y_dim]
-        lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, n_samples, Y_dim]
+        artificial_noise = np.random.randn(n_test, sampling_buffer*n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
+        lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, buffer*n_samples, Y_dim]
 
     # Placeholders for mean and std of H0 samples per system
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
+    inference_time = np.zeros(n_test)
     # For each lens system...
-    for lens_i in tqdm(range(n_test)):
+    down()
+    total_progress = progressbar.ProgressBar(maxval=n_test)
+    total_progress.start()
+    lens_i_start_time = time.time()
+    for lens_i in range(n_test):
+        up()
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
@@ -232,27 +251,47 @@ def main():
                                           true_img_ra=true_img_ra,
                                           )
         # Initialize output array
-        h0_samples = np.full(n_samples, np.nan) # nan if the sample errored and was skipped
+        h0_samples = np.ones(n_samples)*-1 # -1 if the sample errored and was skipped
         h0_weights = np.zeros(n_samples)
         # For each sample from the lens model posterior of this lens system...
-        for sample_i in tqdm(range(n_samples)):
-            sampled_lens_model_raw = bnn_sample_df.iloc[sample_i]
-            h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw)
-            h0_samples[sample_i] = h0
-            h0_weights[sample_i] = weight
+        sampling_progress = progressbar.ProgressBar(n_samples)
+        sampling_progress.start()
+        valid_sample_i = 0
+        sample_i = 0
+        while valid_sample_i < n_samples:
+            if sample_i > sampling_buffer*n_samples - 1:
+                break
+            try:
+                sampled_lens_model_raw = bnn_sample_df.iloc[sample_i]
+                h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw)
+                h0_samples[valid_sample_i] = h0
+                h0_weights[valid_sample_i] = weight
+                sampling_progress.update(valid_sample_i + 1)
+                time.sleep(0.001)
+                valid_sample_i += 1
+                sample_i += 1
+            except:
+                sample_i += 1
+                continue
+        lens_i_end_time = time.time()
+        sampling_progress.finish()
         # Normalize weights to unity
         is_nan_mask = np.logical_or(np.isnan(h0_weights), ~np.isfinite(h0_weights))
         h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
         h0_dict = dict(
-                       h0_samples=h0_samples,
-                       h0_weights=h0_weights,
+                       h0_samples=h0_samples[~is_nan_mask],
+                       h0_weights=h0_weights[~is_nan_mask],
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
         mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
+        inference_time[lens_i] = (lens_i_end_time - lens_i_start_time)/60.0 # min
+        total_progress.update(lens_i + 1)
+    total_progress.finish()
     h0_stats = dict(
+                    name='rung1_seed{:d}'.format(lens_i),
                     mean=mean_h0_set,
                     std=std_h0_set,
                     )
