@@ -132,7 +132,7 @@ def main():
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
     for epoch in progress:
         net.train()
-        net.apply(h0rton.models.deactivate_batchnorm)
+        #net.apply(h0rton.models.deactivate_batchnorm)
         train_loss = 0.0
 
         for batch_idx, (X_tr, Y_tr) in enumerate(train_loader):
@@ -151,7 +151,7 @@ def main():
 
         with torch.no_grad():
             net.eval()
-            net.apply(h0rton.models.deactivate_batchnorm)
+            #net.apply(h0rton.models.deactivate_batchnorm)
             val_loss = 0.0
             test_loss = 0.0
 
