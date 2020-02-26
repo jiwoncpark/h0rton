@@ -12,7 +12,7 @@ def plot_h0_histogram(samples, weights, lens_i=0, true_h0=None, include_fit_gaus
     """Plot the histogram of H0 samples, overlaid with a Gaussian fit and truth H0
 
     """
-    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=40, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[50.0, 100.0])
+    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=40, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     if include_fit_gaussian:
         # Fit a gaussian
@@ -24,6 +24,7 @@ def plot_h0_histogram(samples, weights, lens_i=0, true_h0=None, include_fit_gaus
         # Compute the weighted mean and std analytically
         mean = np.average(samples, weights=weights)
         std = np.average((samples - mean)**2.0, weights=weights)**0.5
+        #print(mean, std)
         popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
     x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 

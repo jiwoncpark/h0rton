@@ -301,7 +301,7 @@ class H0Posterior:
                                                        td_cosmo, 
                                                        kwargs_lens, 
                                                        None, #FIXME: only analytic
-                                                       aniso_param*lens_light_R_sersic, 
+                                                       {'aniso_param': aniso_param}, 
                                                        self.kinematics.kwargs_aperture, 
                                                        self.kinematics.kwargs_psf, 
                                                        self.kinematics.anisotropy_model, 
