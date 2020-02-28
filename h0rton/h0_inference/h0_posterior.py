@@ -287,7 +287,6 @@ class H0Posterior:
         # Sample from respective predefined priors
         h0_candidate = self.sample_H0()
         k_ext = self.sample_kappa_ext()
-        aniso_param = self.sample_aniso_param()
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions
@@ -297,6 +296,7 @@ class H0Posterior:
         if self.exclude_vel_disp:
             ll_vd = 0.0
         else:
+            aniso_param = self.sample_aniso_param()
             inferred_vd = self.get_velocity_dispersion(
                                                        td_cosmo, 
                                                        kwargs_lens, 

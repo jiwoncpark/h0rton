@@ -135,7 +135,7 @@ def main():
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)
-    with torch.no_grad():
+    with torch.no_grad(): # TODO: skip this if lens_posterior_type == 'truth'
         net.eval()
         for X_, Y_ in test_loader:
             X = X_.to(device)
@@ -184,53 +184,50 @@ def main():
     # Lens Model Posterior #
     ########################
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
+    sampling_buffer = test_cfg.h0_posterior.sampling_buffer # FIXME: dynamically sample more if we run out of samples
 
-    # Sample from the BNN posterior
-    sampling_buffer = 3
-    bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
-    bnn_post.set_sliced_pred(pred)
-    lens_model_samples = bnn_post.sample(sampling_buffer*n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
-    lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
-    lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, sampling_buffer*n_samples, -1)
-
-    Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
-    Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
-    Y_orig_values = Y_orig_df[required_params].values # [n_test, Y_dim]
-
-    # Optionally export the truth parameters Y, reverse-transformed
-    if test_cfg.export.reverse_transformed_truth:
-        pd.DataFrame(Y_orig_values, columns=required_params).to_csv(os.path.join(out_dir, 'Y_truth.csv'), index=False)
-
-    # Optionally export the predictions, properly reverse-transformed
-    if test_cfg.export.pred:
-        # Primary mu
-        pred_mu = bnn_post.transform_back_mu(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
-        pred_mu_df = pd.DataFrame(pred_mu, columns=train_val_cfg.data.Y_cols)
-        # Second gaussian weights
-        pred_mu_df['w2'] = bnn_post.w2.cpu().numpy().squeeze()
-        # Diagonal elements of first covariance matrix, square-rooted
-        pred_cov_diag_sqrt = (bnn_post.cov_diag**0.5*bnn_post.Y_std.reshape([1, -1])).cpu().numpy()
-        pred_cov_df = pd.DataFrame(pred_cov_diag_sqrt, columns=train_val_cfg.data.Y_cols)
-        # Concat the two
-        pred_df = pd.merge(left=pred_mu_df, right=pred_cov_df, how='inner', left_index=True, right_index=True, suffixes=('', '_sig2'))
-        pred_df.to_csv(os.path.join(out_dir, 'pred.csv'), index=False)
-
-    # Add artificial noise around the truth values
-    if test_cfg.lens_posterior_type == 'truth':
-        Y_orig_values = Y_orig_values[:, np.newaxis, :] # [n_test, 1, Y_dim]
+    if test_cfg.lens_posterior_type == 'bnn':
+        # Sample from the BNN posterior
+        bnn_post = DoubleGaussianBNNPosterior(test_data.Y_dim, device, train_val_cfg.data.train_Y_mean, train_val_cfg.data.train_Y_std)
+        bnn_post.set_sliced_pred(pred)
+        lens_model_samples = bnn_post.sample(sampling_buffer*n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
+        lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
+        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, sampling_buffer*n_samples, -1)
+        # Optionally export the BNN predictions, properly reverse-transformed
+        if test_cfg.export.pred:
+            # Primary mu
+            pred_mu = bnn_post.transform_back_mu(pred[:, :test_data.Y_dim]).cpu().numpy().reshape(n_test, test_data.Y_dim)
+            pred_mu_df = pd.DataFrame(pred_mu, columns=train_val_cfg.data.Y_cols)
+            # Second gaussian weights
+            pred_mu_df['w2'] = bnn_post.w2.cpu().numpy().squeeze()
+            # Diagonal elements of first covariance matrix, square-rooted
+            pred_cov_diag_sqrt = (bnn_post.cov_diag**0.5*bnn_post.Y_std.reshape([1, -1])).cpu().numpy()
+            pred_cov_df = pd.DataFrame(pred_cov_diag_sqrt, columns=train_val_cfg.data.Y_cols)
+            # Concat the two
+            pred_df = pd.merge(left=pred_mu_df, right=pred_cov_df, how='inner', left_index=True, right_index=True, suffixes=('', '_sig2'))
+            pred_df.to_csv(os.path.join(out_dir, 'pred.csv'), index=False)
+    elif test_cfg.lens_posterior_type == 'truth':
+        # Add artificial noise around the truth values
+        Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
+        Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
+        Y_orig_values = Y_orig_df[required_params].values[:, np.newaxis, :] # [n_test, 1, Y_dim]
         artificial_noise = np.random.randn(n_test, sampling_buffer*n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
         lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, buffer*n_samples, Y_dim]
+    elif test_cfg.lens_posterior_type == 'hybrid':
+        raise ValueError("Please run the infer_h0_hybrid.py script instead.")
+    else:
+        raise NotImplementedError("Lens posterior types of bnn, truth, hybrid supported.")
 
     # Placeholders for mean and std of H0 samples per system
     mean_h0_set = np.zeros(n_test)
     std_h0_set = np.zeros(n_test)
-    inference_time = np.zeros(n_test)
+    inference_time_set = np.zeros(n_test)
     # For each lens system...
     down()
     total_progress = progressbar.ProgressBar(maxval=n_test)
     total_progress.start()
     lens_i_start_time = time.time()
-    for lens_i in range(n_test):
+    for lens_i in range(3, n_test):
         up()
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
@@ -251,7 +248,7 @@ def main():
                                           true_img_ra=true_img_ra,
                                           )
         # Initialize output array
-        h0_samples = np.ones(n_samples)*-1 # -1 if the sample errored and was skipped
+        h0_samples = np.full(n_samples, np.nan)
         h0_weights = np.zeros(n_samples)
         # For each sample from the lens model posterior of this lens system...
         sampling_progress = progressbar.ProgressBar(n_samples)
@@ -274,26 +271,29 @@ def main():
                 sample_i += 1
                 continue
         lens_i_end_time = time.time()
+        inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
         sampling_progress.finish()
         # Normalize weights to unity
         is_nan_mask = np.logical_or(np.isnan(h0_weights), ~np.isfinite(h0_weights))
         h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
         h0_dict = dict(
-                       h0_samples=h0_samples[~is_nan_mask],
-                       h0_weights=h0_weights[~is_nan_mask],
+                       h0_samples=h0_samples,
+                       h0_weights=h0_weights,
+                       inference_time=inference_time
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
         mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
-        inference_time[lens_i] = (lens_i_end_time - lens_i_start_time)/60.0 # min
+        inference_time_set[lens_i] = inference_time
         total_progress.update(lens_i + 1)
     total_progress.finish()
     h0_stats = dict(
                     name='rung1_seed{:d}'.format(lens_i),
                     mean=mean_h0_set,
                     std=std_h0_set,
+                    inference_time=inference_time_set,
                     )
     h0_stats_save_path = os.path.join(out_dir, 'h0_stats')
     np.save(h0_stats_save_path, h0_stats)
