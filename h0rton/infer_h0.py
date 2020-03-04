@@ -27,7 +27,6 @@ import torch
 from torch.utils.data import DataLoader
 import h0rton.models
 # Baobab modules
-import baobab.sim_utils
 from baobab import BaobabConfig
 # H0rton modules
 from h0rton.configs import TrainValConfig, TestConfig
@@ -227,8 +226,10 @@ def main():
     total_progress = progressbar.ProgressBar(maxval=n_test)
     total_progress.start()
     lens_i_start_time = time.time()
-    for lens_i in range(3, n_test):
+    for lens_i in range(n_test):
         up()
+        # Each lens gets a unique random state for td and vd measurement error realizations.
+        rs_lens = np.random.RandomState(lens_i)
         # BNN samples for lens_i
         bnn_sample_df = pd.DataFrame(lens_model_samples_values[lens_i, :, :], columns=required_params)
         # Cosmology observables for lens_i
@@ -236,17 +237,20 @@ def main():
         true_td = np.array(literal_eval(cosmo['true_td']))
         true_img_dec = np.trim_zeros(cosmo[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
         true_img_ra = np.trim_zeros(cosmo[['x_image_0', 'x_image_1', 'x_image_2', 'x_image_3']].values, 'b')
+        measured_vd = cosmo['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
+        measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
         h0_post.set_cosmology_observables(
                                           z_lens=cosmo['z_lens'], 
                                           z_src=cosmo['z_src'], 
-                                          measured_vd=cosmo['true_vd']*(1.0 + np.random.randn()*test_cfg.error_model.velocity_dispersion_frac_error), 
+                                          measured_vd=measured_vd, 
                                           measured_vd_err=test_cfg.velocity_dispersion_likelihood.sigma, 
-                                          measured_td=true_td + np.random.randn(*true_td.shape)*test_cfg.error_model.time_delay_error,
+                                          measured_td=measured_td,
                                           measured_td_err=test_cfg.time_delay_likelihood.sigma, 
                                           abcd_ordering_i=np.arange(len(true_td)),
                                           true_img_dec=true_img_dec,
                                           true_img_ra=true_img_ra,
                                           )
+        print(measured_vd, measured_td)
         # Initialize output array
         h0_samples = np.full(n_samples, np.nan)
         h0_weights = np.zeros(n_samples)
@@ -259,8 +263,10 @@ def main():
             if sample_i > sampling_buffer*n_samples - 1:
                 break
             try:
+                # Each sample for a given lens gets a unique random state for H0, k_ext, and aniso_param realizations.
+                rs_sample = np.random.RandomState(int(str(lens_i) + str(sample_i)))
                 sampled_lens_model_raw = bnn_sample_df.iloc[sample_i]
-                h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw)
+                h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw, rs_sample)
                 h0_samples[valid_sample_i] = h0
                 h0_weights[valid_sample_i] = weight
                 sampling_progress.update(valid_sample_i + 1)

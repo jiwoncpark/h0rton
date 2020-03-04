@@ -34,24 +34,6 @@ class H0Posterior:
 
         Parameters
         ----------
-        z_lens : float
-        z_src : float
-        lens_mass_dict : dict
-            dict of lens mass kwargs
-        ext_shear_dict : dict
-            dict of external shear kwargs
-        ps_dict : dict
-            dict of point source kwargs
-        measured_vd : float
-            measured velocity dispersion
-        measured_vd_err : float
-            measurement error of velocity dispersion
-        measured_td : array-like
-            measured time delays
-        measured_td_err : array-like
-            measurement error of time delays
-        lens_light_R_sersic : float
-            effective radius of lens light in arcsec
         H0_prior : scipy rv_continuous object
         kappa_ext_prior : scipy rv_continuous object
             prior over the external convergence
@@ -104,6 +86,20 @@ class H0Posterior:
 
         Parameters
         ----------
+        z_lens : float
+        z_src : float
+        lens_mass_dict : dict
+            dict of lens mass kwargs
+        ext_shear_dict : dict
+            dict of external shear kwargs
+        ps_dict : dict
+            dict of point source kwargs
+        measured_vd : float
+            measured velocity dispersion
+        measured_vd_err : float
+            measurement error of velocity dispersion
+        lens_light_R_sersic : float
+            effective radius of lens light in arcsec
         measured_td : np.array of shape `[n_images,]`
             the measured time delays in days 
         measured_td_err : float
@@ -210,14 +206,14 @@ class H0Posterior:
             requires_reordering = False # If the user is providing `ra_image` inside `ps_dict`, the order is required to agree with `measured_time_delays`.
         return kwargs_image, requires_reordering
 
-    def sample_H0(self):
-        return self.H0_prior.rvs()
+    def sample_H0(self, random_state):
+        return self.H0_prior.rvs(random_state=random_state)
 
-    def sample_kappa_ext(self):
-        return self.kappa_ext_prior.rvs()
+    def sample_kappa_ext(self, random_state):
+        return self.kappa_ext_prior.rvs(random_state=random_state)
 
-    def sample_aniso_param(self):
-        return self.aniso_param_prior.rvs()
+    def sample_aniso_param(self, random_state):
+        return self.aniso_param_prior.rvs(random_state=random_state)
 
     def calculate_offset_from_true_image_positions(self, model_ra, model_dec, true_img_ra, true_img_dec,  increasing_dec_i, abcd_ordering_i):
         """Calculates the difference in arcsec between the (inferred or fed-in) image positions known to `H0Posterior` and the provided true image positions
@@ -265,13 +261,14 @@ class H0Posterior:
         img_array = np.array(img_array)[increasing_dec_i][abcd_ordering_i]
         return img_array
 
-    def get_h0_sample(self, sampled_lens_model_raw):
+    def get_h0_sample(self, sampled_lens_model_raw, random_state):
         """Get MC samples from the H0Posterior
 
         Parameters
         ----------
         sampled_lens_model_raw : dict
             sampled lens model parameters, pre-formatting
+        random_state : np.random.RandomState object
 
         Returns
         -------
@@ -285,8 +282,9 @@ class H0Posterior:
         lens_light_R_sersic = lens_prior_sample['lens_light_R_sersic']
         increasing_dec_i = lens_prior_sample['increasing_dec_i']
         # Sample from respective predefined priors
-        h0_candidate = self.sample_H0()
-        k_ext = self.sample_kappa_ext()
+        h0_candidate = self.sample_H0(random_state)
+        k_ext = self.sample_kappa_ext(random_state)
+        print(h0_candidate, k_ext)
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions
@@ -296,7 +294,7 @@ class H0Posterior:
         if self.exclude_vel_disp:
             ll_vd = 0.0
         else:
-            aniso_param = self.sample_aniso_param()
+            aniso_param = self.sample_aniso_param(random_state)
             inferred_vd = self.get_velocity_dispersion(
                                                        td_cosmo, 
                                                        kwargs_lens, 
