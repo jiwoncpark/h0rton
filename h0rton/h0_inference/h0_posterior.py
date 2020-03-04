@@ -284,7 +284,6 @@ class H0Posterior:
         # Sample from respective predefined priors
         h0_candidate = self.sample_H0(random_state)
         k_ext = self.sample_kappa_ext(random_state)
-        print(h0_candidate, k_ext)
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions

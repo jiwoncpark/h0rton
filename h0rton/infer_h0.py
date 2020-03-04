@@ -222,12 +222,14 @@ def main():
     std_h0_set = np.zeros(n_test)
     inference_time_set = np.zeros(n_test)
     # For each lens system...
-    down()
-    total_progress = progressbar.ProgressBar(maxval=n_test)
-    total_progress.start()
+    #down()
+    #total_progress = progressbar.ProgressBar(maxval=n_test)
+    total_progress = tqdm(total=n_test)
+    sampling_progress = tqdm(total=n_samples)
+    #total_progress.start()
     lens_i_start_time = time.time()
     for lens_i in range(n_test):
-        up()
+        #up()
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
         # BNN samples for lens_i
@@ -250,13 +252,13 @@ def main():
                                           true_img_dec=true_img_dec,
                                           true_img_ra=true_img_ra,
                                           )
-        print(measured_vd, measured_td)
         # Initialize output array
         h0_samples = np.full(n_samples, np.nan)
         h0_weights = np.zeros(n_samples)
         # For each sample from the lens model posterior of this lens system...
-        sampling_progress = progressbar.ProgressBar(n_samples)
-        sampling_progress.start()
+        #sampling_progress = progressbar.ProgressBar(n_samples)
+        #sampling_progress.start()
+        sampling_progress.reset()
         valid_sample_i = 0
         sample_i = 0
         while valid_sample_i < n_samples:
@@ -269,16 +271,17 @@ def main():
                 h0, weight = h0_post.get_h0_sample(sampled_lens_model_raw, rs_sample)
                 h0_samples[valid_sample_i] = h0
                 h0_weights[valid_sample_i] = weight
-                sampling_progress.update(valid_sample_i + 1)
+                sampling_progress.update(1)
                 time.sleep(0.001)
                 valid_sample_i += 1
                 sample_i += 1
             except:
                 sample_i += 1
                 continue
+        sampling_progress.refresh()
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
-        sampling_progress.finish()
+        #sampling_progress.finish()
         # Normalize weights to unity
         is_nan_mask = np.logical_or(np.isnan(h0_weights), ~np.isfinite(h0_weights))
         h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
@@ -293,8 +296,9 @@ def main():
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
         inference_time_set[lens_i] = inference_time
-        total_progress.update(lens_i + 1)
-    total_progress.finish()
+        total_progress.update(1)
+    #total_progress.finish()
+    total_progress.close()
     h0_stats = dict(
                     name='rung1_seed{:d}'.format(lens_i),
                     mean=mean_h0_set,
