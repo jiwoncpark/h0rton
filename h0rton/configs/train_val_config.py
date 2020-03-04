@@ -126,6 +126,8 @@ class TrainValConfig:
             raise ValueError("monitoring.n_plotting must be smaller than optim.batch_size")
         # Import relevant noise-related detector and observation conditions from baobab
         if self.data.add_noise:
+            # Online data augmentation can handle exposure time different from one used to generate the image.
+            self.data.noiseless_exposure_time = self.data.train_baobab_cfg.observation.exposure_time
             self.data.noise_kwargs.update(self.data.train_baobab_cfg.instrument)
             self.data.noise_kwargs.update(self.data.train_baobab_cfg.bandpass)
             self.data.noise_kwargs.update(self.data.train_baobab_cfg.observation)
@@ -133,7 +135,6 @@ class TrainValConfig:
                                           kernel_point_source=None,
                                           data_count_unit='e-',
                                           )
-            print(self.data.noise_kwargs)
 
     def set_model_metadata(self):
         """Set metadata about the network architecture and the loss function (posterior type)

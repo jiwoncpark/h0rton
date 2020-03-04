@@ -30,8 +30,6 @@ class XYData(Dataset): # torch.utils.data.Dataset
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(rescale_01)
         log = transforms.Lambda(plus_1_log)
-        #stack = transforms.Lambda(stack_rgb)
-        #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], inplace=True)
         transforms_list = []
         if self.log_pixels:
             transforms_list.append(log)
@@ -41,7 +39,6 @@ class XYData(Dataset): # torch.utils.data.Dataset
             self.X_transform = None
         else:
             self.X_transform = transforms.Compose(transforms_list)
-        #self.Y_transform = torch.Tensor
         # Y metadata
         metadata_path = os.path.join(self.dataset_dir, 'metadata.csv')
         Y_df = pd.read_csv(metadata_path, index_col=False)
@@ -58,14 +55,17 @@ class XYData(Dataset): # torch.utils.data.Dataset
         self.Y_dim = len(self.Y_cols)
         # Log parameterizing
         self.Y_df = whiten_Y_cols(self.Y_df, self.train_Y_mean, self.train_Y_std, self.Y_cols)
+        # Adjust exposure time relative to that used to generate the noiseless images
+        self.exposure_time_factor = self.noise_kwargs.exposure_time/self.noiseless_exposure_time
         if self.add_noise:
-            self.noise_model = NoiseModelTorch(**data_cfg.noise_kwargs)
+            self.noise_model = NoiseModelTorch(**self.noise_kwargs)
 
     def __getitem__(self, index):
         # Image X
         img_filename = self.Y_df.iloc[index]['img_filename']
         img_path = os.path.join(self.dataset_dir, img_filename)
         img = np.load(img_path)
+        img *= self.exposure_time_factor
         img = torch.as_tensor(img.astype(np.float32)) # np array type must match with default tensor type
         if self.add_noise:
             img += self.noise_model.get_noise_map(img)
