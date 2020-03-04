@@ -107,7 +107,7 @@ def main():
 
     # Instantiate optimizer
     optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=True, weight_decay=cfg.optim.weight_decay)
-    lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.optim.lr_scheduler.milestones, gamma=cfg.optim.lr_scheduler.gamma)
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg.optim.lr_scheduler.factor, patience=cfg.optim.lr_scheduler.patience, verbose=False)
     
     # Saving/loading state dicts
     checkpoint_dir = cfg.checkpoint.save_dir
@@ -146,8 +146,6 @@ def main():
             optimizer.step()
             # For logging
             train_loss += (loss.item() - train_loss)/(1 + batch_idx)
-        # Step lr_scheduler every epoch
-        lr_scheduler.step()
 
         with torch.no_grad():
             net.eval()
@@ -230,6 +228,9 @@ def main():
                     #os.remove(model_path) if os.path.exists(model_path) else None
                     model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
                     last_saved_val_loss = train_loss
+
+        # Step lr_scheduler every epoch
+        lr_scheduler.step(val_loss)
 
     logger.close()
     # Save final state dict
