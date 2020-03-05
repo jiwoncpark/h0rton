@@ -225,9 +225,9 @@ def main():
             if (epoch + 1)%(cfg.checkpoint.interval) == 0:
                 # FIXME compare to last saved epoch val loss
                 if val_loss < last_saved_val_loss:
-                    #os.remove(model_path) if os.path.exists(model_path) else None
+                    os.remove(model_path) if os.path.exists(model_path) else None
                     model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
-                    last_saved_val_loss = train_loss
+                    last_saved_val_loss = val_loss
 
         # Step lr_scheduler every epoch
         lr_scheduler.step(val_loss)
@@ -235,7 +235,7 @@ def main():
     logger.close()
     # Save final state dict
     if val_loss < last_saved_val_loss:
-        #os.remove(model_path) if os.path.exists(model_path) else None
+        os.remove(model_path) if os.path.exists(model_path) else None
         model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
         print("Saved model at {:s}".format(os.path.abspath(model_path)))
 
