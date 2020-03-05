@@ -100,8 +100,15 @@ def main():
     # Data I/O #
     ############
     test_data = XYCosmoData(test_cfg.data.test_dir, data_cfg=train_val_cfg.data)
-    n_test = test_cfg.data.n_test # number of lenses in the test set
-    test_loader = DataLoader(test_data, batch_size=n_test, shuffle=False, drop_last=True)
+    if test_cfg.data.lens_indices is None:
+        n_test = test_cfg.data.n_test # number of lenses in the test set
+        lens_range = range(n_test)
+    else: # if specific lenses are specified
+        lens_range = test_cfg.data.lens_indices
+        n_test = len(lens_range)
+        print("Performing H0 inference on {:d} specified lenses...".format(n_test))
+    batch_size = max(lens_range) + 1
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, drop_last=True)
     cosmo_df = test_data.cosmo_df # cosmography observables
     # Output directory into which the H0 histograms and H0 samples will be saved
     out_dir = test_cfg.out_dir
@@ -180,7 +187,7 @@ def main():
         bnn_post.set_sliced_pred(pred)
         lens_model_samples = bnn_post.sample(sampling_buffer*n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
         lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
-        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(n_test, sampling_buffer*n_samples, -1)
+        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(batch_size, sampling_buffer*n_samples, -1)
         # Optionally export the BNN predictions, properly reverse-transformed
         if test_cfg.export.pred:
             # Primary mu
@@ -196,10 +203,10 @@ def main():
             pred_df.to_csv(os.path.join(out_dir, 'pred.csv'), index=False)
     elif test_cfg.lens_posterior_type == 'truth':
         # Add artificial noise around the truth values
-        Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(n_test, test_data.Y_dim)
+        Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(batch_size, test_data.Y_dim)
         Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
         Y_orig_values = Y_orig_df[required_params].values[:, np.newaxis, :] # [n_test, 1, Y_dim]
-        artificial_noise = np.random.randn(n_test, sampling_buffer*n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
+        artificial_noise = np.random.randn(batch_size, sampling_buffer*n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
         lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, buffer*n_samples, Y_dim]
     elif test_cfg.lens_posterior_type == 'hybrid':
         raise ValueError("Please run the infer_h0_hybrid.py script instead.")
@@ -214,7 +221,7 @@ def main():
     total_progress = tqdm(total=n_test)
     sampling_progress = tqdm(total=n_samples)
     lens_i_start_time = time.time()
-    for lens_i in range(n_test):
+    for i, lens_i in enumerate(lens_range):
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
         # BNN samples for lens_i
@@ -273,9 +280,9 @@ def main():
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
         mean_h0, std_h0 = plot_h0_histogram(h0_samples, h0_weights, lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
-        mean_h0_set[lens_i] = mean_h0
-        std_h0_set[lens_i] = std_h0
-        inference_time_set[lens_i] = inference_time
+        mean_h0_set[i] = mean_h0
+        std_h0_set[i] = std_h0
+        inference_time_set[i] = inference_time
         total_progress.update(1)
     total_progress.close()
     h0_stats = dict(
