@@ -16,7 +16,6 @@ import random
 import time
 from addict import Dict
 from tqdm import tqdm
-import progressbar
 from ast import literal_eval
 import json
 import glob
@@ -34,16 +33,6 @@ import h0rton.losses
 import h0rton.train_utils as train_utils
 from h0rton.h0_inference import DoubleGaussianBNNPosterior, H0Posterior, plot_h0_histogram
 from h0rton.trainval_data import XYCosmoData
-
-def up():
-    # My terminal breaks if we don't flush after the escape-code
-    sys.stdout.write('\x1b[1A')
-    sys.stdout.flush()
-
-def down():
-    # I could use '\x1b[1B' here, but newline is faster and easier
-    sys.stdout.write('\n')
-    sys.stdout.flush()
 
 def parse_args():
     """Parse command-line arguments
@@ -222,14 +211,10 @@ def main():
     std_h0_set = np.zeros(n_test)
     inference_time_set = np.zeros(n_test)
     # For each lens system...
-    #down()
-    #total_progress = progressbar.ProgressBar(maxval=n_test)
     total_progress = tqdm(total=n_test)
     sampling_progress = tqdm(total=n_samples)
-    #total_progress.start()
     lens_i_start_time = time.time()
     for lens_i in range(n_test):
-        #up()
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
         # BNN samples for lens_i
@@ -256,8 +241,6 @@ def main():
         h0_samples = np.full(n_samples, np.nan)
         h0_weights = np.zeros(n_samples)
         # For each sample from the lens model posterior of this lens system...
-        #sampling_progress = progressbar.ProgressBar(n_samples)
-        #sampling_progress.start()
         sampling_progress.reset()
         valid_sample_i = 0
         sample_i = 0
@@ -281,23 +264,19 @@ def main():
         sampling_progress.refresh()
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
-        #sampling_progress.finish()
-        # Normalize weights to unity
-        is_nan_mask = np.logical_or(np.isnan(h0_weights), ~np.isfinite(h0_weights))
-        h0_weights[~is_nan_mask] = h0_weights[~is_nan_mask]/np.sum(h0_weights[~is_nan_mask])
         h0_dict = dict(
                        h0_samples=h0_samples,
                        h0_weights=h0_weights,
+                       n_sampling_attempts=sample_i,
                        inference_time=inference_time
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
-        mean_h0, std_h0 = plot_h0_histogram(h0_samples[~is_nan_mask], h0_weights[~is_nan_mask], lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
+        mean_h0, std_h0 = plot_h0_histogram(h0_samples, h0_weights, lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         mean_h0_set[lens_i] = mean_h0
         std_h0_set[lens_i] = std_h0
         inference_time_set[lens_i] = inference_time
         total_progress.update(1)
-    #total_progress.finish()
     total_progress.close()
     h0_stats = dict(
                     name='rung1_seed{:d}'.format(lens_i),

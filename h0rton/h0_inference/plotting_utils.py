@@ -8,10 +8,20 @@ __all__ = ['plot_h0_histogram']
 def gaussian(x, mean, standard_deviation, amplitude):
     return amplitude * np.exp( - ((x - mean) / standard_deviation) ** 2)
 
-def plot_h0_histogram(samples, weights, lens_i=0, true_h0=None, include_fit_gaussian=True, save_dir='.'):
+def plot_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None, include_fit_gaussian=True, save_dir='.'):
     """Plot the histogram of H0 samples, overlaid with a Gaussian fit and truth H0
 
+    all_samples : np.array
+        H0 samples
+    all_weights : np.array
+        H0 weights corresponding to `all_samples`, possibly including nan values
+
     """
+    # Normalize weights to unity
+    is_nan_mask = np.logical_or(np.isnan(all_weights), ~np.isfinite(all_weights))
+    all_weights[~is_nan_mask] = all_weights[~is_nan_mask]/np.sum(all_weights[~is_nan_mask])
+    samples = all_samples[~is_nan_mask]
+    weights = all_weights[~is_nan_mask]
     bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=40, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     if include_fit_gaussian:
