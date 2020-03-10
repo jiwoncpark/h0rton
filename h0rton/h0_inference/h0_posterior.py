@@ -5,6 +5,7 @@ import baobab.sim_utils.kinematics_utils as kinematics_utils
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.PointSource.point_source import PointSource
 from lenstronomy.Analysis.td_cosmography import TDCosmography
+from h0rton.h0_inference import h0_utils
 
 __all__ = ['gaussian_ll_pdf', 'H0Posterior']
 
@@ -129,7 +130,7 @@ class H0Posterior:
         """Reorder the measured time delays (same for all lens model samples)
 
         """
-        reordered_measured_td = self.reorder_to_tdlmc(self.measured_td, np.argsort(self.true_img_dec), self.abcd_ordering_i)
+        reordered_measured_td = h0_utils.reorder_to_tdlmc(self.measured_td, np.argsort(self.true_img_dec), self.abcd_ordering_i)
         # Measured time in days (offset from the image with the smallest dec)
         self.measured_td_wrt0 = reordered_measured_td[1:] - reordered_measured_td[0]
 
@@ -232,8 +233,8 @@ class H0Posterior:
 
         """
         if self.requires_reordering:
-            model_ra = self.reorder_to_tdlmc(model_ra, increasing_dec_i, abcd_ordering_i)
-            model_dec = self.reorder_to_tdlmc(model_dec, increasing_dec_i, abcd_ordering_i)
+            model_ra = h0_utils.reorder_to_tdlmc(model_ra, increasing_dec_i, abcd_ordering_i)
+            model_dec = h0_utils.reorder_to_tdlmc(model_dec, increasing_dec_i, abcd_ordering_i)
         
         ra_offset = model_ra - true_img_ra
         dec_offset = model_dec - true_img_dec
@@ -243,23 +244,6 @@ class H0Posterior:
 
         offset = np.concatenate([ra_offset, dec_offset], axis=1)
         return np.linalg.norm(offset, axis=1)
-
-    def reorder_to_tdlmc(self, img_array, increasing_dec_i, abcd_ordering_i):
-        """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
-
-        Parameters
-        ----------
-        img_array : array-like
-            array of properties corresponding to the AGN images
-
-        Returns
-        -------
-        array-like
-            `img_array` reordered to the TDLMC order
-        """
-        #print(img_array.shape, self.increasing_dec_i.shape, self.abcd_ordering_i.shape)
-        img_array = np.array(img_array)[increasing_dec_i][abcd_ordering_i]
-        return img_array
 
     def get_h0_sample(self, sampled_lens_model_raw, random_state):
         """Get MC samples from the H0Posterior
@@ -310,7 +294,7 @@ class H0Posterior:
         # Time delays
         inferred_td = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_img'], kappa_ext=k_ext)
         if lens_prior_sample['requires_reordering']:
-            inferred_td = self.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
+            inferred_td = utils.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
         else:
             inferred_td = np.array(inferred_td)
         inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]
