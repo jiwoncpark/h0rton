@@ -49,7 +49,8 @@ class XYCosmoData(Dataset): # torch.utils.data.Dataset
         # Take only the columns we need
         self.Y_df = metadata_df[self.Y_cols + ['img_filename']].copy()
         # Cosmology-related metadata we need for H0 inference
-        self.cosmo_df = metadata_df[['z_lens', 'z_src', 'H0', 'x_image_0', 'x_image_1', 'x_image_2', 'x_image_3', 'y_image_0', 'y_image_1', 'y_image_2', 'y_image_3', 'true_vd', 'true_td']].copy()
+        #self.cosmo_df = metadata_df[['z_lens', 'z_src', 'H0', 'x_image_0', 'x_image_1', 'x_image_2', 'x_image_3', 'y_image_0', 'y_image_1', 'y_image_2', 'y_image_3', 'true_vd', 'true_td',]].copy()
+        self.cosmo_df = metadata_df.copy()
         del metadata_df
         # Size of dataset
         self.n_data = self.Y_df.shape[0]

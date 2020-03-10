@@ -86,7 +86,7 @@ def main():
 
     if cfg.data.test_dir is not None:
         test_data = XYData(cfg.data.test_dir, data_cfg=cfg.data)
-        test_loader = DataLoader(test_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
+        test_loader = DataLoader(test_data, batch_size=min(cfg.optim.batch_size, test_data.n_data), shuffle=False, drop_last=False, num_workers=4, pin_memory=True)
         n_test = test_data.n_data - (test_data.n_data % cfg.optim.batch_size)
 
     #########
@@ -140,8 +140,8 @@ def main():
             Y_tr = Y_tr.to(device)
             # Update weights
             optimizer.zero_grad()
-            pred = net(X_tr)
-            loss = loss_fn(pred, Y_tr)
+            pred_tr = net(X_tr)
+            loss = loss_fn(pred_tr, Y_tr)
             loss.backward()
             optimizer.step()
             # For logging
@@ -157,16 +157,16 @@ def main():
                 for batch_idx, (X_t, Y_t) in enumerate(test_loader):
                     X_t = X_t.to(device)
                     Y_t = Y_t.to(device)
-                    pred = net(X_t)
-                    nograd_loss = loss_fn(pred, Y_t)
-                    test_loss += (nograd_loss.item() - test_loss)/(1 + batch_idx)
+                    pred_t = net(X_t)
+                    nograd_loss_t = loss_fn(pred_t, Y_t)
+                    test_loss += (nograd_loss_t.item() - test_loss)/(1 + batch_idx)
 
             for batch_idx, (X_v, Y_v) in enumerate(val_loader):
                 X_v = X_v.to(device)
                 Y_v = Y_v.to(device)
-                pred = net(X_v)
-                nograd_loss = loss_fn(pred, Y_v)
-                val_loss += (nograd_loss.item() - val_loss)/(1 + batch_idx)
+                pred_v = net(X_v)
+                nograd_loss_v = loss_fn(pred_v, Y_v)
+                val_loss += (nograd_loss_v.item() - val_loss)/(1 + batch_idx)
 
             tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
             tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
@@ -179,7 +179,7 @@ def main():
                 X_plt = X_v[:n_plotting].cpu().numpy()
                 #Y_plt = Y[:n_plotting].cpu().numpy()
                 Y_plt_orig = bnn_post.transform_back_mu(Y_v[:n_plotting]).cpu().numpy()
-                pred_plt = pred[:n_plotting]
+                pred_plt = pred_v[:n_plotting]
                 # Slice pred_plt into meaningful Gaussian parameters for this batch
                 bnn_post.set_sliced_pred(pred_plt)
                 mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()

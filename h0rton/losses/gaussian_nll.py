@@ -225,7 +225,7 @@ class LowRankGaussianNLL(BaseGaussianNLL):
         sliced = dict(
                       mu=pred[:, :d],
                       logvar=pred[:, d:2*d],
-                      F=pred[:, 2*d:],
+                      F=pred[:, 2*d:4*d],
                       )
         return sliced
 
