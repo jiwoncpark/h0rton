@@ -59,3 +59,39 @@ def plot_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None, include_
         plt.savefig(save_path)
         plt.close()
     return mean, std
+
+def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, include_fit_gaussian=True, save_dir='.'):
+    """Plot the histogram of D_dt samples, overlaid with a Gaussian fit and truth D_dt
+
+    all_samples : np.array
+        D_dt MCMC samples
+
+    """
+    bin_heights, bin_borders, _ = plt.hist(all_samples, bins=100, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 10000.0])
+    bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
+    if include_fit_gaussian:
+        # Fit a gaussian
+        best_guess_mean = bin_centers[np.argmax(bin_heights)]
+        popt, _ = curve_fit(gaussian, bin_centers, bin_heights, p0=[best_guess_mean, 0.3, 3.0], maxfev=10000)
+        mean = popt[0]
+        std = popt[1]
+    else:
+        # Compute the weighted mean and std analytically
+        mean = np.average(all_samples)
+        std = np.average((all_samples - mean)**2.0)**0.5
+        popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
+    #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
+    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
+    # Overlay the fit gaussian pdf
+    plt.plot(x_interval_for_fit, gaussian(x_interval_for_fit, *popt), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(mean, std))
+    if save_dir is not None:
+        if true_D_dt is not None:
+            plt.axvline(x=true_D_dt, linestyle='--', color='red', label='truth')
+        plt.xlabel('D_dt (Mpc)')
+        plt.ylabel('density')
+        plt.title('D_dt posterior for lens {0:04d}'.format(lens_i))
+        plt.legend()
+        save_path = os.path.join(save_dir, 'D_dt_histogram_{0:04d}.png'.format(lens_i))
+        plt.savefig(save_path)
+        plt.close()
+    return mean, std
