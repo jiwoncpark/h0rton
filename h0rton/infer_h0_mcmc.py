@@ -110,7 +110,7 @@ def main():
     orig_Y_cols = train_val_cfg.data.Y_cols
     loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim, device=device)
     # Instantiate MCMC parameter penalty function
-    params_to_remove = ['src_light_center_x', 'src_light_center_y'] # must be removed, as the post-processing scheme only involves image positions
+    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as the post-processing scheme only involves image positions
     mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
     mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
     remove_param_idx, remove_idx = h0_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
@@ -133,9 +133,7 @@ def main():
     
     # FIXME: hardcoded
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
-                        point_source_model_list=['LENSED_POSITION'],
-                        lens_light_model_list=['SERSIC_ELLIPSE'],
-                        source_light_model_list=['SERSIC_ELLIPSE'],)
+                        point_source_model_list=['LENSED_POSITION'],)
     astrometry_sigma = test_cfg.image_position_likelihood.sigma
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
@@ -192,16 +190,10 @@ def main():
         # Lens parameters
         kwargs_init_lens = [{'theta_E': mu['lens_mass_theta_E'], 'gamma': mu['lens_mass_gamma'], 'center_x': mu['lens_mass_center_x'], 'center_y': mu['lens_mass_center_y'], 'e1': mu['lens_mass_e1'], 'e2': mu['lens_mass_e2']}, {'gamma1': mu['external_shear_gamma2'], 'gamma2': mu['external_shear_gamma2']}]
         kwargs_sigma_lens, kwargs_lower_lens, kwargs_upper_lens, kwargs_fixed_lens = h0_utils.get_misc_kwargs_lens()
-        # Lens light parameters
-        kwargs_init_lens_light = [{'R_sersic': mu['lens_light_R_sersic'],}]
-        kwargs_sigma_lens_light, kwargs_fixed_lens_light, kwargs_lower_lens_light, kwargs_upper_lens_light = h0_utils.get_misc_kwargs_light()
-        # Source light parameters
-        kwargs_init_src_light = [{'R_sersic': mu['src_light_R_sersic']}]
-        kwargs_sigma_src_light, kwargs_fixed_src_light, kwargs_lower_src_light, kwargs_upper_src_light = h0_utils.get_misc_kwargs_light()
         # AGN light parameters
         fixed_ps = [{}] 
         kwargs_ps_init = [{'ra_image': measured_img_ra, 'dec_image': measured_img_dec}]
-        kwargs_ps_sigma = [{'ra_image': 0.01*np.ones(n_img), 'dec_image': 0.01*np.ones(n_img)}]
+        kwargs_ps_sigma = [{'ra_image': astrometry_sigma*np.ones(n_img), 'dec_image': astrometry_sigma*np.ones(n_img)}]
         kwargs_lower_ps = [{'ra_image': -10*np.ones(n_img), 'dec_image': -10*np.ones(n_img)}]
         kwargs_upper_ps = [{'ra_image': 10*np.ones(n_img), 'dec_image': 10*np.ones(n_img)}]
         # Image position offset and time delay distance, aka the "special" parameters
@@ -213,8 +205,6 @@ def main():
         # Put all components together
         kwargs_params = {'lens_model': [kwargs_init_lens, kwargs_sigma_lens, kwargs_fixed_lens, kwargs_lower_lens, kwargs_upper_lens],
                          'point_source_model': [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps],
-                         'lens_light_model': [kwargs_init_lens_light, kwargs_sigma_lens_light, kwargs_fixed_lens_light, kwargs_lower_lens_light, kwargs_upper_lens_light],
-                         'source_model': [kwargs_init_src_light, kwargs_sigma_src_light, kwargs_fixed_src_light,kwargs_lower_src_light, kwargs_upper_src_light],
                          'special': [kwargs_special_init, kwargs_special_sigma, fixed_special, kwargs_lower_special, kwargs_upper_special],}
         kwargs_constraints = {'num_point_source_list': [n_img],  
                               'Ddt_sampling': True,
