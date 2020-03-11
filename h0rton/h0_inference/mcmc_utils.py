@@ -52,7 +52,7 @@ def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_boun
     kwargs_ps_init = [{'ra_image': measured_img_ra, 'dec_image': measured_img_dec}]
     kwargs_ps_sigma = [{'ra_image': astrometry_sigma*ones, 'dec_image': astrometry_sigma*ones}]
     fixed_ps = [{}] 
-    kwargs_lower_ps = [{'ra_image': hard_bound*ones, 'dec_image': hard_bound*ones}]
+    kwargs_lower_ps = [{'ra_image': -hard_bound*ones, 'dec_image': -hard_bound*ones}]
     kwargs_upper_ps = [{'ra_image': hard_bound*ones, 'dec_image': hard_bound*ones}]
     return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
@@ -81,7 +81,7 @@ def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=1.0, D_dt_i
     kwargs_special_init = {'delta_x_image': zeros, 'delta_y_image': zeros, 'D_dt': D_dt_init}
     kwargs_special_sigma = {'delta_x_image': ones*astrometry_sigma, 'delta_y_image': ones*astrometry_sigma, 'D_dt': D_dt_sigma}
     fixed_special = {}
-    kwargs_lower_special = {'delta_x_image': ones*delta_pos_hard_bound, 'delta_y_image': ones*delta_pos_hard_bound, 'D_dt': D_dt_lower}
+    kwargs_lower_special = {'delta_x_image': -ones*delta_pos_hard_bound, 'delta_y_image': -ones*delta_pos_hard_bound, 'D_dt': D_dt_lower}
     kwargs_upper_special = {'delta_x_image': ones*delta_pos_hard_bound, 'delta_y_image': ones*delta_pos_hard_bound, 'D_dt': D_dt_upper}
     return [kwargs_special_init, kwargs_special_sigma, fixed_special, kwargs_lower_special, kwargs_upper_special]
 
@@ -155,8 +155,8 @@ class HybridBNNPenalty:
         self.bnn_post_params = bnn_post_params.reshape(1, -1)
 
     def evaluate(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None, kwargs_extinction=None):
-        kwargs_lens[1]['ra_0'] = kwargs_lens[0]['center_x']
-        kwargs_lens[1]['dec_0'] = kwargs_lens[0]['center_y']
+        #kwargs_lens[1]['ra_0'] = kwargs_lens[0]['center_x']
+        #kwargs_lens[1]['dec_0'] = kwargs_lens[0]['center_y']
         to_eval = dict_to_array(self.Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps) # shape [1, self.Y_dim]
         # Whiten the mcmc array
         to_eval = to_eval*self.mcmc_train_Y_std + self.mcmc_train_Y_mean

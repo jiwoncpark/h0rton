@@ -112,7 +112,7 @@ def main():
         ###########################
         data_i = master_truth.iloc[lens_i].copy()
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
-        mu = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian in the BNN posterior will be used to initialize
+        mu = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian used to initialize lens model
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             parameter_penalty.set_vel_disp_params()
             raise NotImplementedError
