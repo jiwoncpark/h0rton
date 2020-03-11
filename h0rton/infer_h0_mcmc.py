@@ -5,7 +5,6 @@ It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy 
 """
 import os
 import sys
-import corner
 import time
 from tqdm import tqdm
 from ast import literal_eval
@@ -15,7 +14,6 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, '/home/jwp/stage/sl/lenstronomy')
 import lenstronomy
 print(lenstronomy.__path__)
-from lenstronomy.Plots import chain_plot as chain_plot
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
 # H0rton modules
@@ -26,7 +24,6 @@ import h0rton.losses
 import h0rton.train_utils as train_utils
 from h0rton.h0_inference import h0_utils, plotting_utils, mcmc_utils
 from h0rton.trainval_data import XYCosmoData
-import matplotlib.pyplot as plt
 
 def main():
     args = parse_args()
@@ -84,11 +81,11 @@ def main():
     params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
     mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
     mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
-    remove_param_idx, remove_idx = h0_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
+    remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
     mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
     mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
-    parameter_penalty = h0_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
-    mcmc_pred = h0_utils.remove_parameters_from_pred(pred.cpu().numpy(), remove_idx, return_as_tensor=True, device=device)
+    parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
+    mcmc_pred = mcmc_utils.remove_parameters_from_pred(pred.cpu().numpy(), remove_idx, return_as_tensor=True, device=device)
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
                         point_source_model_list=['LENSED_POSITION'],)
     astro_sig = test_cfg.image_position_likelihood.sigma
@@ -118,8 +115,6 @@ def main():
             parameter_penalty.set_vel_disp_params()
             raise NotImplementedError
         lcdm = LCDM(z_lens=data_i['z_lens'], z_source=data_i['z_src'], flat=True)
-
-        # Data accessible to likelihood function
         true_img_dec = np.trim_zeros(data_i[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
         true_img_ra = np.trim_zeros(data_i[['x_image_0', 'x_image_1', 'x_image_2', 'x_image_3']].values, 'b')
         n_img = len(true_img_dec)
@@ -155,9 +150,7 @@ def main():
                          'special': special_kwargs,}
         kwargs_constraints = {'num_point_source_list': [n_img],  
                               'Ddt_sampling': True,
-                              'solver_type': 'NONE',
-                              #'joint_lens_with_lens': [[0, 1, ['center_x', 'ra_0']], [0, 1, ['center_y', 'dec_0']]],
-                             }
+                              'solver_type': 'NONE',}
         kwargs_likelihood = {'image_position_uncertainty': astro_sig,
                              'image_position_likelihood': True,
                              'time_delay_likelihood': True,
@@ -204,14 +197,12 @@ def main():
         np.save(lens_inference_dict_save_path, lens_inference_dict)
         # Optionally export the plot of MCMC chain
         if test_cfg.export.mcmc_chain:
-            fig, ax = chain_plot.plot_chain_list(chain_list_mcmc)
-            fig.savefig(os.path.join(out_dir, 'mcmc_chain_{0:04d}.png'.format(lens_i)), dpi=100)
-            plt.close()
+            mcmc_chain_path = os.path.join(out_dir, 'mcmc_chain_{0:04d}.png'.format(lens_i))
+            plotting_utils.plot_mcmc_chain(chain_list_mcmc, mcmc_chain_path)
         # Optionally export posterior cornerplot of select lens model parameters with D_dt
         if test_cfg.export.mcmc_corner:
-            fig = corner.corner(new_samples_mcmc, labels=test_cfg.export.mcmc_corner_cols, show_titles=True, quiet=True)
-            fig.savefig(os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i)), dpi=100)
-            plt.close()
+            mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
+            plotting_utils.plot_mcmc_corner(new_samples_mcmc, test_cfg.export.mcmc_col_labels, mcmc_corner_path)
         # Update running D_dt summary stats for all the lenses
         mean_D_dt_set[i] = mean_D_dt
         std_D_dt_set[i] = std_D_dt
