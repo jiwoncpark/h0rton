@@ -176,14 +176,17 @@ def main():
         measured_td_sig = np.ones(n_img - 1)*test_cfg.time_delay_likelihood.sigma
         measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astrometry_sigma
         measured_img_ra = true_img_ra + rs_lens.randn(n_img)*astrometry_sigma
-        reordered_measured_td = h0_utils.reorder_to_tdlmc(measured_td, np.argsort(measured_img_dec), range(n_img)) # need to use measured dec to order
+        increasing_dec_i = np.argsort(measured_img_dec)
+        reordered_measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
+        reordered_measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
+        reordered_measured_img_ra = h0_utils.reorder_to_tdlmc(measured_img_ra, increasing_dec_i, range(n_img))
         measured_td_wrt0 = reordered_measured_td[1:] - reordered_measured_td[0]   
         kwargs_data_joint = dict(time_delays_measured=measured_td_wrt0,
                                  time_delays_uncertainties=measured_td_sig,
                                  #vel_disp_measured=measured_vd, # TODO: optionally exclude
                                  #vel_disp_uncertainty=vel_disp_sig,
-                                 ra_image_list=[measured_img_ra],
-                                 dec_image_list=[measured_img_dec],)
+                                 ra_image_list=[reordered_measured_img_ra],
+                                 dec_image_list=[reordered_measured_img_dec],)
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             measured_vd = data_i['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
             kwargs_data_joint['vel_disp_measured'] = measured_vd
@@ -276,7 +279,7 @@ def main():
         # Optionally export posterior cornerplot of select lens model parameters with D_dt
         if test_cfg.export.mcmc_corner:
             labels_new = [r"$\theta_E$", r"$\gamma$", r"$\phi_{lens}$", r"$q$", r"$\phi_{ext}$", r"$\gamma_{ext}$", r"$D_{\Delta t}$"]
-            param = Param(kwargs_model, kwargs_fixed_lens, kwargs_fixed_source=kwargs_fixed_src_light, kwargs_fixed_lens_light=kwargs_fixed_lens_light, kwargs_fixed_ps=fixed_ps, kwargs_fixed_special=fixed_special, kwargs_lens_init=kwargs_result_mcmc['kwargs_lens'], **kwargs_constraints)
+            param = Param(kwargs_model, kwargs_fixed_lens, kwargs_fixed_ps=fixed_ps, kwargs_fixed_special=fixed_special, kwargs_lens_init=kwargs_result_mcmc['kwargs_lens'], **kwargs_constraints)
             mcmc_new_list = []
             for i in range(len(samples_mcmc)):
                 kwargs_out = param.args2kwargs(samples_mcmc[i])
