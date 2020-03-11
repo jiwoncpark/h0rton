@@ -67,6 +67,14 @@ def main():
     # Instantiate loss function
     orig_Y_cols = train_val_cfg.data.Y_cols
     loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim, device=device)
+    # Instantiate MCMC parameter penalty function
+    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
+    mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
+    mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
+    remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
+    mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
+    mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
+    parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
@@ -79,14 +87,6 @@ def main():
             Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
             pred = net(X)
             break
-    # Instantiate MCMC parameter penalty function
-    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
-    mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
-    mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
-    remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
-    mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
-    mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
-    parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     mcmc_pred = mcmc_utils.remove_parameters_from_pred(pred.cpu().numpy(), remove_idx, return_as_tensor=True, device=device)
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
                         point_source_model_list=['LENSED_POSITION'],)
@@ -110,7 +110,7 @@ def main():
         ###########################
         # Relevant data and prior #
         ###########################
-        data_i = master_truth.iloc[lens_i]
+        data_i = master_truth.iloc[lens_i].copy()
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
         mu = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian in the BNN posterior will be used to initialize
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
@@ -126,16 +126,16 @@ def main():
         measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astro_sig
         measured_img_ra = true_img_ra + rs_lens.randn(n_img)*astro_sig
         increasing_dec_i = np.argsort(measured_img_dec)
-        reordered_measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
-        reordered_measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
-        reordered_measured_img_ra = h0_utils.reorder_to_tdlmc(measured_img_ra, increasing_dec_i, range(n_img))
-        measured_td_wrt0 = reordered_measured_td[1:] - reordered_measured_td[0]   
+        measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
+        measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
+        measured_img_ra = h0_utils.reorder_to_tdlmc(measured_img_ra, increasing_dec_i, range(n_img))
+        measured_td_wrt0 = measured_td[1:] - measured_td[0]   
         kwargs_data_joint = dict(time_delays_measured=measured_td_wrt0,
                                  time_delays_uncertainties=measured_td_sig,
                                  #vel_disp_measured=measured_vd, # TODO: optionally exclude
                                  #vel_disp_uncertainty=vel_disp_sig,
-                                 ra_image_list=[reordered_measured_img_ra],
-                                 dec_image_list=[reordered_measured_img_dec],)
+                                 ra_image_list=[measured_img_ra],
+                                 dec_image_list=[measured_img_dec],)
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             measured_vd = data_i['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
             kwargs_data_joint['vel_disp_measured'] = measured_vd
@@ -160,8 +160,8 @@ def main():
                              'prior_special': [],
                              'check_bounds': True, 
                              'check_matched_source_position': True,
-                             'source_position_tolerance': 0.01,
-                             'source_position_sigma': 0.001,
+                             'source_position_tolerance': 0.001,
+                             'source_position_sigma': 0.01,
                              'source_position_likelihood': False,
                              'custom_logL_addition': parameter_penalty.evaluate,}
 
