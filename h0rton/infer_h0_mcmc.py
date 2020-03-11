@@ -3,14 +3,10 @@
 It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy Extensions, which you can find `here <https://github.com/sibirrer/lenstronomy_extensions/blob/master/lenstronomy_extensions/Notebooks/catalogue%20modelling.ipynb>`_.
 
 """
-
 import os
 import sys
-import argparse
-import random
 import corner
 import time
-from addict import Dict
 from tqdm import tqdm
 from ast import literal_eval
 import numpy as np
@@ -20,59 +16,17 @@ sys.path.insert(0, '/home/jwp/stage/sl/lenstronomy')
 import lenstronomy
 print(lenstronomy.__path__)
 from lenstronomy.Plots import chain_plot as chain_plot
-from lenstronomy.Sampling.parameters import Param
-from lenstronomy.Util import param_util
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
 # H0rton modules
+from h0rton.script_utils import parse_args, seed_everything, HiddenPrints
 import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
 import h0rton.train_utils as train_utils
-from h0rton.h0_inference import h0_utils, plotting_utils
+from h0rton.h0_inference import h0_utils, plotting_utils, mcmc_utils
 from h0rton.trainval_data import XYCosmoData
 import matplotlib.pyplot as plt
-
-def parse_args():
-    """Parse command-line arguments
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('test_config_file_path', help='path to the user-defined test config file')
-    #parser.add_argument('--n_data', default=None, dest='n_data', type=int,
-    #                    help='size of dataset to generate (overrides config file)')
-    args = parser.parse_args()
-    # sys.argv rerouting for setuptools entry point
-    if args is None:
-        args = Dict()
-        args.user_cfg_path = sys.argv[0]
-        #args.n_data = sys.argv[1]
-    return args
-
-def seed_everything(global_seed):
-    """Seed everything for reproducibility
-
-    global_seed : int
-        seed for `np.random`, `random`, and relevant `torch` backends
-
-    """
-    np.random.seed(global_seed)
-    random.seed(global_seed)
-    torch.manual_seed(global_seed)
-    torch.cuda.manual_seed(global_seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-class HiddenPrints:
-    """Hide standard output
-
-    """
-    def __enter__(self):
-        self._original_stdout = sys.stdout
-        sys.stdout = open(os.devnull, 'w')
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        sys.stdout.close()
-        sys.stdout = self._original_stdout
 
 def main():
     args = parse_args()
@@ -114,14 +68,6 @@ def main():
     # Instantiate loss function
     orig_Y_cols = train_val_cfg.data.Y_cols
     loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim, device=device)
-    # Instantiate MCMC parameter penalty function
-    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as the post-processing scheme only involves image positions
-    mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
-    mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
-    remove_param_idx, remove_idx = h0_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
-    mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
-    mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
-    parameter_penalty = h0_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
@@ -134,12 +80,18 @@ def main():
             Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
             pred = net(X)
             break
+    # Instantiate MCMC parameter penalty function
+    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
+    mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
+    mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
+    remove_param_idx, remove_idx = h0_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove)
+    mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
+    mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
+    parameter_penalty = h0_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     mcmc_pred = h0_utils.remove_parameters_from_pred(pred.cpu().numpy(), remove_idx, return_as_tensor=True, device=device)
-    
-    # FIXME: hardcoded
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
                         point_source_model_list=['LENSED_POSITION'],)
-    astrometry_sigma = test_cfg.image_position_likelihood.sigma
+    astro_sig = test_cfg.image_position_likelihood.sigma
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
         if 'abcd_ordering_i' not in master_truth:
@@ -174,8 +126,8 @@ def main():
         true_td = np.array(literal_eval(data_i['true_td']))
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
         measured_td_sig = np.ones(n_img - 1)*test_cfg.time_delay_likelihood.sigma
-        measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astrometry_sigma
-        measured_img_ra = true_img_ra + rs_lens.randn(n_img)*astrometry_sigma
+        measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astro_sig
+        measured_img_ra = true_img_ra + rs_lens.randn(n_img)*astro_sig
         increasing_dec_i = np.argsort(measured_img_dec)
         reordered_measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
         reordered_measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
@@ -195,31 +147,18 @@ def main():
         #############################
         # Parameter init and bounds #
         #############################
-        # Lens parameters
-        kwargs_init_lens = [{'theta_E': mu['lens_mass_theta_E'], 'gamma': mu['lens_mass_gamma'], 'center_x': mu['lens_mass_center_x'], 'center_y': mu['lens_mass_center_y'], 'e1': mu['lens_mass_e1'], 'e2': mu['lens_mass_e2']}, {'gamma1': mu['external_shear_gamma2'], 'gamma2': mu['external_shear_gamma2']}]
-        kwargs_sigma_lens, kwargs_lower_lens, kwargs_upper_lens, kwargs_fixed_lens = h0_utils.get_misc_kwargs_lens()
-        # AGN light parameters
-        fixed_ps = [{}] 
-        kwargs_ps_init = [{'ra_image': measured_img_ra, 'dec_image': measured_img_dec}]
-        kwargs_ps_sigma = [{'ra_image': astrometry_sigma*np.ones(n_img), 'dec_image': astrometry_sigma*np.ones(n_img)}]
-        kwargs_lower_ps = [{'ra_image': -10*np.ones(n_img), 'dec_image': -10*np.ones(n_img)}]
-        kwargs_upper_ps = [{'ra_image': 10*np.ones(n_img), 'dec_image': 10*np.ones(n_img)}]
-        # Image position offset and time delay distance, aka the "special" parameters
-        fixed_special = {}
-        kwargs_special_init = {'delta_x_image': np.zeros(n_img), 'delta_y_image': np.zeros(n_img), 'D_dt': 5000}
-        kwargs_special_sigma = {'delta_x_image': np.ones(n_img)*astrometry_sigma, 'delta_y_image': np.ones(n_img)*astrometry_sigma, 'D_dt': 3000}
-        kwargs_lower_special = {'delta_x_image': np.ones(n_img)*(-1.0), 'delta_y_image': np.ones(n_img)*(-1.0), 'D_dt': 0}
-        kwargs_upper_special = {'delta_x_image': np.ones(n_img), 'delta_y_image': np.ones(n_img), 'D_dt': 10000}
-        # Put all components together
-        kwargs_params = {'lens_model': [kwargs_init_lens, kwargs_sigma_lens, kwargs_fixed_lens, kwargs_lower_lens, kwargs_upper_lens],
-                         'point_source_model': [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps],
-                         'special': [kwargs_special_init, kwargs_special_sigma, fixed_special, kwargs_lower_special, kwargs_upper_special],}
+        lens_kwargs = mcmc_utils.get_lens_kwargs(mu)
+        ps_kwargs = mcmc_utils.get_ps_kwargs(measured_img_ra, measured_img_dec, astro_sig)
+        special_kwargs = mcmc_utils.get_special_kwargs(n_img, astro_sig) # image position offset and time delay distance, aka the "special" parameters
+        kwargs_params = {'lens_model': lens_kwargs,
+                         'point_source_model': ps_kwargs,
+                         'special': special_kwargs,}
         kwargs_constraints = {'num_point_source_list': [n_img],  
                               'Ddt_sampling': True,
                               'solver_type': 'NONE',
                               #'joint_lens_with_lens': [[0, 1, ['center_x', 'ra_0']], [0, 1, ['center_y', 'dec_0']]],
                              }
-        kwargs_likelihood = {'image_position_uncertainty': astrometry_sigma,
+        kwargs_likelihood = {'image_position_uncertainty': astro_sig,
                              'image_position_likelihood': True,
                              'time_delay_likelihood': True,
                              'prior_lens': [],
@@ -234,11 +173,6 @@ def main():
         ###########################
         # MCMC posterior sampling #
         ###########################
-        #kwargs_data_joint : dictionary of data, e.g. measured_td, measured_td_err, measured_img_ra, measured_img_dec
-        #kwargs_model : dictionary of list of models
-        #kwargs_constraints : dictionary of solver configs
-        #kwargs_likelihood : parameters of likelihood function
-        #kwargs_params : dictionary of components as keys and list of min, max, ? init dictionaries as values
         fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model, kwargs_constraints, kwargs_likelihood, kwargs_params, verbose=False)
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
@@ -255,22 +189,19 @@ def main():
         # sampler_type : 'EMCEE'
         # samples_mcmc : np.array of shape `[n_mcmc_eval, n_params]`
         # param_mcmc : list of str of length n_params, the parameter names
-        # Convert D_dt into H0
         sampler_type, samples_mcmc, param_mcmc, _  = chain_list_mcmc[0]
-        D_dt_i = param_mcmc.index('D_dt')
-        D_dt_samples = samples_mcmc[:, D_dt_i]
+        new_samples_mcmc = mcmc_utils.postprocess_mcmc_chain(kwargs_result_mcmc, samples_mcmc, kwargs_model, lens_kwargs[2], ps_kwargs[2], special_kwargs[2], kwargs_constraints)
+        # Plot D_dt histogram
+        D_dt_samples = new_samples_mcmc[:, -1]
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
         mean_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
+        # Export D_dt samples
         lens_inference_dict = dict(
                                    D_dt_mcmc_samples=D_dt_samples,
                                    inference_time=inference_time
                                    )
         lens_inference_dict_save_path = os.path.join(out_dir, 'inference_dict_{0:04d}.npy'.format(lens_i))
         np.save(lens_inference_dict_save_path, lens_inference_dict)
-        mean_D_dt_set[i] = mean_D_dt
-        std_D_dt_set[i] = std_D_dt
-        inference_time_set[i] = inference_time
-        total_progress.update(1)
         # Optionally export the plot of MCMC chain
         if test_cfg.export.mcmc_chain:
             fig, ax = chain_plot.plot_chain_list(chain_list_mcmc)
@@ -278,25 +209,16 @@ def main():
             plt.close()
         # Optionally export posterior cornerplot of select lens model parameters with D_dt
         if test_cfg.export.mcmc_corner:
-            labels_new = [r"$\theta_E$", r"$\gamma$", r"$\phi_{lens}$", r"$q$", r"$\phi_{ext}$", r"$\gamma_{ext}$", r"$D_{\Delta t}$"]
-            param = Param(kwargs_model, kwargs_fixed_lens, kwargs_fixed_ps=fixed_ps, kwargs_fixed_special=fixed_special, kwargs_lens_init=kwargs_result_mcmc['kwargs_lens'], **kwargs_constraints)
-            mcmc_new_list = []
-            for i in range(len(samples_mcmc)):
-                kwargs_out = param.args2kwargs(samples_mcmc[i])
-                kwargs_lens_out, kwargs_special_out, _ = kwargs_out['kwargs_lens'], kwargs_out['kwargs_special'], kwargs_out['kwargs_ps']
-                theta_E = kwargs_lens_out[0]['theta_E']
-                gamma = kwargs_lens_out[0]['gamma']
-                e1, e2 = kwargs_lens_out[0]['e1'], kwargs_lens_out[0]['e2']
-                phi, q = param_util.ellipticity2phi_q(e1, e2)
-                gamma1, gamma2 = kwargs_lens_out[1]['gamma1'], kwargs_lens_out[1]['gamma2']
-                phi_ext, gamma_ext = param_util.shear_cartesian2polar(gamma1, gamma2)
-                D_dt = kwargs_special_out['D_dt']
-                new_chain = [theta_E, gamma, phi, q, phi_ext, gamma_ext, D_dt]
-                mcmc_new_list.append(np.array(new_chain))
-            fig = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
+            fig = corner.corner(new_samples_mcmc, labels=test_cfg.export.mcmc_corner_cols, show_titles=True, quiet=True)
             fig.savefig(os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i)), dpi=100)
             plt.close()
+        # Update running D_dt summary stats for all the lenses
+        mean_D_dt_set[i] = mean_D_dt
+        std_D_dt_set[i] = std_D_dt
+        inference_time_set[i] = inference_time
+        total_progress.update(1)
     total_progress.close()
+    # Export D_dt summary stats for all the lenses
     inference_stats = dict(
                     name='rung1_seed{:d}'.format(lens_i),
                     mean=mean_D_dt_set,
