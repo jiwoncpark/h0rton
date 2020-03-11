@@ -2,8 +2,10 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+import corner
+from lenstronomy.Plots import chain_plot
 
-__all__ = ['plot_h0_histogram']
+__all__ = ['plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
 
 def gaussian(x, mean, standard_deviation, amplitude):
     return amplitude * np.exp( - ((x - mean) / standard_deviation) ** 2)
@@ -95,3 +97,13 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, include_fit_gauss
         plt.savefig(save_path)
         plt.close()
     return mean, std
+
+def plot_mcmc_chain(chain_list_mcmc, save_path):
+    fig, ax = chain_plot.plot_chain_list(chain_list_mcmc)
+    fig.savefig(save_path, dpi=100)
+    plt.close()
+
+def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
+    fig = corner.corner(mcmc_samples, truths=truth, truth_color='r', labels=col_labels, show_titles=True, quiet=True)
+    fig.savefig(save_path, dpi=100)
+    plt.close()

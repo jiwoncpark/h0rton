@@ -16,7 +16,7 @@ import lenstronomy
 print(lenstronomy.__path__)
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
-# H0rton modules
+import baobab.sim_utils.metadata_utils as metadata_utils
 from h0rton.script_utils import parse_args, seed_everything, HiddenPrints
 import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
@@ -42,6 +42,8 @@ def main():
     ############
     test_data = XYCosmoData(test_cfg.data.test_dir, data_cfg=train_val_cfg.data)
     master_truth = test_data.cosmo_df
+    master_truth = metadata_utils.add_qphi_columns(master_truth)
+    master_truth = metadata_utils.add_gamma_psi_ext_columns(master_truth)
     if test_cfg.data.lens_indices is None:
         n_test = test_cfg.data.n_test # number of lenses in the test set
         lens_range = range(n_test)
@@ -185,8 +187,9 @@ def main():
         sampler_type, samples_mcmc, param_mcmc, _  = chain_list_mcmc[0]
         new_samples_mcmc = mcmc_utils.postprocess_mcmc_chain(kwargs_result_mcmc, samples_mcmc, kwargs_model, lens_kwargs[2], ps_kwargs[2], special_kwargs[2], kwargs_constraints)
         # Plot D_dt histogram
-        D_dt_samples = new_samples_mcmc[:, -1]
+        D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
+        data_i['D_dt'] = true_D_dt
         mean_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         # Export D_dt samples
         lens_inference_dict = dict(
@@ -202,7 +205,7 @@ def main():
         # Optionally export posterior cornerplot of select lens model parameters with D_dt
         if test_cfg.export.mcmc_corner:
             mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
-            plotting_utils.plot_mcmc_corner(new_samples_mcmc, test_cfg.export.mcmc_col_labels, mcmc_corner_path)
+            plotting_utils.plot_mcmc_corner(new_samples_mcmc[test_cfg.export.mcmc_cols], data_i[test_cfg.export.mcmc_cols], test_cfg.export.mcmc_col_labels, mcmc_corner_path)
         # Update running D_dt summary stats for all the lenses
         mean_D_dt_set[i] = mean_D_dt
         std_D_dt_set[i] = std_D_dt

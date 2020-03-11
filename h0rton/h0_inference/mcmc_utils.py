@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 import torch
 from lenstronomy.Sampling.parameters import Param
-from lenstronomy.Util import param_util
+import baobab.sim_utils.metadata_utils as metadata_utils
 import h0rton.losses
 
 __all__ = ['get_lens_kwargs', 'get_ps_kwargs', 'get_special_kwargs', "HybridBNNPenalty", "get_idx_for_params", "remove_parameters_from_pred", "split_component_param", "dict_to_array"]
@@ -99,26 +100,28 @@ def postprocess_mcmc_chain(kwargs_result, samples, kwargs_model, fixed_lens_kwar
 
     Returns
     -------
-    list
-        processed MCMC chain
+    pandas.DataFrame
+        processed MCMC chain, where each row is a sample
 
     """
     param = Param(kwargs_model, fixed_lens_kwargs, kwargs_fixed_ps=fixed_ps_kwargs, kwargs_fixed_special=fixed_special_kwargs, kwargs_lens_init=kwargs_result['kwargs_lens'], **kwargs_constraints)
     n_samples = len(samples)
-    mcmc_new_list = np.zeros((n_samples, 7))
+    processed = []
     for i in range(n_samples):
+        kwargs = {}
         kwargs_out = param.args2kwargs(samples[i])
         kwargs_lens_out, kwargs_special_out, _ = kwargs_out['kwargs_lens'], kwargs_out['kwargs_special'], kwargs_out['kwargs_ps']
-        theta_E = kwargs_lens_out[0]['theta_E']
-        gamma = kwargs_lens_out[0]['gamma']
-        e1, e2 = kwargs_lens_out[0]['e1'], kwargs_lens_out[0]['e2']
-        phi, q = param_util.ellipticity2phi_q(e1, e2)
-        gamma1, gamma2 = kwargs_lens_out[1]['gamma1'], kwargs_lens_out[1]['gamma2']
-        phi_ext, gamma_ext = param_util.shear_cartesian2polar(gamma1, gamma2)
-        D_dt = kwargs_special_out['D_dt']
-        mcmc_new_list[i, :] = np.array([theta_E, gamma, phi, q, phi_ext, gamma_ext, D_dt])
-    return mcmc_new_list
-
+        for k, v in kwargs_lens_out[0].items():
+            kwargs['lens_mass_{:s}'.format(k)] = v
+        for k, v in kwargs_lens_out[1].items():
+            kwargs['external_shear_{:s}'.format(k)] = v
+        for k, v in kwargs_special_out.items():
+            kwargs[k] = v
+        processed.append(kwargs)
+    processed_df = pd.DataFrame(processed)
+    processed_df = metadata_utils.add_qphi_columns(processed_df)
+    processed_df = metadata_utils.add_gamma_psi_ext_columns(processed_df)
+    return processed_df
 
 class HybridBNNPenalty:
     """Wrapper for subclasses of BaseGaussianNLL that allows MCMC methods to appropriately penalize parameter samples
