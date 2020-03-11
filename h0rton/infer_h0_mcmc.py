@@ -1,4 +1,9 @@
-# import the necessary python modules
+"""Script to run an MCMC afterburner for the BNN posterior
+
+It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy Extensions, which you can find `here <https://github.com/sibirrer/lenstronomy_extensions/blob/master/lenstronomy_extensions/Notebooks/catalogue%20modelling.ipynb>`_.
+
+"""
+
 import os
 import sys
 import argparse
@@ -232,15 +237,6 @@ def main():
         #kwargs_likelihood : parameters of likelihood function
         #kwargs_params : dictionary of components as keys and list of min, max, ? init dictionaries as values
         fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model, kwargs_constraints, kwargs_likelihood, kwargs_params, verbose=False)
-        if test_cfg.export.pso_results:
-            fitting_kwargs_list = [['PSO', test_cfg.numerics.pso],]
-            chain_list_pso = fitting_seq.fit_sequence(fitting_kwargs_list)
-            #kwargs_result_pso = fitting_seq.best_fit(bijective=True)
-            # Optionally export the NLL and particle trajectories
-            for i in range(len(chain_list_pso)):
-                fig, ax = chain_plot.plot_chain_list(chain_list_pso, i)
-            fig.savefig(os.path.join(out_dir, 'pso_{0:04d}.png'.format(lens_i)), dpi=100)
-            plt.close()
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
         fitting_kwargs_list_mcmc = [['MCMC', test_cfg.numerics.mcmc]]
