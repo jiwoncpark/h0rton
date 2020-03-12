@@ -128,10 +128,10 @@ def main():
         measured_td_sig = np.ones(n_img - 1)*test_cfg.time_delay_likelihood.sigma
         measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astro_sig
         measured_img_ra = true_img_ra + rs_lens.randn(n_img)*astro_sig
-        increasing_dec_i = np.argsort(measured_img_dec)
-        measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
-        measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
-        measured_img_ra = h0_utils.reorder_to_tdlmc(measured_img_ra, increasing_dec_i, range(n_img))
+        #increasing_dec_i = np.argsort(measured_img_dec)
+        #measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
+        #measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
+        #measured_img_ra = h0_utils.reorder_to_tdlmc(measured_img_ra, increasing_dec_i, range(n_img))
         measured_td_wrt0 = measured_td[1:] - measured_td[0]   
         kwargs_data_joint = dict(time_delays_measured=measured_td_wrt0,
                                  time_delays_uncertainties=measured_td_sig,
