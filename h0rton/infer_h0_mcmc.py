@@ -4,14 +4,12 @@ It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy 
 
 """
 import os
-import sys
 import time
 from tqdm import tqdm
 from ast import literal_eval
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-sys.path.insert(0, '/home/jwp/stage/sl/lenstronomy')
 import lenstronomy
 print(lenstronomy.__path__)
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
@@ -75,6 +73,7 @@ def main():
     mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
     mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
     parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
+    custom_logL_addition = parameter_penalty.evalute if test_cfg.lens_posterior_type.startswith('hybrid') else None
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
@@ -112,7 +111,11 @@ def main():
         ###########################
         data_i = master_truth.iloc[lens_i].copy()
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
-        mu = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian used to initialize lens model
+        # Init values for the lens model params
+        if test_cfg.lens_posterior_type == 'hybrid':
+            init_lens = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
+        else: # types 'hybrid_with_truth_mean' and 'truth'
+            init_lens = dict(zip(mcmc_Y_cols, data_i[mcmc_Y_cols].values)) # truth params
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             parameter_penalty.set_vel_disp_params()
             raise NotImplementedError
@@ -144,7 +147,7 @@ def main():
         #############################
         # Parameter init and bounds #
         #############################
-        lens_kwargs = mcmc_utils.get_lens_kwargs(mu)
+        lens_kwargs = mcmc_utils.get_lens_kwargs(init_lens)
         ps_kwargs = mcmc_utils.get_ps_kwargs(measured_img_ra, measured_img_dec, astro_sig)
         special_kwargs = mcmc_utils.get_special_kwargs(n_img, astro_sig) # image position offset and time delay distance, aka the "special" parameters
         kwargs_params = {'lens_model': lens_kwargs,
@@ -153,6 +156,7 @@ def main():
         kwargs_constraints = {'num_point_source_list': [n_img],  
                               'Ddt_sampling': True,
                               'solver_type': 'NONE',}
+
         kwargs_likelihood = {'image_position_uncertainty': astro_sig,
                              'image_position_likelihood': True,
                              'time_delay_likelihood': True,
@@ -163,7 +167,7 @@ def main():
                              'source_position_tolerance': 0.001,
                              'source_position_sigma': 0.01,
                              'source_position_likelihood': False,
-                             'custom_logL_addition': parameter_penalty.evaluate,}
+                             'custom_logL_addition': custom_logL_addition,}
 
         ###########################
         # MCMC posterior sampling #
