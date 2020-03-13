@@ -159,9 +159,14 @@ def main():
         kwargs_params = {'lens_model': lens_kwargs,
                          'point_source_model': ps_kwargs,
                          'special': special_kwargs,}
+        if test_cfg.numerics.solver_type == 'NONE':
+            solver_type = 'NONE'
+        else:
+            solver_type = 'PROFILE_SHEAR' if n_img == 4 else 'CENTER'
+        #solver_type = 'NONE'
         kwargs_constraints = {'num_point_source_list': [n_img],  
                               'Ddt_sampling': True,
-                              'solver_type': 'NONE',}
+                              'solver_type': solver_type,}
 
         kwargs_likelihood = {'image_position_uncertainty': astro_sig,
                              'image_position_likelihood': True,
@@ -200,7 +205,7 @@ def main():
         D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
         data_i['D_dt'] = true_D_dt
-        mean_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
+        mode_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
         # Export D_dt samples
         lens_inference_dict = dict(
                                    D_dt_mcmc_samples=D_dt_samples,
@@ -217,7 +222,7 @@ def main():
             mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
             plotting_utils.plot_mcmc_corner(new_samples_mcmc[test_cfg.export.mcmc_cols], data_i[test_cfg.export.mcmc_cols], test_cfg.export.mcmc_col_labels, mcmc_corner_path)
         # Update running D_dt summary stats for all the lenses
-        mean_D_dt_set[i] = mean_D_dt
+        mean_D_dt_set[i] = mode_D_dt
         std_D_dt_set[i] = std_D_dt
         inference_time_set[i] = inference_time
         total_progress.update(1)

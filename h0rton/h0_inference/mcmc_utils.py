@@ -161,6 +161,8 @@ class HybridBNNPenalty:
         # Whiten the mcmc array
         to_eval = to_eval*self.mcmc_train_Y_std + self.mcmc_train_Y_mean
         to_eval = torch.as_tensor(to_eval, dtype=torch.get_default_dtype(), device=self.device)
+        print(self.bnn_post_params[:, :self.Y_cols])
+        print(to_eval)
         nll = self.nll(self.bnn_post_params, to_eval).cpu().item()
         if not self.exclude_vel_disp:
             vel_disp_nll = 0.0
@@ -245,10 +247,10 @@ def dict_to_array(Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light=None, kw
             return_array[i] = kwargs_lens[0][param]
         elif component == 'external_shear':
             return_array[i] = kwargs_lens[1][param]
-        elif component == 'src_light':
-            return_array[i] = kwargs_source[0][param]
-        elif component == 'lens_light':
-            return_array[i] = kwargs_lens_light[0][param]
+        #elif component == 'src_light':
+        #    return_array[i] = kwargs_source[0][param]
+        #elif component == 'lens_light':
+        #    return_array[i] = kwargs_lens_light[0][param]
         else:
             # Ignore kwargs_ps since image position likelihood is separate.
             raise ValueError("Component doesn't exist.")
