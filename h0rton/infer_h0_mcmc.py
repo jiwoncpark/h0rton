@@ -73,7 +73,7 @@ def main():
     mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
     mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
     parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
-    custom_logL_addition = parameter_penalty.evalute if test_cfg.lens_posterior_type.startswith('hybrid') else None
+    custom_logL_addition = parameter_penalty.evaluate if test_cfg.lens_posterior_type.startswith('hybrid') else None
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
@@ -86,7 +86,13 @@ def main():
             Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
             pred = net(X)
             break
-    mcmc_pred = mcmc_utils.remove_parameters_from_pred(pred.cpu().numpy(), remove_idx, return_as_tensor=True, device=device)
+    
+    mcmc_pred = pred.cpu().numpy()
+    if test_cfg.lens_posterior_type == 'hybrid_with_truth_mean':
+        # Replace BNN posterior's primary gaussian mean with truth values
+        mcmc_pred[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
+    mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=True, device=device)
+
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
                         point_source_model_list=['LENSED_POSITION'],)
     astro_sig = test_cfg.image_position_likelihood.sigma

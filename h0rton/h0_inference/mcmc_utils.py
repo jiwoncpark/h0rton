@@ -56,7 +56,7 @@ def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_boun
     kwargs_upper_ps = [{'ra_image': hard_bound*ones, 'dec_image': hard_bound*ones}]
     return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=1.0, D_dt_init=5000.0, D_dt_sigma=3000.0, D_dt_lower=0.0, D_dt_upper=10000.0):
+def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=1.0, D_dt_init=5000.0, D_dt_sigma=1000.0, D_dt_lower=0.0, D_dt_upper=10000.0):
     """Get the point source kwargs for the image positions
 
     Parameters
@@ -207,7 +207,6 @@ def remove_parameters_from_pred(orig_pred, remove_idx, return_as_tensor=True, de
     -------
     new_pred : np.array of shape `[n_lenses, out_dim - len(params_to_remove)]`
     
-
     """
     new_pred = np.delete(orig_pred, remove_idx, axis=1)
     if return_as_tensor:
