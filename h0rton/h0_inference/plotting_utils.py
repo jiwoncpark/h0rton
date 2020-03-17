@@ -108,6 +108,14 @@ def plot_mcmc_chain(chain_list_mcmc, save_path):
     plt.close()
 
 def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
-    fig = corner.corner(mcmc_samples, truths=truth, truth_color='r', labels=col_labels, show_titles=True, quiet=True)
+    fig = corner.corner(mcmc_samples, 
+                        truths=truth, 
+                        truth_color='r', 
+                        labels=col_labels, 
+                        show_titles=True, 
+                        quiet=True,
+                        plot_contours=True,
+                        contour_kwargs=dict(linestyles='solid'),
+                        levels=[0.68, 0.95],)
     fig.savefig(save_path, dpi=100)
     plt.close()

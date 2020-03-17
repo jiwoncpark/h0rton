@@ -176,7 +176,7 @@ def main():
                              'check_bounds': True, 
                              'check_matched_source_position': True,
                              'source_position_tolerance': 0.001,
-                             'source_position_sigma': 0.01,
+                             'source_position_sigma': 0.0001,
                              'source_position_likelihood': False,
                              'custom_logL_addition': custom_logL_addition,}
 
@@ -187,8 +187,8 @@ def main():
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
         fitting_kwargs_list_mcmc = [['MCMC', test_cfg.numerics.mcmc]]
-        with HiddenPrints():
-            chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
+        #with HiddenPrints():
+        chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
         kwargs_result_mcmc = fitting_seq.best_fit()
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
