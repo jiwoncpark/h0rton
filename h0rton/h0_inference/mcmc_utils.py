@@ -153,22 +153,21 @@ class HybridBNNPenalty:
 
         """
         self.bnn_post_params = bnn_post_params.reshape(1, -1)
+        #print("BNN", self.bnn_post_params[:, :self.Y_dim])
 
     def evaluate(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None, kwargs_extinction=None):
         #kwargs_lens[1]['ra_0'] = kwargs_lens[0]['center_x']
         #kwargs_lens[1]['dec_0'] = kwargs_lens[0]['center_y']
         to_eval = dict_to_array(self.Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps) # shape [1, self.Y_dim]
         # Whiten the mcmc array
-        to_eval = to_eval*self.mcmc_train_Y_std + self.mcmc_train_Y_mean
+        to_eval = (to_eval - self.mcmc_train_Y_mean)/self.mcmc_train_Y_std
         to_eval = torch.as_tensor(to_eval, dtype=torch.get_default_dtype(), device=self.device)
-        print(self.bnn_post_params[:, :self.Y_cols])
-        print(to_eval)
-        nll = self.nll(self.bnn_post_params, to_eval).cpu().item()
+        ll = -self.nll(self.bnn_post_params, to_eval).cpu().item()
         if not self.exclude_vel_disp:
             vel_disp_nll = 0.0
-            nll += vel_disp_nll
+            ll += vel_disp_nll
             raise NotImplementedError
-        return nll
+        return ll
 
 def get_idx_for_params(out_dim, Y_cols, params_to_remove):
     """Get columns corresponding to certain parameters from the BNN output
