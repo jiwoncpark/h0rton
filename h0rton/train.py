@@ -106,7 +106,7 @@ def main():
     ################
 
     # Instantiate optimizer
-    optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=True, weight_decay=cfg.optim.weight_decay)
+    optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=False, weight_decay=cfg.optim.weight_decay)
     lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg.optim.lr_scheduler.factor, patience=cfg.optim.lr_scheduler.patience, verbose=False)
     
     # Saving/loading state dicts

@@ -177,6 +177,37 @@ class BaseGaussianBNNPosterior(ABC):
         samples = samples.data.cpu().numpy()
         return samples
 
+    def sample_full_rank(self, n_samples, mu, tril_elements):
+        """Sample from a single Gaussian posterior with a full-rank covariance matrix
+
+        Parameters
+        ----------
+        n_samples : int
+            how many samples to obtain
+        mu : torch.Tensor of shape `[self.batch_size, self.Y_dim]`
+            network prediction of the mu (mean parameter) of the BNN posterior
+        tril_elements : torch.Tensor of shape `[self.batch_size, tril_len]`
+            network prediction of lower-triangular matrix in the log-Cholesky decomposition of the precision matrix
+
+        Returns
+        -------
+        np.array of shape `[self.batch_size, n_samples, self.Y_dim]`
+            samples
+
+        """
+        samples = torch.zeros([self.batch_size, n_samples, self.Y_dim])
+        for b in range(self.batch_size):
+            tril = torch.zeros([self.Y_dim, self.Y_dim], device=self.device, dtype=None)
+            tril[self.tril_idx[0], self.tril_idx[1]] = tril_elements
+            log_diag_tril = torch.diagonal(tril, offset=0, dim1=0, dim2=1)
+            tril[torch.eye(self.Y_dim, dtype=bool)] = torch.exp(log_diag_tril)
+            prec_mat = torch.mm(tril, tril.T()) # [Y_dim, Y_dim]
+            mvn = torch.distributions.multivariate_normal.MultivariateNormal(loc=mu[b, :], precision_matrix=prec_mat)
+            sample_b = mvn.sample(n_samples)
+            samples[b, :, :] = sample_b
+        samples = self.unwhiten_back(samples)
+        return samples.cpu().numpy()
+
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
         
@@ -248,14 +279,14 @@ class LowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     def get_hpd_interval(self):
         return NotImplementedError
 
-class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
+class DoubleLowRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
         
     `BaseGaussianNLL.__init__` docstring for the parameter description.
 
     """
     def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
-        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
+        super(DoubleLowRankGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
         self.out_dim = self.Y_dim*8 + 1
         self.rank = 2 # FIXME: hardcoded
 
@@ -311,6 +342,82 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
     def get_hpd_interval(self):
         return NotImplementedError
 
+class FullRankGaussianBNNPosterior(BaseGaussianBNNPosterior):
+    """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
+        
+    `BaseGaussianNLL.__init__` docstring for the parameter description.
 
+    """
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
+        super(FullRankGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
+        self.tril_idx = torch.tril_indices(self.Y_dim, self.Y_dim, offset=0, device=device) # lower-triangular indices
+        self.tril_len = len(self.tril_idx[0])
+        self.out_dim = self.Y_dim + self.Y_dim*(self.Y_dim + 1)//2
 
+    def set_sliced_pred(self, pred):
+        d = self.Y_dim # for readability
+        self.batch_size = pred.shape[0]
+        self.mu = pred[:, :d]
+        self.tril_elements = pred[:, d:self.out_dim]
 
+    def sample(self, n_samples, sample_seed):
+        self.seed_samples(sample_seed)
+        return self.sample_full_rank(n_samples, self.mu, self.tril_elements)
+
+    def get_hpd_interval(self):
+        return NotImplementedError
+
+class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
+    """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
+        
+    `BaseGaussianNLL.__init__` docstring for the parameter description.
+
+    """
+    def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
+        super(DoubleLowRankGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
+        self.tril_idx = torch.tril_indices(self.Y_dim, self.Y_dim, offset=0, device=device) # lower-triangular indices
+        self.tril_len = len(self.tril_idx[0])
+        self.out_dim = self.Y_dim**2.0 + 3*self.Y_dim + 1
+
+    def set_sliced_pred(self, pred):
+        d = self.Y_dim # for readability
+        self.batch_size = pred.shape[0]
+        # First gaussian
+        self.mu = pred[:, :d]
+        self.tril_elements = pred[:, d:self.out_dim]
+        self.mu2 = pred[:, self.tril_len:self.tril_len + self.Y_dim],
+        self.tril_elements2 = pred[:, self.tril_len + self.Y_dim:-1],
+        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
+        
+    def sample(self, n_samples, sample_seed):
+        """Sample from a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance
+
+        Parameters
+        ----------
+        n_samples : int
+            how many samples to obtain
+        sample_seed : int
+            seed for the samples. Default: None
+
+        Returns
+        -------
+        np.array of shape `[self.batch_size, n_samples, self.Y_dim]`
+            samples
+
+        """
+        self.seed_samples(sample_seed)
+        samples = torch.zeros([self.batch_size, n_samples, self.Y_dim], device=self.device)
+        # Determine first vs. second Gaussian
+        unif2 = torch.rand(self.batch_size, n_samples)
+        second_gaussian = (self.w2 > unif2)
+        # Sample from second Gaussian
+        samples2 = torch.Tensor(self.sample_full_rank(n_samples, self.mu2, self.tril_elements2))
+        samples[second_gaussian, :] = samples2[second_gaussian, :]
+        # Sample from first Gaussian
+        samples1 = torch.Tensor(self.sample_full_rank(n_samples, self.mu, self.tril_elements))
+        samples[~second_gaussian, :] = samples1[~second_gaussian, :]
+        samples = samples.data.cpu().numpy()
+        return samples
+
+    def get_hpd_interval(self):
+        return NotImplementedError
