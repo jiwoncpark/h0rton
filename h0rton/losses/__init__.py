@@ -1,2 +1,2 @@
-from .gaussian_nll import DiagonalGaussianNLL, LowRankGaussianNLL, DoubleGaussianNLL
+from .gaussian_nll import *
 from .losses_utils import *

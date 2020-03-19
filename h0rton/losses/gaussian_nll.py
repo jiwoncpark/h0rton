@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import torch
-__all__ = ['BaseGaussianNLL', 'DiagonalGaussianNLL', 'LowRankGaussianNLL', 'DoubleGaussianNLL']
+__all__ = ['BaseGaussianNLL', 'DiagonalGaussianNLL', 'LowRankGaussianNLL', 'DoubleLowRankGaussianNLL', 'FullRankGaussianNLL', 'DoubleGaussianNLL']
 
 log_2_pi = 1.8378770664093453
 log_2 = 0.6931471805599453
@@ -140,6 +140,45 @@ class BaseGaussianNLL(ABC):
         else:
             return loss # [batch_size,]
 
+    def nll_mixture_low_rank(self, target, mu, logvar, F, mu2, logvar2, F2, alpha):
+        """Evaluate the NLL for a single Gaussian with a full but low-rank plus diagonal covariance matrix
+        Parameters
+        ----------
+        target : torch.Tensor of shape [batch_size, Y_dim]
+            Y labels
+        mu : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior for the first Gaussian
+        logvar : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix for the first Gaussian
+        F : torch.Tensor of shape [batch_size, rank*Y_dim]
+            network prediction of the low rank portion of the covariance matrix for the first Gaussian
+        mu2 : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the mu (mean parameter) of the BNN posterior for the second Gaussian
+        logvar2 : torch.Tensor of shape [batch_size, Y_dim]
+            network prediction of the log of the diagonal elements of the covariance matrix for the second Gaussian
+        F2 : torch.Tensor of shape [batch_size, rank*Y_dim]
+            network prediction of the low rank portion of the covariance matrix for the second Gaussian
+        alpha : torch.Tensor of shape [batch_size, 1]
+            network prediction of the logit of twice the weight on the second Gaussian 
+        reduce : bool
+            whether to take the mean across the batch
+        Note
+        ----
+        The weight on the second Gaussian is required to be less than 0.5, to make the two Gaussians well-defined.
+        Returns
+        -------
+        torch.Tensor of shape [batch_size,]
+            NLL values
+        """
+        batch_size, _ = target.shape
+        log_ll = torch.empty([batch_size, 2], dtype=None, device=self.device)
+        alpha = alpha.reshape(-1)
+        log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        # torch.log(torch.tensor([0.5], device=self.device)).double()
+        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_nll = -torch.logsumexp(log_ll, dim=1)
+        return torch.mean(log_nll)
+
     def nll_full_rank(self, target, mu, tril_elements, reduce=True):
         """Evaluate the NLL for a single Gaussian with a full-rank covariance matrix
 
@@ -162,13 +201,13 @@ class BaseGaussianNLL(ABC):
         batch_size, _ = target.shape
         tril = torch.zeros([batch_size, self.Y_dim, self.Y_dim], device=self.device, dtype=None)
         tril[:, self.tril_idx[0], self.tril_idx[1]] = tril_elements
-        log_diag_tril = torch.diagonal(tril, offset=0, dim1=1, dim2=2)
+        log_diag_tril = torch.diagonal(tril, offset=0, dim1=1, dim2=2) # [batch_size, Y_dim]
+        logdet_term = -torch.sum(log_diag_tril, dim=1) # [batch_size,]
         tril[:, torch.eye(self.Y_dim, dtype=bool)] = torch.exp(log_diag_tril)
         prec_mat = torch.bmm(tril, torch.transpose(tril, 1, 2)) # [batch_size, Y_dim, Y_dim]
-        logdet_term = -torch.sum(log_diag_tril, dim=1) # [batch_size,]
         y_diff = mu - target # [batch_size, Y_dim]
-         # [batch_size, Y_dim, 1]
-        mahalanobis_term = torch.sum(torch.sum(y_diff.unsqueeze(1)*prec_mat*y_diff.unsqueeze(2), -1), dim=-1) # [batch_size,]
+        mahalanobis_term = 0.5*torch.sum(
+            y_diff*torch.sum(prec_mat*y_diff.unsqueeze(-1), dim=-2), dim=-1) # [batch_size,]
         loss = logdet_term + mahalanobis_term + 0.5*self.Y_dim*log_2_pi
         if reduce:
             return torch.mean(loss, dim=0) # float
@@ -208,7 +247,7 @@ class BaseGaussianNLL(ABC):
         alpha = alpha.reshape(-1)
         log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -torch.logsumexp(log_ll, dim=1)
         return torch.mean(log_nll)
 
@@ -283,7 +322,7 @@ class FullRankGaussianNLL(BaseGaussianNLL):
         d = self.Y_dim # for readability
         sliced = dict(
                       mu=pred[:, :d],
-                      tril_elements=pred[:, d:self.out_dim]
+                      tril_elements=pred[:, d:d+self.tril_len]
                       )
         return sliced
 
@@ -296,7 +335,7 @@ class DoubleLowRankGaussianNLL(BaseGaussianNLL):
     posterior_name = 'DoubleLowRankGaussianBNNPosterior'
 
     def __init__(self, Y_dim, device):
-        super(DoubleGaussianNLL, self).__init__(Y_dim, device)
+        super(DoubleLowRankGaussianNLL, self).__init__(Y_dim, device)
         self.out_dim = Y_dim*8 + 1
 
     def __call__(self, pred, target):
@@ -338,9 +377,9 @@ class DoubleGaussianNLL(BaseGaussianNLL):
         d = self.Y_dim # for readability
         sliced = dict(
                       mu=pred[:, :d],
-                      tril_elements=pred[:, d:self.tril_len],
-                      mu2=pred[:, self.tril_len:self.tril_len + self.Y_dim],
-                      tril_elements2=pred[:, self.tril_len + self.Y_dim:-1],
+                      tril_elements=pred[:, d:d+self.tril_len],
+                      mu2=pred[:, d+self.tril_len:2*d+self.tril_len],
+                      tril_elements2=pred[:, 2*d+self.tril_len:-1],
                       alpha=pred[:, -1]
                       )
         return sliced
