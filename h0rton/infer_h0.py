@@ -31,7 +31,7 @@ from baobab import BaobabConfig
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
 import h0rton.train_utils as train_utils
-from h0rton.h0_inference import DoubleGaussianBNNPosterior, H0Posterior, plot_h0_histogram
+from h0rton.h0_inference import H0Posterior, plot_weighted_h0_histogram
 from h0rton.trainval_data import XYCosmoData
 
 def parse_args():
@@ -278,7 +278,7 @@ def main():
                        )
         h0_dict_save_path = os.path.join(out_dir, 'h0_dict_{0:04d}.npy'.format(lens_i))
         np.save(h0_dict_save_path, h0_dict)
-        mean_h0, std_h0 = plot_h0_histogram(h0_samples, h0_weights, lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
+        mean_h0, std_h0 = plot_weighted_h0_histogram(h0_samples, h0_weights, lens_i, cosmo['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         mean_h0_set[i] = mean_h0
         std_h0_set[i] = std_h0
         inference_time_set[i] = inference_time

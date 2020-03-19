@@ -111,11 +111,11 @@ def main():
     for i, lens_i in enumerate(lens_range):
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
-
         ###########################
         # Relevant data and prior #
         ###########################
         data_i = master_truth.iloc[lens_i].copy()
+        h0_converter = h0_utils.H0Converter(data_i['z_lens'], data_i['z_src']) # tool for converting from D_dt to H0
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
         # Init values for the lens model params
         if test_cfg.lens_posterior_type == 'hybrid':
@@ -205,10 +205,13 @@ def main():
         D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
         data_i['D_dt'] = true_D_dt
+        h0_samples = h0_converter.get_H0(D_dt_samples)
         mode_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
+        mean_h0, std_h0 = plotting_utils.plot_h0_histogram(h0_samples, lens_i, data_i['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
         # Export D_dt samples
         lens_inference_dict = dict(
-                                   D_dt_mcmc_samples=D_dt_samples,
+                                   D_dt_samples=D_dt_samples,
+                                   H0_samples=h0_samples,
                                    inference_time=inference_time
                                    )
         lens_inference_dict_save_path = os.path.join(out_dir, 'inference_dict_{0:04d}.npy'.format(lens_i))
