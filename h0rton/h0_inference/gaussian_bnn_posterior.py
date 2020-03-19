@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import random
 import numpy as np
 import torch
-__all__ = ['BaseGaussianBNNPosterior', 'DiagonalGaussianBNNPosterior', 'LowRankGaussianBNNPosterior', 'DoubleGaussianBNNPosterior']
+__all__ = ['BaseGaussianBNNPosterior', 'DiagonalGaussianBNNPosterior', 'LowRankGaussianBNNPosterior', 'DoubleLowRankGaussianBNNPosterior', 'FullRankGaussianBNNPosterior', 'DoubleGaussianBNNPosterior']
 
 class BaseGaussianBNNPosterior(ABC):
     """Abstract base class to represent the Gaussian BNN posterior
@@ -14,8 +14,6 @@ class BaseGaussianBNNPosterior(ABC):
         """
         Parameters
         ----------
-        pred : torch.Tensor of shape `[1, out_dim]` or `[out_dim,]`
-            raw network output for the predictions
         Y_dim : int
             number of parameters to predict
         whitened_Y_cols_idx : list
@@ -24,8 +22,6 @@ class BaseGaussianBNNPosterior(ABC):
             mean values for the original values of `whitened_Y_cols`
         Y_std : list
             std values for the original values of `whitened_Y_cols`
-        log_parameterized_Y_cols_idx : list
-            list of Y_cols indices that were log-parameterized
         device : torch.device object
 
         """
@@ -177,7 +173,7 @@ class BaseGaussianBNNPosterior(ABC):
         samples = samples.data.cpu().numpy()
         return samples
 
-    def sample_full_rank(self, n_samples, mu, tril_elements):
+    def sample_full_rank(self, n_samples, mu, tril_elements, as_numpy=True):
         """Sample from a single Gaussian posterior with a full-rank covariance matrix
 
         Parameters
@@ -198,15 +194,18 @@ class BaseGaussianBNNPosterior(ABC):
         samples = torch.zeros([self.batch_size, n_samples, self.Y_dim])
         for b in range(self.batch_size):
             tril = torch.zeros([self.Y_dim, self.Y_dim], device=self.device, dtype=None)
-            tril[self.tril_idx[0], self.tril_idx[1]] = tril_elements
+            tril[self.tril_idx[0], self.tril_idx[1]] = tril_elements[b, :]
             log_diag_tril = torch.diagonal(tril, offset=0, dim1=0, dim2=1)
             tril[torch.eye(self.Y_dim, dtype=bool)] = torch.exp(log_diag_tril)
-            prec_mat = torch.mm(tril, tril.T()) # [Y_dim, Y_dim]
+            prec_mat = torch.mm(tril, tril.T) # [Y_dim, Y_dim]
             mvn = torch.distributions.multivariate_normal.MultivariateNormal(loc=mu[b, :], precision_matrix=prec_mat)
-            sample_b = mvn.sample(n_samples)
+            sample_b = mvn.sample([n_samples,])
             samples[b, :, :] = sample_b
         samples = self.unwhiten_back(samples)
-        return samples.cpu().numpy()
+        if as_numpy:
+            return samples.cpu().numpy()
+        else:
+            return samples
 
 class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
     """The negative log likelihood (NLL) for a single Gaussian with diagonal covariance matrix
@@ -374,19 +373,19 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
 
     """
     def __init__(self, Y_dim, device, Y_mean=None, Y_std=None):
-        super(DoubleLowRankGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
+        super(DoubleGaussianBNNPosterior, self).__init__(Y_dim, device, Y_mean, Y_std)
         self.tril_idx = torch.tril_indices(self.Y_dim, self.Y_dim, offset=0, device=device) # lower-triangular indices
         self.tril_len = len(self.tril_idx[0])
-        self.out_dim = self.Y_dim**2.0 + 3*self.Y_dim + 1
+        self.out_dim = self.Y_dim**2 + 3*self.Y_dim + 1
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
         self.batch_size = pred.shape[0]
         # First gaussian
         self.mu = pred[:, :d]
-        self.tril_elements = pred[:, d:self.out_dim]
-        self.mu2 = pred[:, self.tril_len:self.tril_len + self.Y_dim],
-        self.tril_elements2 = pred[:, self.tril_len + self.Y_dim:-1],
+        self.tril_elements = pred[:, d:d+self.tril_len]
+        self.mu2 = pred[:, d+self.tril_len:2*d+self.tril_len]
+        self.tril_elements2 = pred[:, 2*d+self.tril_len:-1]
         self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         
     def sample(self, n_samples, sample_seed):
@@ -411,10 +410,10 @@ class DoubleGaussianBNNPosterior(BaseGaussianBNNPosterior):
         unif2 = torch.rand(self.batch_size, n_samples)
         second_gaussian = (self.w2 > unif2)
         # Sample from second Gaussian
-        samples2 = torch.Tensor(self.sample_full_rank(n_samples, self.mu2, self.tril_elements2))
+        samples2 = self.sample_full_rank(n_samples, self.mu2, self.tril_elements2, as_numpy=False)
         samples[second_gaussian, :] = samples2[second_gaussian, :]
         # Sample from first Gaussian
-        samples1 = torch.Tensor(self.sample_full_rank(n_samples, self.mu, self.tril_elements))
+        samples1 = self.sample_full_rank(n_samples, self.mu, self.tril_elements, as_numpy=False)
         samples[~second_gaussian, :] = samples1[~second_gaussian, :]
         samples = samples.data.cpu().numpy()
         return samples
