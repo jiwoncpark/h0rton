@@ -39,8 +39,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
             exp_covmat[b, :, :] += np.diagflat(np.exp(logvar[b, :]))
         # Get expected summary stats
         exp_mean = mu
-        np.testing.assert_array_almost_equal(h0rton_mean, exp_mean, decimal=3)
-        np.testing.assert_array_almost_equal(h0rton_covmat, exp_covmat, decimal=3)
+        np.testing.assert_array_almost_equal(h0rton_mean, exp_mean, decimal=2)
+        np.testing.assert_array_almost_equal(h0rton_covmat, exp_covmat, decimal=2)
 
     def test_low_rank_gaussian_bnn_posterior(self):
         """Test the sampling of `LowRankGaussianBNNPosterior`
