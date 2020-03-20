@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 import corner
 from lenstronomy.Plots import chain_plot
 
-__all__ = ['plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
+__all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
 
 def gaussian(x, mean, standard_deviation, amplitude):
     return amplitude * np.exp( - ((x - mean) / standard_deviation) ** 2)
@@ -27,7 +27,7 @@ def plot_weighted_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None,
     all_weights[~is_nan_mask] = all_weights[~is_nan_mask]/np.sum(all_weights[~is_nan_mask])
     samples = all_samples[~is_nan_mask]
     weights = all_weights[~is_nan_mask]
-    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=40, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
+    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=80, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     if include_fit_gaussian:
         # Fit a gaussian
@@ -75,7 +75,7 @@ def plot_h0_histogram(samples, lens_i=0, true_h0=None, include_fit_gaussian=True
 
     """
     # Normalize weights to unity
-    bin_heights, bin_borders, _ = plt.hist(samples, bins=40, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
+    bin_heights, bin_borders, _ = plt.hist(samples, bins=80, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     if include_fit_gaussian:
         # Fit a gaussian
@@ -120,7 +120,7 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
         D_dt MCMC samples
 
     """
-    bin_heights, bin_borders, _ = plt.hist(all_samples, bins=100, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 10000.0])
+    bin_heights, bin_borders, _ = plt.hist(all_samples, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 10000.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     
     # Compute the mode and std for lognormal

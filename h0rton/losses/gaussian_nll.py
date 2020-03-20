@@ -367,7 +367,7 @@ class DoubleGaussianNLL(BaseGaussianNLL):
         super(DoubleGaussianNLL, self).__init__(Y_dim, device)
         self.tril_idx = torch.tril_indices(self.Y_dim, self.Y_dim, offset=0, device=device) # lower-triangular indices
         self.tril_len = len(self.tril_idx[0])
-        self.out_dim = self.Y_dim**2.0 + 3*self.Y_dim + 1
+        self.out_dim = self.Y_dim**2 + 3*self.Y_dim + 1
 
     def __call__(self, pred, target):
         sliced = self.slice(pred)
