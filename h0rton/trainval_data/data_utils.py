@@ -1,6 +1,9 @@
 import numpy as np
 import torch
-__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols', 'plus_1_log', ]
+__all__ = ['rescale_01', 'stack_rgb', 'log_parameterize_Y_cols', 'whiten_Y_cols', 'plus_1_log', 'asinh']
+
+def asinh(x):
+    return torch.log(x+(x**2+1)**0.5)
 
 def plus_1_log(linear):
     """Add 1 and take the log10 of an image
