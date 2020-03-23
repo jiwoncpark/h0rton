@@ -64,9 +64,9 @@ def main():
     # Set device and default data type
     device = torch.device(cfg.device_type)
     if device.type == 'cuda':
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        torch.set_default_tensor_type('torch.cuda.DoubleTensor')
     else:
-        torch.set_default_tensor_type('torch.FloatTensor')
+        torch.set_default_tensor_type('torch.DoubleTensor')
     seed_everything(cfg.global_seed)
 
     ############
@@ -86,15 +86,15 @@ def main():
 
     if cfg.data.test_dir is not None:
         test_data = XYData(cfg.data.test_dir, data_cfg=cfg.data)
-        test_loader = DataLoader(test_data, batch_size=min(cfg.optim.batch_size, test_data.n_data), shuffle=False, drop_last=False, num_workers=4, pin_memory=True)
-        n_test = test_data.n_data - (test_data.n_data % cfg.optim.batch_size)
+        test_loader = DataLoader(test_data, batch_size=min(cfg.optim.batch_size, test_data.n_data), shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
+        n_test = test_data.n_data #- (test_data.n_data % cfg.optim.batch_size)
 
     #########
     # Model #
     #########
-
+    Y_dim = cfg.data.Y_dim
     # Instantiate loss function
-    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=cfg.data.Y_dim, device=device)
+    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=Y_dim, device=device)
     # Instantiate posterior (for logging)
     bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.train_Y_mean, val_data.train_Y_std)
     # Instantiate model
@@ -107,7 +107,7 @@ def main():
 
     # Instantiate optimizer
     optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=False, weight_decay=cfg.optim.weight_decay)
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg.optim.lr_scheduler.factor, patience=cfg.optim.lr_scheduler.patience, verbose=False)
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg.optim.lr_scheduler.factor, patience=cfg.optim.lr_scheduler.patience, verbose=True)
     
     # Saving/loading state dicts
     checkpoint_dir = cfg.checkpoint.save_dir
@@ -183,29 +183,32 @@ def main():
                 # Slice pred_plt into meaningful Gaussian parameters for this batch
                 bnn_post.set_sliced_pred(pred_plt)
                 mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
-                mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
                 # Log train and val metrics
-                scalar_dict = {'train': train_loss, 'val': val_loss}
+                loss_dict = {'train': train_loss, 'val': val_loss}
                 if cfg.data.test_dir is not None:
-                    scalar_dict.update(test=test_loss)
-                logger.add_scalars('metrics/loss', scalar_dict, epoch)
+                    loss_dict.update(test=test_loss)
+                logger.add_scalars('metrics/loss', loss_dict, epoch)
                 #rmse = train_utils.get_rmse(mu, Y_plt)
                 rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
-                rmse_orig2 = train_utils.get_rmse(mu2_orig, Y_plt_orig)
-                logger.add_scalars('metrics/rmse',
-                                   {
-                                   #'rmse': rmse,
-                                   'rmse_orig1': rmse_orig,
-                                   'rmse_orig2': rmse_orig2,
-                                   'rmse_lens_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 0),
-                                   'rmse_src_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 1),
-                                   'rmse_lens_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 2),
-                                   'rmse_src_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 3),
-                                   'rmse_gamma': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 4),
-                                   },
-                                   epoch)
-                # Log alpha value
-                logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
+                rmse_dict = {
+                           #'rmse': rmse,
+                           'rmse_orig1': rmse_orig,
+                           'rmse_lens_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 0),
+                           'rmse_src_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 1),
+                           'rmse_lens_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 2),
+                           'rmse_src_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 3),
+                           'rmse_gamma': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 4),
+                           }
+                # Log second Gaussian stats
+                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
+                    logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
+                    mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
+                    rmse_orig2 = train_utils.get_rmse(mu2_orig, Y_plt_orig)
+                    rmse_dict.update(rmse_orig2=rmse_orig2)
+                logger.add_scalars('metrics/rmse', rmse_dict, epoch)
+                # Log log determinant of the covariance matrix
+                logdet = train_utils.get_logdet(pred_v[:, Y_dim:].cpu().numpy(), Y_dim)
+                logger.add_histogram('logdet_cov_mat', logdet, epoch)
                 # Log histograms of named parameters
                 if cfg.monitoring.weight_distributions:
                     for param_name, param in net.named_parameters():

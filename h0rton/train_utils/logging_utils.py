@@ -1,6 +1,17 @@
 import numpy as np
 from matplotlib.figure import Figure
-__all__ = ['get_1d_mapping_fig', 'get_rmse', 'get_rmse_param', 'interpret_pred']
+__all__ = ['get_1d_mapping_fig', 'get_rmse', 'get_rmse_param', 'interpret_pred', 'get_logdet']
+
+def get_logdet(tril_elements, Y_dim):
+    """Returns the log determinant of the covariance matrix
+
+    """
+    batch_size = tril_elements.shape[0]
+    tril = np.zeros([batch_size, Y_dim, Y_dim])
+    tril_idx = np.tril_indices(Y_dim)
+    tril[:, tril_idx[0], tril_idx[1]] = tril_elements
+    log_diag_tril = np.diagonal(tril, offset=0, axis1=1, axis2=2) # [batch_size, Y_dim]
+    return -np.sum(log_diag_tril, axis=1) # [batch_size,]
 
 def get_1d_mapping_fig(name, mu, Y):
     """Plots the marginal 1D mapping of the mean predictions
@@ -41,7 +52,7 @@ def get_1d_mapping_fig(name, mu, Y):
 def _sigmoid(self, x):
     return 1.0/(np.exp(-x) + 1.0)
 
-def get_rmse(pred_mu, true_mu):
+def get_rmse(pred_mu, true_mu, reduce=True):
     """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
 
     Parameters
@@ -57,8 +68,11 @@ def get_rmse(pred_mu, true_mu):
         total mean of the RMSE for that batch
 
     """
-    rmse = np.mean((np.sum((pred_mu - true_mu)**2.0, axis=1))**0.5)
-    return rmse
+    rmse = (np.sum((pred_mu - true_mu)**2.0, axis=1))**0.5
+    if reduce:
+        return np.mean(rmse)
+    else:
+        return rmse
 
 def get_rmse_param(pred_mu, true_mu, param_idx):
     """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
