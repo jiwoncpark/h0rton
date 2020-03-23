@@ -232,6 +232,10 @@ def main():
         true_img_ra = np.trim_zeros(cosmo[['x_image_0', 'x_image_1', 'x_image_2', 'x_image_3']].values, 'b')
         measured_vd = cosmo['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
+        if len(true_td) not in [2, 4]:
+            total_progress.update(1)
+            print("Metadata generated for this lens was faulty.")
+            continue
         h0_post.set_cosmology_observables(
                                           z_lens=cosmo['z_lens'], 
                                           z_src=cosmo['z_src'], 
