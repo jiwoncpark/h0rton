@@ -294,7 +294,7 @@ class H0Posterior:
         # Time delays
         inferred_td = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_img'], kappa_ext=k_ext)
         if lens_prior_sample['requires_reordering']:
-            inferred_td = utils.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
+            inferred_td = h0_utils.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
         else:
             inferred_td = np.array(inferred_td)
         inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]

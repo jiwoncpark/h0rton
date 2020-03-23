@@ -169,7 +169,7 @@ class HybridBNNPenalty:
             raise NotImplementedError
         return ll
 
-def get_idx_for_params(out_dim, Y_cols, params_to_remove):
+def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debug=False):
     """Get columns corresponding to certain parameters from the BNN output
 
     Parameters
@@ -186,11 +186,30 @@ def get_idx_for_params(out_dim, Y_cols, params_to_remove):
 
     """
     Y_dim = len(Y_cols)
-    tiling_by_Y_dim = np.arange(out_dim//Y_dim)*Y_dim
     col_to_idx = dict(zip(Y_cols, range(Y_dim)))
-    remove_param_idx = [col_to_idx[i] for i in params_to_remove] # indices corresponding to primary mean
-    remove_idx = [tile + i for tile in tiling_by_Y_dim for i in remove_param_idx]
-    return remove_param_idx, remove_idx, 
+    param_idx = np.array([col_to_idx[i] for i in params_to_remove]) # indices corresponding to primary mean
+    if likelihood_class == 'DoubleGaussianNLL':
+        tril_idx = np.tril_indices(Y_dim)
+        tril_idx_dim0 = tril_idx[0]
+        tril_idx_dim1 = tril_idx[1]
+        tril_len = len(tril_idx_dim0)
+        tril_mask = np.logical_or(np.isin(tril_idx_dim0, param_idx), np.isin(tril_idx_dim1, param_idx)).nonzero()[0]
+        idx_within_tril1 = list(Y_dim + tril_mask)
+        idx_within_tril2 = list(2*Y_dim + tril_len + tril_mask)
+        idx = list(param_idx) + idx_within_tril1 + list(Y_dim + tril_len + param_idx) + idx_within_tril2
+        if debug:
+            to_test = dict(
+                           tril_mask=tril_mask,
+                           idx_within_tril1=idx_within_tril1,
+                           idx_within_tril2=idx_within_tril2,
+                           param_idx=param_idx,
+                           idx=idx,
+                           )
+            return to_test
+    else: # tested for 'DoubleLowRankGaussianNLL':
+        tiling_by_Y_dim = np.arange(out_dim//Y_dim)*Y_dim
+        idx = [tile + i for tile in tiling_by_Y_dim for i in param_idx]
+    return param_idx, idx 
 
 def remove_parameters_from_pred(orig_pred, remove_idx, return_as_tensor=True, device='cpu'):
     """Remove columns corresponding to certain parameters from the BNN output
