@@ -289,7 +289,6 @@ def main():
         total_progress.update(1)
     total_progress.close()
     h0_stats = dict(
-                    name='rung1_seed{:d}'.format(lens_i),
                     mean=mean_h0_set,
                     std=std_h0_set,
                     inference_time=inference_time_set,
