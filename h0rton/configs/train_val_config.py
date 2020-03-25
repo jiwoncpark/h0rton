@@ -130,7 +130,7 @@ class TrainValConfig:
             self.data.noiseless_exposure_time = self.data.train_baobab_cfg.observation.exposure_time
             self.data.noise_kwargs.update(self.data.train_baobab_cfg.instrument)
             self.data.noise_kwargs.update(self.data.train_baobab_cfg.bandpass)
-            self.data.noise_kwargs.update(self.data.train_baobab_cfg.observation)
+            #self.data.noise_kwargs.update(self.data.train_baobab_cfg.observation) # observation contains exposure time, which we don't want to keep
             self.data.noise_kwargs.update(psf_type='GAUSSIAN', # noise module doesn't actually use the PSF. "PIXEL", if used to generate the training set, is not an option.
                                           kernel_point_source=None,
                                           data_count_unit='e-',
