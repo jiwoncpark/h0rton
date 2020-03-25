@@ -64,9 +64,9 @@ def main():
     # Set device and default data type
     device = torch.device(cfg.device_type)
     if device.type == 'cuda':
-        torch.set_default_tensor_type('torch.cuda.DoubleTensor')
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
     else:
-        torch.set_default_tensor_type('torch.DoubleTensor')
+        torch.set_default_tensor_type('torch.FloatTensor')
     seed_everything(cfg.global_seed)
 
     ############
@@ -189,15 +189,20 @@ def main():
                     loss_dict.update(test=test_loss)
                 logger.add_scalars('metrics/loss', loss_dict, epoch)
                 #rmse = train_utils.get_rmse(mu, Y_plt)
-                rmse_orig = train_utils.get_rmse(mu_orig, Y_plt_orig)
+                rmse_dist = train_utils.get_rmse(mu_orig, Y_plt_orig, False)
                 rmse_dict = {
                            #'rmse': rmse,
-                           'rmse_orig1': rmse_orig,
+                           'rmse_orig1': np.mean(rmse_dist),
+                           'rmse_std': np.std(rmse_dist),
                            'rmse_lens_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 0),
                            'rmse_src_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 1),
                            'rmse_lens_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 2),
                            'rmse_src_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 3),
                            'rmse_gamma': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 4),
+                           'rmse_e1': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 6),
+                           'rmse_e2': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 7),
+                           'rmse_psi1': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 8),
+                           'rmse_psi2': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 9),
                            }
                 # Log second Gaussian stats
                 if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
