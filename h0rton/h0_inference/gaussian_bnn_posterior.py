@@ -222,7 +222,7 @@ class DiagonalGaussianBNNPosterior(BaseGaussianBNNPosterior):
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:]
-        self.cov_diag = np.exp(self.logvar)
+        self.cov_diag = torch.exp(self.logvar)
 
     def sample(self, n_samples, sample_seed):
         """Sample from a Gaussian posterior with diagonal covariance matrix
