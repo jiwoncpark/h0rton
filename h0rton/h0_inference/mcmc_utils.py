@@ -56,6 +56,33 @@ def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_boun
     kwargs_upper_ps = [{'ra_image': hard_bound*ones, 'dec_image': hard_bound*ones}]
     return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
+def get_ps_kwargs_src_plane(init_dict, astrometry_sigma, hard_bound=1.0):
+    """Get the point source kwargs for the source plane
+
+    Parameters
+    ----------
+    measured_img_ra : np.array
+        measured ra of the images
+    measured_img_dec : np.array
+        measured dec of the images
+    astrometry_sigma : float
+        astrometric uncertainty in arcsec
+    hard_bound : float
+        hard bound of the image positions around zero in arcsec
+
+    Returns
+    -------
+    list of dict
+        list of init, sigma, fixed, lower, and upper kwargs
+
+    """
+    kwargs_ps_init = [{'ra_source': init_dict['src_light_center_x'] + init_dict['lens_mass_center_x'], 'dec_source': init_dict['src_light_center_y'] + init_dict['lens_mass_center_y']}]
+    kwargs_ps_sigma = [{'ra_source': astrometry_sigma, 'dec_source': astrometry_sigma}]
+    fixed_ps = [{}] 
+    kwargs_lower_ps = [{'ra_source': -hard_bound, 'dec_source': -hard_bound}]
+    kwargs_upper_ps = [{'ra_source': hard_bound, 'dec_source': hard_bound}]
+    return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
+
 def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=1.0, D_dt_init=5000.0, D_dt_sigma=1000.0, D_dt_lower=0.0, D_dt_upper=10000.0):
     """Get the point source kwargs for the image positions
 
@@ -255,7 +282,7 @@ def split_component_param(string, sep='_', pos=2):
     return sep.join(substring_list[:pos]), sep.join(substring_list[pos:])
 
 def dict_to_array(Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None,):
-    """Reformat kwargs into np array
+    """Reformat kwargs into np array. Used to feed the current iteration of MCMC kwargs into the BNN posterior evaluation.
 
     """
     return_array = np.ones((len(Y_cols)))
@@ -265,8 +292,13 @@ def dict_to_array(Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light=None, kw
             return_array[i] = kwargs_lens[0][param]
         elif component == 'external_shear':
             return_array[i] = kwargs_lens[1][param]
-        #elif component == 'src_light':
-        #    return_array[i] = kwargs_source[0][param]
+        elif component == 'src_light':
+            if param == 'center_x':
+                return_array[i] = kwargs_ps[0]['ra_source'] - kwargs_lens[0]['center_x']
+            elif param == 'center_y':
+                return_array[i] = kwargs_ps[0]['dec_source'] - kwargs_lens[0]['center_y']
+            else:
+                return_array[i] = kwargs_source[0][param]
         #elif component == 'lens_light':
         #    return_array[i] = kwargs_lens_light[0][param]
         else:
