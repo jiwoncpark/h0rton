@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import torch
-from h0rton.h0_inference.gaussian_bnn_posterior_cpu_cpu import DiagonalGaussianBNNPosteriorCPU, LowRankGaussianBNNPosteriorCPU, DoubleLowRankGaussianBNNPosteriorCPU, FullRankGaussianBNNPosteriorCPU, DoubleGaussianBNNPosteriorCPU
+from h0rton.h0_inference.gaussian_bnn_posterior_cpu import DiagonalGaussianBNNPosteriorCPU, LowRankGaussianBNNPosteriorCPU, DoubleLowRankGaussianBNNPosteriorCPU, FullRankGaussianBNNPosteriorCPU, DoubleGaussianBNNPosteriorCPU
 from h0rton.losses import sigmoid
 
 class TestGaussianBNNPosteriorCPU(unittest.TestCase):
