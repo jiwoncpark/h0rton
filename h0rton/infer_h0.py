@@ -219,8 +219,8 @@ def main():
     # For each lens system...
     total_progress = tqdm(total=n_test)
     sampling_progress = tqdm(total=n_samples)
-    lens_i_start_time = time.time()
     for i, lens_i in enumerate(lens_range):
+        lens_i_start_time = time.time()
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
         # BNN samples for lens_i
