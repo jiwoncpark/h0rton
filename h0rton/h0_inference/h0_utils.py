@@ -51,7 +51,7 @@ class H0Converter:
 
     Note
     ----
-    This was modified from lenstronomy.Cosmo.cosmo_solver.
+    This was modified from lenstronomy.Cosmo.cosmo_solver to handle array types.
 
     """
     def __init__(self, z_lens, z_src):
