@@ -43,12 +43,26 @@ def main():
     master_truth = metadata_utils.add_qphi_columns(master_truth)
     master_truth = metadata_utils.add_gamma_psi_ext_columns(master_truth)
     if test_cfg.data.lens_indices is None:
-        n_test = test_cfg.data.n_test # number of lenses in the test set
-        lens_range = range(n_test)
-    else: # if specific lenses are specified
-        lens_range = test_cfg.data.lens_indices
-        n_test = len(lens_range)
-        print("Performing H0 inference on {:d} specified lenses...".format(n_test))
+        if args.lens_indices_path is None:
+            # Test on all n_test lenses in the test set
+            n_test = test_cfg.data.n_test 
+            lens_range = range(n_test)
+        else:
+            # Test on the lens indices in a text file at the specified path
+            lens_range = []
+            with open(args.lens_indices_path, "r") as f:
+                for line in f:
+                    lens_range.append(int(line.strip()))
+            n_test = len(lens_range)
+            print("Performing H0 inference on {:d} specified lenses...".format(n_test))
+    else:
+        if args.lens_indices_path is None:
+            # Test on the lens indices specified in the test config file
+            lens_range = test_cfg.data.lens_indices
+            n_test = len(lens_range)
+            print("Performing H0 inference on {:d} specified lenses...".format(n_test))
+        else:
+            raise ValueError("Specific lens indices were specified in both the test config file and the command-line argument.")
     batch_size = max(lens_range) + 1
     test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, drop_last=True)
     # Output directory into which the H0 histograms and H0 samples will be saved

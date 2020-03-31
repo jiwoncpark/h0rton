@@ -13,8 +13,8 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('test_config_file_path', help='path to the user-defined test config file')
-    #parser.add_argument('--n_data', default=None, dest='n_data', type=int,
-    #                    help='size of dataset to generate (overrides config file)')
+    parser.add_argument('--lens_indices_path', default=None, dest='lens_indices_path', type=str,
+                        help='path to a text file with specific lens indices to test on (Default: None)')
     args = parser.parse_args()
     # sys.argv rerouting for setuptools entry point
     if args is None:
