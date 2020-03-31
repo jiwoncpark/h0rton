@@ -40,8 +40,8 @@ class BaseGaussianBNNPosteriorCPU(ABC):
         self.Y_dim = Y_dim
         self.Y_mean = Y_mean.reshape(1, -1)
         self.Y_std = Y_std.reshape(1, -1)
-        self.sigmoid = sigmoid()
-        self.logsigmoid = logsigmoid()
+        self.sigmoid = sigmoid
+        self.logsigmoid = logsigmoid
 
     def seed_samples(self, sample_seed):
         """Seed the sampling for reproducibility
