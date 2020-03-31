@@ -188,7 +188,7 @@ class DiagonalGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        pred = pred.cpu().numpy()
+        #pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:]
@@ -238,7 +238,7 @@ class LowRankGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        pred = pred.cpu().numpy()
+        #pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
@@ -266,7 +266,7 @@ class DoubleLowRankGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        pred = pred.cpu().numpy()
+        #pred = pred.cpu().numpy()
         self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
@@ -327,7 +327,7 @@ class FullRankGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        pred = pred.cpu().numpy()
+        #pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.tril_elements = pred[:, d:self.out_dim]
@@ -353,7 +353,7 @@ class DoubleGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        pred = pred.cpu().numpy()
+        #pred = pred.cpu().numpy()
         self.batch_size = pred.shape[0]
         # First gaussian
         self.mu = pred[:, :d]

@@ -26,7 +26,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         Y_mean = np.zeros(Y_dim)
         Y_std = np.ones(Y_dim)
         diagonal_bnn_post = DiagonalGaussianBNNPosteriorCPU(Y_dim, Y_mean, Y_std)
-        diagonal_bnn_post.set_sliced_pred(torch.Tensor(pred))
+        diagonal_bnn_post.set_sliced_pred(pred)
         h0rton_samples = diagonal_bnn_post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
@@ -61,7 +61,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         Y_mean = np.zeros(Y_dim)
         Y_std = np.ones(Y_dim)
         low_rank_bnn_post = LowRankGaussianBNNPosteriorCPU(Y_dim, Y_mean, Y_std)
-        low_rank_bnn_post.set_sliced_pred(torch.Tensor(pred),)
+        low_rank_bnn_post.set_sliced_pred(pred)
         h0rton_samples = low_rank_bnn_post.sample(10**7, sample_seed)
         #import matplotlib.pyplot as plt
         #plt.hist(h0rton_samples[0, :, 0], bins=30)
@@ -112,7 +112,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         Y_mean = np.zeros(Y_dim)
         Y_std = np.ones(Y_dim)
         double_bnn_post = DoubleLowRankGaussianBNNPosteriorCPU(Y_dim, Y_mean, Y_std)
-        double_bnn_post.set_sliced_pred(torch.Tensor(pred),)
+        double_bnn_post.set_sliced_pred(pred,)
         h0rton_samples = double_bnn_post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
@@ -141,7 +141,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         Y_mean = np.zeros(Y_dim)
         Y_std = np.ones(Y_dim)
         post = FullRankGaussianBNNPosteriorCPU(Y_dim, Y_mean, Y_std)
-        post.set_sliced_pred(torch.from_numpy(pred),)
+        post.set_sliced_pred(pred)
         h0rton_samples = post.sample(10**7, sample_seed)
         #import matplotlib.pyplot as plt
         #plt.hist(h0rton_samples[0, :, 0], bins=30)
@@ -196,7 +196,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         Y_mean = np.zeros(Y_dim)
         Y_std = np.ones(Y_dim)
         post = DoubleGaussianBNNPosteriorCPU(Y_dim, Y_mean, Y_std)
-        post.set_sliced_pred(torch.Tensor(pred),)
+        post.set_sliced_pred(pred,)
         h0rton_samples = post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
