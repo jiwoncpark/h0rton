@@ -2,7 +2,7 @@ import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from lenstronomy.Cosmo.lens_cosmo import LensCosmo
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "H0Converter"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats"]
 
 def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
@@ -46,8 +46,8 @@ def pred_to_natural_gaussian(pred_mu, pred_cov_mat, shift, scale):
     cov_mat = np.matmul(np.matmul(A, pred_cov_mat), A.T) # There is a better way to do this...
     return mu, cov_mat
 
-class H0Converter:
-    """Convert the time-delay distance to H0
+class CosmoConverter:
+    """Convert the time-delay distance to H0 and vice versa
 
     Note
     ----
@@ -61,5 +61,28 @@ class H0Converter:
         self.ddt_fiducial = self.lens_cosmo.ddt
 
     def get_H0(self, D_dt):
-        h0 = self.h0_fiducial * self.ddt_fiducial / D_dt
-        return h0
+        H0 = self.h0_fiducial * self.ddt_fiducial / D_dt
+        return H0
+
+    def get_D_dt(self, H0):
+        D_dt = self.h0_fiducial * self.ddt_fiducial / H0
+        return D_dt
+
+def get_lognormal_stats(samples, weights=None):
+    """Compute lognormal stats assuming the samples are drawn from a lognormal distribution
+
+    """
+    if weights is None:
+        weights = np.ones_like(samples)
+    log_samples = np.log(samples)
+    mu = np.average(log_samples, weights=weights)
+    sig2 = np.average((log_samples - mu)**2.0, weights=weights)
+    mode = np.exp(mu - sig2)
+    std = ((np.exp(sig2) - 1.0)*(np.exp(2*mu - sig2)))**0.5
+    stats = dict(
+                 mu=mu,
+                 sigma=sig2**0.5,
+                 mode=mode,
+                 std=std
+                 )
+    return stats
