@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import random
 import numpy as np
 from scipy.stats import multivariate_normal
-import torch
 __all__ = ['BaseGaussianBNNPosteriorCPU', 'DiagonalGaussianBNNPosteriorCPU', 'LowRankGaussianBNNPosteriorCPU', 'DoubleLowRankGaussianBNNPosteriorCPU', 'FullRankGaussianBNNPosteriorCPU', 'DoubleGaussianBNNPosteriorCPU']
 
 
@@ -111,7 +110,7 @@ class BaseGaussianBNNPosteriorCPU(ABC):
             the unwhitened pred
         
         """
-        sample = sample*self.Y_std.unsqueeze(1) + self.Y_mean.unsqueeze(1)
+        sample = sample*np.expand_dims(self.Y_std, 1) + np.expand_dims(self.Y_mean, 1)
         return sample
 
     def sample_low_rank(self, n_samples, mu, logvar, F):
@@ -168,11 +167,11 @@ class BaseGaussianBNNPosteriorCPU(ABC):
         for b in range(self.batch_size):
             tril = np.zeros([self.Y_dim, self.Y_dim])
             tril[self.tril_idx[0], self.tril_idx[1]] = tril_elements[b, :]
-            log_diag_tril = np.diagonal(tril, offset=0, dim1=0, dim2=1)
+            log_diag_tril = np.diagonal(tril, offset=0, axis1=0, axis2=1)
             tril[np.eye(self.Y_dim).astype(bool)] = np.exp(log_diag_tril)
             prec_mat = np.dot(tril, tril.T) # [Y_dim, Y_dim]
-            cov_mat = np.inv(prec_mat)
-            sample_b = multivariate_normal.rvs(loc=mu[b, :], cov=cov_mat, size=[n_samples,])
+            cov_mat = np.linalg.inv(prec_mat)
+            sample_b = multivariate_normal.rvs(mean=mu[b, :], cov=cov_mat, size=[n_samples,])
             samples[b, :, :] = sample_b
         samples = self.unwhiten_back(samples)
         return samples
@@ -219,7 +218,7 @@ class DiagonalGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
         """
         self.seed_samples(sample_seed)
         eps = np.random.randn(self.batch_size, n_samples, self.Y_dim)
-        samples = eps*np.exp(0.5*np.expand_dims(self.logvar, axis=1)) + np.expand_dims(self.mu, 1)
+        samples = eps*np.exp(0.5*np.expand_dims(self.logvar, 1)) + np.expand_dims(self.mu, 1)
         samples = self.unwhiten_back(samples)
         return samples
 
@@ -267,8 +266,8 @@ class DoubleLowRankGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
 
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
-        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1)).cpu().numpy()
         pred = pred.cpu().numpy()
+        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
@@ -348,7 +347,7 @@ class DoubleGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
     """
     def __init__(self, Y_dim, Y_mean=None, Y_std=None):
         super(DoubleGaussianBNNPosteriorCPU, self).__init__(Y_dim, Y_mean, Y_std)
-        self.tril_idx = torch.tril_indices(self.Y_dim) # lower-triangular indices
+        self.tril_idx = np.tril_indices(self.Y_dim) # lower-triangular indices
         self.tril_len = len(self.tril_idx[0])
         self.out_dim = self.Y_dim**2 + 3*self.Y_dim + 1
 
@@ -382,7 +381,7 @@ class DoubleGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
         self.seed_samples(sample_seed)
         samples = np.zeros([self.batch_size, n_samples, self.Y_dim])
         # Determine first vs. second Gaussian
-        unif2 = np.rand(self.batch_size, n_samples)
+        unif2 = np.random.rand(self.batch_size, n_samples)
         second_gaussian = (self.w2 > unif2)
         # Sample from second Gaussian
         samples2 = self.sample_full_rank(n_samples, self.mu2, self.tril_elements2)
