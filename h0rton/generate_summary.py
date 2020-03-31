@@ -7,6 +7,8 @@ To run this script, pass in the version ID and the sampling method as the argume
     
     $ python generate_summary.py 21 simple_mc_default
 
+The summary will be saved to the same directory level as the sample directory.
+
 """
 import os
 import numpy as np
@@ -26,17 +28,30 @@ def parse_args():
 
 def main():
     args = parse_args()
+    # Folder where all the H0 samples live
     samples_dir = '/home/jwp/stage/sl/h0rton/experiments/v{:d}/{:s}'.format(args.version_id, args.sampling_method)
-    # Read in test cfg for this version and sampling method
-    test_cfg = TestConfig.from_file('/home/jwp/stage/sl/h0rton/experiments/v{:d}/{:s}.json'.format(args.version_id, args.sampling_method))
-    redshifts = pd.read_csv(test_cfg.data.test_dir, index_col=None)
+    if args.sampling_method == 'simple_mc_default':
+        # Read in test cfg for this version and sampling method
+        test_cfg = TestConfig.from_file('/home/jwp/stage/sl/h0rton/experiments/v{:d}/{:s}.json'.format(args.version_id, args.sampling_method))
+        redshifts = pd.read_csv(os.path.join(test_cfg.data.test_dir, 'metadata.csv'), index_col=None, usecols=['z_lens', 'z_src'])
+        summarize_simple_mc_default(samples_dir, redshifts)
+    elif args.sampling_method == 'mcmc_default':
+        pass
+    elif args.sampling_ethod == 'hybrid':
+        pass
+    else:
+        raise ValueError("This sampling method is not supported. Choose one of [simple_mc_default, mcmc_default, hybrid].")
 
+def summarize_simple_mc_default(samples_dir, redshifts):
+    """Generate the summary on the output of simple_mc_default, i.e. the uniform H0 samples with corresponding weights
+
+    """
     H0_dicts = [f for f in os.listdir(samples_dir) if f.startswith('h0_dict')]
     H0_dicts.sort()
 
     summary_df = pd.DataFrame() # instantiate empty dataframe for storing summary
     for i, f_name in enumerate(H0_dicts):
-        lens_i = int(os.path.splitext(f_name)[0].split('H0_dict_')[1])
+        lens_i = int(os.path.splitext(f_name)[0].split('h0_dict_')[1])
         # Slice redshifts for this lensing system
         redshifts_i = redshifts.iloc[lens_i]
         z_lens = redshifts_i['z_lens']
@@ -54,6 +69,8 @@ def main():
             n_eff = 0
             D_dt_mu = -1
             D_dt_sigma = -1
+            z_lens = -1
+            z_src = -1
         else:
             H0_mean = np.average(H0_samples, weights=weights)
             H0_std = np.average((H0_samples - H0_mean)**2.0, weights=weights)**0.5
@@ -80,11 +97,17 @@ def main():
                          D_dt_mu=D_dt_mu,
                          D_dt_sigma=D_dt_sigma,
                          n_eff=n_eff,
+                         z_lens=z_lens,
+                         z_src=z_src,
                          inference_time=H0_dict['inference_time'],
                          )
-        summary_df.append(summary_i, ignore_index=True)
-
-    summary_df.to_csv(os.path.join(samples_dir, 'summary.csv'))
+        summary_df = summary_df.append(summary_i, ignore_index=True)
+    summary_df.to_csv(os.path.join(samples_dir, '..', 'summary.csv'))
+    # Output list of problem lens IDs
+    problem_id = summary_df.loc[(summary_df['n_eff'] < 10) | (summary_df['H0_std'] < 1.0)]['id'].astype(int)
+    with open(os.path.join(samples_dir, '..', "mcmc_default_candidates.txt"), "w") as f:
+        for pid in problem_id:
+            f.write(str(pid) +"\n")
 
 if __name__ == '__main__':
     main()
