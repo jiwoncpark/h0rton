@@ -171,9 +171,9 @@ class HybridBNNPenalty:
         self.Y_dim = len(self.Y_cols)
         self.mcmc_train_Y_mean = mcmc_train_Y_mean
         self.mcmc_train_Y_std = mcmc_train_Y_std
-        self.device = device
+        #self.device = device
         self.exclude_vel_disp = exclude_vel_disp
-        self.nll = getattr(h0rton.losses, likelihood_class)(Y_dim=self.Y_dim, device=self.device)
+        self.nll = getattr(h0rton.losses, '{:s}CPU'.format(likelihood_class))(Y_dim=self.Y_dim)
 
     def set_bnn_post_params(self, bnn_post_params):
         """Set BNN posterior parameters, which define the penaty function
@@ -188,8 +188,7 @@ class HybridBNNPenalty:
         to_eval = dict_to_array(self.Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps) # shape [1, self.Y_dim]
         # Whiten the mcmc array
         to_eval = (to_eval - self.mcmc_train_Y_mean)/self.mcmc_train_Y_std
-        to_eval = torch.as_tensor(to_eval, dtype=torch.get_default_dtype(), device=self.device)
-        ll = -self.nll(self.bnn_post_params, to_eval).cpu().item()
+        ll = -self.nll(self.bnn_post_params, to_eval)
         if not self.exclude_vel_disp:
             vel_disp_nll = 0.0
             ll += vel_disp_nll

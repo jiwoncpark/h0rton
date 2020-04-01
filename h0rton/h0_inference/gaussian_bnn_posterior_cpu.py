@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import random
 import numpy as np
 from scipy.stats import multivariate_normal
-__all__ = ['BaseGaussianBNNPosteriorCPU', 'DiagonalGaussianBNNPosteriorCPU', 'LowRankGaussianBNNPosteriorCPU', 'DoubleLowRankGaussianBNNPosteriorCPU', 'FullRankGaussianBNNPosteriorCPU', 'DoubleGaussianBNNPosteriorCPU']
+__all__ = ['BaseGaussianBNNPosteriorCPU', 'DiagonalGaussianBNNPosteriorCPU', 'LowRankGaussianBNNPosteriorCPU', 'DoubleLowRankGaussianBNNPosteriorCPU', 'FullRankGaussianBNNPosteriorCPU', 'DoubleGaussianBNNPosteriorCPU', 'sigmoid', 'logsigmoid']
 
 
 def sigmoid(x):
