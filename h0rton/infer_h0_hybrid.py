@@ -11,7 +11,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import lenstronomy
-print(lenstronomy.__path__)
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
 import baobab.sim_utils.metadata_utils as metadata_utils
@@ -20,7 +19,7 @@ import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
 import h0rton.train_utils as train_utils
-from h0rton.h0_inference import h0_utils, plotting_utils, mcmc_utils
+from h0rton.h0_inference import plotting_utils, mcmc_utils
 from h0rton.trainval_data import XYCosmoData
 
 def main():
@@ -105,7 +104,7 @@ def main():
     if test_cfg.lens_posterior_type == 'hybrid_with_truth_mean':
         # Replace BNN posterior's primary gaussian mean with truth values
         mcmc_pred[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
-    mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=True, device=device)
+    mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=False)
 
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
                         point_source_model_list=['LENSED_POSITION'],)
@@ -115,10 +114,6 @@ def main():
         if 'abcd_ordering_i' not in master_truth:
             raise ValueError("If the time delay measurements were not generated using Baobab, the user must specify the order of image positions in which the time delays are listed, in order of increasing dec.")
 
-    # Placeholders for mean and std of D_dt samples per system
-    mean_D_dt_set = np.zeros(n_test)
-    std_D_dt_set = np.zeros(n_test)
-    inference_time_set = np.zeros(n_test)
     # For each lens system...
     total_progress = tqdm(total=n_test)
     for i, lens_i in enumerate(lens_range):
@@ -128,11 +123,10 @@ def main():
         # Relevant data and prior #
         ###########################
         data_i = master_truth.iloc[lens_i].copy()
-        h0_converter = h0_utils.H0Converter(data_i['z_lens'], data_i['z_src']) # tool for converting from D_dt to H0
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
         # Init values for the lens model params
         if test_cfg.lens_posterior_type == 'hybrid':
-            init_lens = dict(zip(mcmc_Y_cols, mcmc_pred.cpu().numpy()[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
+            init_lens = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
         else: # types 'hybrid_with_truth_mean' and 'truth'
             init_lens = dict(zip(mcmc_Y_cols, data_i[mcmc_Y_cols].values)) # truth params
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
@@ -200,9 +194,9 @@ def main():
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
         fitting_kwargs_list_mcmc = [['MCMC', test_cfg.numerics.mcmc]]
-        #with HiddenPrints():
-        chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
-        kwargs_result_mcmc = fitting_seq.best_fit()
+        with HiddenPrints():
+            chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
+            kwargs_result_mcmc = fitting_seq.best_fit()
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
 
@@ -218,17 +212,17 @@ def main():
         D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
         data_i['D_dt'] = true_D_dt
-        h0_samples = h0_converter.get_H0(D_dt_samples)
-        mode_D_dt, std_D_dt = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
-        mean_h0, std_h0 = plotting_utils.plot_h0_histogram(h0_samples, lens_i, data_i['H0'], include_fit_gaussian=test_cfg.plotting.include_fit_gaussian, save_dir=out_dir)
-        # Export D_dt samples
-        lens_inference_dict = dict(
-                                   D_dt_samples=D_dt_samples,
-                                   H0_samples=h0_samples,
-                                   inference_time=inference_time
-                                   )
-        lens_inference_dict_save_path = os.path.join(out_dir, 'inference_dict_{0:04d}.npy'.format(lens_i))
-        np.save(lens_inference_dict_save_path, lens_inference_dict)
+        # Export D_dt samples for this lens
+        D_dt_dict = dict(
+                       D_dt_samples=D_dt_samples, # kappa_ext=0 for these samples
+                       inference_time=inference_time,
+                       true_D_dt=true_D_dt, 
+                       )
+        D_dt_dict_save_path = os.path.join(out_dir, 'D_dt_dict_{0:04d}.npy'.format(lens_i))
+        np.save(D_dt_dict_save_path, D_dt_dict)
+        # Optionally export the D_dt histogram
+        if test_cfg.export.D_dt_histogram:
+            _ = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
         # Optionally export the plot of MCMC chain
         if test_cfg.export.mcmc_chain:
             mcmc_chain_path = os.path.join(out_dir, 'mcmc_chain_{0:04d}.png'.format(lens_i))
@@ -237,22 +231,8 @@ def main():
         if test_cfg.export.mcmc_corner:
             mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
             plotting_utils.plot_mcmc_corner(new_samples_mcmc[test_cfg.export.mcmc_cols], data_i[test_cfg.export.mcmc_cols], test_cfg.export.mcmc_col_labels, mcmc_corner_path)
-        # Update running D_dt summary stats for all the lenses
-        mean_D_dt_set[i] = mode_D_dt
-        std_D_dt_set[i] = std_D_dt
-        inference_time_set[i] = inference_time
         total_progress.update(1)
     total_progress.close()
-    # Export D_dt summary stats for all the lenses
-    inference_stats = dict(
-                    name='rung1_seed{:d}'.format(lens_i),
-                    mean=mean_D_dt_set,
-                    std=std_D_dt_set,
-                    inference_time=inference_time_set,
-                    )
-    h0_stats_save_path = os.path.join(out_dir, 'inference_stats')
-    np.save(h0_stats_save_path, inference_stats)
-
 
 if __name__ == '__main__':
     #import cProfile

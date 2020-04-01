@@ -37,9 +37,9 @@ def main():
     if args.sampling_method == 'simple_mc_default':
         summarize_simple_mc_default(samples_dir, test_cfg)
     elif args.sampling_method == 'mcmc_default':
-        summarize_mcmc_default(samples_dir, test_cfg)
-    elif args.sampling_ethod == 'hybrid':
-        pass
+        summarize_mcmc(samples_dir, test_cfg, 'mcmc_default')
+    elif args.sampling_method == 'hybrid':
+        summarize_mcmc(samples_dir, test_cfg, 'hybrid')
     else:
         raise ValueError("This sampling method is not supported. Choose one of [simple_mc_default, mcmc_default, hybrid].")
 
@@ -113,7 +113,7 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
         for pid in problem_id:
             f.write(str(pid) +"\n")
 
-def summarize_mcmc_default(samples_dir, test_cfg):
+def summarize_mcmc(samples_dir, test_cfg, sampling_method):
     """Summarize the output of mcmc_default, i.e. MCMC samples from the D_dt posterior for each lens
 
     """
@@ -124,7 +124,7 @@ def summarize_mcmc_default(samples_dir, test_cfg):
     # Read in summary generated from the simple MC run
     summary_df = pd.read_csv(os.path.join(samples_dir, '..', 'summary.csv'), index_col=None)
     # Initialize list for catastrophic lenses not solved by MCMC
-    catastrophic_id = []
+    lenses_to_rerun = []
     for i, f_name in enumerate(D_dt_dicts):
         lens_i = int(os.path.splitext(f_name)[0].split('D_dt_dict_')[1])
         # Read in D_dt samples using lens identifier
@@ -140,8 +140,8 @@ def summarize_mcmc_default(samples_dir, test_cfg):
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = D_dt_stats['mu']
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = D_dt_stats['sigma']
         # Convert D_dt samples to H0
+        D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(D_dt_stats['mu']), s=D_dt_stats['sigma'], size=n_sample_threshold)
         redshifts = summary_df.loc[summary_df['id']==lens_i].squeeze()
-        print(redshifts['z_lens'], redshifts['z_src'])
         cosmo_converter = h0_utils.CosmoConverter(redshifts['z_lens'], redshifts['z_src'])
         H0_samples = cosmo_converter.get_H0(D_dt_samples)
         # Reject H0 samples outside H0 prior
@@ -149,7 +149,7 @@ def summarize_mcmc_default(samples_dir, test_cfg):
         if len(H0_samples) < n_sample_threshold:
             summary_df.loc[summary_df['id']==lens_i, 'H0_mean'] = -1
             summary_df.loc[summary_df['id']==lens_i, 'H0_std'] = -1
-            catastrophic_id.append(lens_i)
+            lenses_to_rerun.append(lens_i)
         else:
             # Compute normal params for H0 and update summary
             summary_df.loc[summary_df['id']==lens_i, 'H0_mean'] = np.mean(H0_samples)
@@ -158,10 +158,15 @@ def summarize_mcmc_default(samples_dir, test_cfg):
         summary_df.loc[summary_df['id']==lens_i, 'inference_time'] += D_dt_dict['inference_time']
     # Replace existing summary
     summary_df.to_csv(os.path.join(samples_dir, '..', 'summary.csv'))
-    # Output list of catastrophic lens IDs
-    with open(os.path.join(samples_dir, '..', "hybrid_candidates.txt"), "w") as f:
-        for cid in catastrophic_id:
-            f.write(str(cid) +"\n")
+    # Output list of catastrophic/no-good lens IDs
+    if sampling_method == 'mcmc_default':
+        with open(os.path.join(samples_dir, '..', "hybrid_candidates.txt"), "w") as f:
+            for lens_i in lenses_to_rerun:
+                f.write(str(lens_i) +"\n")
+    else: # hybrid case
+        with open(os.path.join(samples_dir, '..', "no_good_candidates.txt"), "w") as f:
+            for lens_i in lenses_to_rerun:
+                f.write(str(lens_i) +"\n")
 
 if __name__ == '__main__':
     main()
