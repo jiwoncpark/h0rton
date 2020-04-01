@@ -189,9 +189,9 @@ def main():
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
         fitting_kwargs_list_mcmc = [['MCMC', test_cfg.numerics.mcmc]]
-        #with HiddenPrints():
-        chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
-        kwargs_result_mcmc = fitting_seq.best_fit()
+        with HiddenPrints():
+            chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
+            kwargs_result_mcmc = fitting_seq.best_fit()
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
 
