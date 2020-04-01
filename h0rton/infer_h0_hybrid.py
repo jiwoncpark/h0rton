@@ -121,7 +121,6 @@ def main():
     inference_time_set = np.zeros(n_test)
     # For each lens system...
     total_progress = tqdm(total=n_test)
-    lens_i_start_time = time.time()
     for i, lens_i in enumerate(lens_range):
         # Each lens gets a unique random state for td and vd measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)

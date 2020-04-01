@@ -2,7 +2,7 @@ import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from lenstronomy.Cosmo.lens_cosmo import LensCosmo
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "remove_outliers_from_lognormal"]
 
 def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
@@ -86,3 +86,16 @@ def get_lognormal_stats(samples, weights=None):
                  std=std
                  )
     return stats
+
+def remove_outliers_from_lognormal(data, level=3):
+    """Remove extreme outliers corresponding to level-STD away from the mean
+    
+    Parameters
+    ----------
+    data : np.array
+        data expected to follow a lognormal distribution
+
+    """
+    # Quantiles are preserved under monotonic transformations
+    log_data = np.log(data)
+    return data[abs(log_data - np.mean(log_data)) < level*np.std(log_data)]

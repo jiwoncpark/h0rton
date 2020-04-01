@@ -114,7 +114,6 @@ def main():
         if 'abcd_ordering_i' not in master_truth:
             raise ValueError("If the time delay measurements were not generated using Baobab, the user must specify the order of image positions in which the time delays are listed, in order of increasing dec.")
 
-    summary_df = pd.DataFrame()
     total_progress = tqdm(total=n_test)
     # For each lens system...
     for i, lens_i in enumerate(lens_range):
@@ -207,13 +206,17 @@ def main():
         D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
         data_i['D_dt'] = true_D_dt
-        D_dt_mu, D_dt_sigma = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
         # Export D_dt samples for this lens
         lens_inference_dict = dict(
                                    D_dt_samples=D_dt_samples, # kappa_ext=0 for these samples
+                                   inference_time=inference_time,
+                                   true_D_dt=true_D_dt, 
                                    )
         lens_inference_dict_save_path = os.path.join(out_dir, 'D_dt_dict_{0:04d}.npy'.format(lens_i))
         np.save(lens_inference_dict_save_path, lens_inference_dict)
+        # Optionally export the D_dt histogram
+        if test_cfg.export.D_dt_histogram:
+            _ = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
         # Optionally export the plot of MCMC chain
         if test_cfg.export.mcmc_chain:
             mcmc_chain_path = os.path.join(out_dir, 'mcmc_chain_{0:04d}.png'.format(lens_i))
@@ -222,18 +225,8 @@ def main():
         if test_cfg.export.mcmc_corner:
             mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
             plotting_utils.plot_mcmc_corner(new_samples_mcmc[test_cfg.export.mcmc_cols], data_i[test_cfg.export.mcmc_cols], test_cfg.export.mcmc_col_labels, mcmc_corner_path)
-        # Update running D_dt summary stats for all the lenses
-        summary_i = dict(
-                         id=lens_i,
-                         D_dt_mu=D_dt_mu,
-                         D_dt_sigma=D_dt_sigma,
-                         inference_time=inference_time
-                         )
-        summary_df = summary_df.append(summary_i, ignore_index=True)
         total_progress.update(1)
     total_progress.close()
-    # Export D_dt summary stats for all the lenses
-    summary_df.to_csv(os.path.join(out_dir, '..', 'summary.csv'))
 
 if __name__ == '__main__':
     import cProfile
