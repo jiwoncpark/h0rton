@@ -32,18 +32,18 @@ def main():
     samples_dir = '/home/jwp/stage/sl/h0rton/experiments/v{:d}/{:s}'.format(args.version_id, args.sampling_method)
     if args.sampling_method == 'simple_mc_default':
         # Read in test cfg for this version and sampling method
-        test_cfg = TestConfig.from_file('/home/jwp/stage/sl/h0rton/experiments/v{:d}/{:s}.json'.format(args.version_id, args.sampling_method))
+        test_cfg = TestConfig.from_file(os.path.join(samples_dir, '..', '{:s}.json'.format(args.sampling_method)))
         redshifts = pd.read_csv(os.path.join(test_cfg.data.test_dir, 'metadata.csv'), index_col=None, usecols=['z_lens', 'z_src'])
         summarize_simple_mc_default(samples_dir, redshifts)
     elif args.sampling_method == 'mcmc_default':
-        pass
+        summarize_mcmc_default(samples_dir)
     elif args.sampling_ethod == 'hybrid':
         pass
     else:
         raise ValueError("This sampling method is not supported. Choose one of [simple_mc_default, mcmc_default, hybrid].")
 
 def summarize_simple_mc_default(samples_dir, redshifts):
-    """Generate the summary on the output of simple_mc_default, i.e. the uniform H0 samples with corresponding weights
+    """Summarize the output of simple_mc_default, i.e. the uniform H0 samples with corresponding weights
 
     """
     H0_dicts = [f for f in os.listdir(samples_dir) if f.startswith('h0_dict')]
@@ -108,6 +108,12 @@ def summarize_simple_mc_default(samples_dir, redshifts):
     with open(os.path.join(samples_dir, '..', "mcmc_default_candidates.txt"), "w") as f:
         for pid in problem_id:
             f.write(str(pid) +"\n")
+
+def summarize_mcmc_default(samples_dir):
+    """Summarize the output of mcmc_default, i.e. MCMC samples from the D_dt posterior for each lens
+
+    """
+    
 
 if __name__ == '__main__':
     main()

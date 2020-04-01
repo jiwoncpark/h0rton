@@ -86,22 +86,14 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
     # Compute the weighted mean and std analytically
     lognorm_stats = h0_utils.get_lognormal_stats(samples, weights)
     mu = lognorm_stats['mu']
-    sig2 = lognorm_stats['sigma']**2.0
+    sigma = lognorm_stats['sigma']
     mode = lognorm_stats['mode']
     std = lognorm_stats['std']
-    popt = [mu, sig2**0.5]
+    popt = [mu, sigma]
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
     x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
     # Overlay the fit gaussian pdf
     plt.plot(x_interval_for_fit, lognormal(x_interval_for_fit, *popt), color='k', label='fit: mode={:0.1f}, std={:0.1f}'.format(mode, std))
-    #if std < 1.0:
-    #    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=80, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[mean - 5, mean + 5])
-    #    bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
-    #    best_guess_mean = bin_centers[np.argmax(bin_heights)]
-    #    popt, _ = curve_fit(gaussian, bin_centers, bin_heights, p0=[mean, 0.3, 1.0], maxfev=10000)
-    #    mean = popt[0]
-    #    std = popt[-1]
-    #print(popt)
     if save_dir is not None:
         if true_D_dt is not None:
             plt.axvline(x=true_D_dt, linestyle='--', color='red', label='truth')
@@ -112,7 +104,7 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
         save_path = os.path.join(save_dir, 'D_dt_histogram_{0:04d}.png'.format(lens_i))
         plt.savefig(save_path)
         plt.close()
-    return mode, std
+    return mu, sigma
 
 def plot_h0_histogram(samples, lens_i=0, true_h0=None, include_fit_gaussian=True, save_dir='.'):
     """Plot the histogram of H0 samples, overlaid with a Gaussian fit and truth H0
@@ -173,15 +165,12 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     
     # Compute the mode and std for lognormal
-    #mean = np.average(all_samples)
-    #std = np.average((all_samples - mean)**2.0)**0.5
-    #popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
     lognorm_stats = h0_utils.get_lognormal_stats(all_samples)
     mu = lognorm_stats['mu']
-    sig2 = lognorm_stats['sigma']**2.0
+    sigma = lognorm_stats['sigma']
     mode = lognorm_stats['mode']
     std = lognorm_stats['std']
-    popt = [mu, sig2**0.5]
+    popt = [mu, sigma]
 
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
     x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
@@ -197,7 +186,7 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
         save_path = os.path.join(save_dir, 'D_dt_histogram_{0:04d}.png'.format(lens_i))
         plt.savefig(save_path)
         plt.close()
-    return mode, std
+    return mu, sigma
 
 def plot_mcmc_chain(chain_list_mcmc, save_path):
     fig, ax = chain_plot.plot_chain_list(chain_list_mcmc)
