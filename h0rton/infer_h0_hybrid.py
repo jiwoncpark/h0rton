@@ -220,6 +220,10 @@ def main():
                        )
         D_dt_dict_save_path = os.path.join(out_dir, 'D_dt_dict_{0:04d}.npy'.format(lens_i))
         np.save(D_dt_dict_save_path, D_dt_dict)
+        # Optionally export the MCMC samples
+        if test_cfg.export.mcmc_samples:
+            mcmc_samples_path = os.path.join(out_dir, 'mcmc_samples_{0:04d}.csv'.format(lens_i))
+            new_samples_mcmc.to_csv(mcmc_samples_path, index=None)
         # Optionally export the D_dt histogram
         if test_cfg.export.D_dt_histogram:
             _ = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)

@@ -1,8 +1,11 @@
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from lenstronomy.Cosmo.lens_cosmo import LensCosmo
+from hierarc.Sampling.mcmc_sampling import MCMCSampler
+import corner
+import matplotlib.pyplot as plt
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "remove_outliers_from_lognormal"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "remove_outliers_from_lognormal", "combine_lenses"]
 
 def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
@@ -99,3 +102,68 @@ def remove_outliers_from_lognormal(data, level=3):
     # Quantiles are preserved under monotonic transformations
     log_data = np.log(data)
     return data[abs(log_data - np.mean(log_data)) < level*np.std(log_data)]
+
+def combine_lenses(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, samples_save_path, corner_save_path=None):
+    """Combine lenses in the D_dt space
+
+    """
+    n_test = len(D_dt_mu)
+
+    kwargs_posterior_list = []
+    for i in range(n_test):
+        kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
+                            'ddt_mu': D_dt_mu[i], 'ddt_sigma': D_dt_sigma[i],
+                           'likelihood_type': 'TDLogNorm'}
+        kwargs_posterior_list.append(kwargs_posterior)
+
+    kwargs_lower_cosmo = {'h0': 50.0}
+    kwargs_lower_lens = {}
+    kwargs_lower_kin = {}
+
+    kwargs_upper_cosmo = {'h0': 90.0}
+    kwargs_upper_lens = {}
+    kwargs_upper_kin = {}
+
+    kwargs_fixed_cosmo = {'om': true_cosmo.Om0}
+    kwargs_fixed_lens = {}
+    kwargs_fixed_kin = {}
+
+    kwargs_mean_start = {'kwargs_cosmo': {'h0': 70.0},
+                         'kwargs_lens': {},
+                         'kwargs_kin': {}}
+
+    kwargs_sigma_start = {'kwargs_cosmo': {'h0': 10.0},
+                         'kwargs_lens': {},
+                         'kwargs_kin': {}}
+
+    n_walkers = 10
+    n_run = 100
+    n_burn = 400
+
+    kwargs_bounds = {'kwargs_lower_cosmo': kwargs_lower_cosmo,
+                'kwargs_lower_lens': kwargs_lower_lens,
+                'kwargs_lower_kin': kwargs_lower_kin,
+                'kwargs_upper_cosmo': kwargs_upper_cosmo,
+                'kwargs_upper_lens': kwargs_upper_lens,
+                'kwargs_upper_kin': kwargs_upper_kin,
+                'kwargs_fixed_cosmo': kwargs_fixed_cosmo,
+                'kwargs_fixed_lens': kwargs_fixed_lens,
+                'kwargs_fixed_kin': kwargs_fixed_kin}
+
+    cosmology = 'FLCDM'  # available models: 'FLCDM', "FwCDM", "w0waCDM", "oLCDM"
+    mcmc_sampler = MCMCSampler(kwargs_posterior_list, cosmology, kwargs_bounds, ppn_sampling=False,
+                     lambda_mst_sampling=False, lambda_mst_distribution='NONE', anisotropy_sampling=False,
+                               kappa_ext_sampling=False, kappa_ext_distribution='NONE',
+                     anisotropy_model='NONE', anisotropy_distribution='NONE', custom_prior=None, interpolate_cosmo=True, num_redshift_interp=100,
+                     cosmo_fixed=None)
+
+    mcmc_samples, log_prob_cosmo = mcmc_sampler.mcmc_emcee(n_walkers, n_run, n_burn, kwargs_mean_start, kwargs_sigma_start)
+    np.save(samples_save_path, mcmc_samples)
+
+    if corner_save_path is not None:
+        corner.corner(mcmc_samples, show_titles=True, labels=mcmc_sampler.param_names(latex_style=True))
+        plt.show()
+        plt.savefig(corner_save_path)
+        plt.close()
+
+    return mcmc_samples, log_prob_cosmo
