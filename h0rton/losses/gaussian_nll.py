@@ -173,9 +173,11 @@ class BaseGaussianNLL(ABC):
         batch_size, _ = target.shape
         log_ll = torch.empty([batch_size, 2], dtype=None, device=self.device)
         alpha = alpha.reshape(-1)
-        log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        #log_ll[:, 0] = torch.log1p(-0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        #log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 0] = -alpha -torch.log1p(torch.exp(-alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        log_ll[:, 1] = self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -torch.logsumexp(log_ll, dim=1)
         return torch.mean(log_nll)
 
@@ -245,9 +247,10 @@ class BaseGaussianNLL(ABC):
         batch_size, _ = target.shape
         log_ll = torch.empty([batch_size, 2], dtype=None, device=self.device)
         alpha = alpha.reshape(-1)
-        log_ll[:, 0] = torch.log(1.0 - 0.5*self.sigmoid(alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
-        # torch.log(torch.tensor([0.5], device=self.device)).double()
-        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        #log_ll[:, 0] = torch.log1p(-0.5*self.sigmoid(alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
+        #log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 0] = -alpha - torch.log1p(torch.exp(-alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
+        log_ll[:, 1] = self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -torch.logsumexp(log_ll, dim=1)
         return torch.mean(log_nll)
 

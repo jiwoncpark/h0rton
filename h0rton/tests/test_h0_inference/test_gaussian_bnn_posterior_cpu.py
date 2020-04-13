@@ -117,7 +117,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
-        w2 = 0.5*sigmoid(alpha)
+        w2 = sigmoid(alpha)
         w1 = 1.0 - w2
         exp_mean = mu*w1 + mu2*w2
         np.testing.assert_array_almost_equal(h0rton_mean, exp_mean, decimal=2)
@@ -201,7 +201,7 @@ class TestGaussianBNNPosteriorCPU(unittest.TestCase):
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
-        w2 = 0.5*sigmoid(alpha)
+        w2 = sigmoid(alpha)
         w1 = 1.0 - w2
         np_mean = mu*w1 + mu2*w2
         np.testing.assert_array_almost_equal(h0rton_mean, np_mean, decimal=2)

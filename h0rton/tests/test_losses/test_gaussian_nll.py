@@ -109,7 +109,7 @@ class TestGaussianNLL(unittest.TestCase):
             F2_b = F2[b, :].reshape(Y_dim, rank)
             low_rank2_b =  np.matmul(F2_b, F2_b.T)
             # Relative weight
-            w2_b = 0.5*sigmoid(alpha[b])
+            w2_b = sigmoid(alpha[b])
 
             nll1 = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=diag_b + low_rank_b)) # real likelihood, not scaled and shifted
             nll2 = -np.log(multivariate_normal.pdf(target_b, mean=mu2_b, cov=diag2_b + low_rank2_b)) # real likelihood, not scaled and shifted
@@ -194,7 +194,7 @@ class TestGaussianNLL(unittest.TestCase):
             cov_mat2 = np.linalg.inv(prec_mat2)
             nll2 = -np.log(multivariate_normal.pdf(target_b, mean=mu2_b, cov=cov_mat2))
             # Relative weight
-            w2_b = 0.5*sigmoid(alpha[b])
+            w2_b = sigmoid(alpha[b])
             #matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             #matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
             #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 

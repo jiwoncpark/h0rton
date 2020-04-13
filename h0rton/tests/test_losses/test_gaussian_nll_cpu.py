@@ -113,7 +113,7 @@ class TestGaussianNLLCPU(unittest.TestCase):
             cov_mat2 = np.linalg.inv(prec_mat2)
             nll2 = -np.log(multivariate_normal.pdf(target_b, mean=mu2_b, cov=cov_mat2))
             # Relative weight
-            w2_b = 0.5*sigmoid(alpha[b])
+            w2_b = sigmoid(alpha[b])
             #matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             #matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
             #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 

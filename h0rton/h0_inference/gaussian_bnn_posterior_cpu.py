@@ -4,7 +4,6 @@ import numpy as np
 from scipy.stats import multivariate_normal
 __all__ = ['BaseGaussianBNNPosteriorCPU', 'DiagonalGaussianBNNPosteriorCPU', 'LowRankGaussianBNNPosteriorCPU', 'DoubleLowRankGaussianBNNPosteriorCPU', 'FullRankGaussianBNNPosteriorCPU', 'DoubleGaussianBNNPosteriorCPU', 'sigmoid', 'logsigmoid']
 
-
 def sigmoid(x):
     return np.where(x >= 0, 
                     1 / (1 + np.exp(-x)), 
@@ -267,7 +266,7 @@ class DoubleLowRankGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
     def set_sliced_pred(self, pred):
         d = self.Y_dim # for readability
         #pred = pred.cpu().numpy()
-        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
+        self.w2 = self.sigmoid(pred[:, -1].reshape(-1, 1))
         self.batch_size = pred.shape[0]
         self.mu = pred[:, :d]
         self.logvar = pred[:, d:2*d]
@@ -360,7 +359,7 @@ class DoubleGaussianBNNPosteriorCPU(BaseGaussianBNNPosteriorCPU):
         self.tril_elements = pred[:, d:d+self.tril_len]
         self.mu2 = pred[:, d+self.tril_len:2*d+self.tril_len]
         self.tril_elements2 = pred[:, 2*d+self.tril_len:-1]
-        self.w2 = 0.5*self.sigmoid(pred[:, -1].reshape(-1, 1))
+        self.w2 = self.sigmoid(pred[:, -1].reshape(-1, 1))
         
     def sample(self, n_samples, sample_seed):
         """Sample from a mixture of two Gaussians, each with a full but constrained as low-rank plus diagonal covariance
