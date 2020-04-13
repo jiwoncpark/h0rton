@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 from baobab.data_augmentation.noise_torch import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
-from .data_utils import rescale_01, whiten_Y_cols, plus_1_log
+from .data_utils import whiten_pixels, plus_1_log, whiten_Y_cols
 
 __all__ = ['XYCosmoData',]
 
@@ -27,7 +27,7 @@ class XYCosmoData(Dataset): # torch.utils.data.Dataset
         self.__dict__ = data_cfg
         self.dataset_dir = dataset_dir
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
-        rescale = transforms.Lambda(rescale_01)
+        rescale = transforms.Lambda(whiten_pixels)
         log = transforms.Lambda(plus_1_log)
         transforms_list = []
         if self.log_pixels:
