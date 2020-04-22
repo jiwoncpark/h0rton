@@ -39,7 +39,7 @@ class TestGaussianNLLCPU(unittest.TestCase):
             nll = -np.log(multivariate_normal.pdf(target_b, mean=mu_b, cov=cov_b)) # real nll, not scaled and shifted
             matched_nll += nll/batch_size
             #matched_nll += (2.0*nll - Y_dim*np.log(2.0*np.pi))/batch_size # kernel version
-        np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=6)
+        np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=5)
 
     def test_full_rank_gaussian_nll_cpu(self):
         """Test the PDF evaluation of a single Gaussian with a full covariance matrix
