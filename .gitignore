@@ -16,6 +16,7 @@ runs/*
 # Personal config files under development
 experiments/*
 in_progress/*
+demo/*
 *_models/*
 *DiagonalCosmoBNNPrior_*/*
 baobab_configs/*
