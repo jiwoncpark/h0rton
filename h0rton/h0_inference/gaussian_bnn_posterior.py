@@ -26,8 +26,8 @@ class BaseGaussianBNNPosterior(ABC):
 
         """
         self.Y_dim = Y_dim
-        self.Y_mean = torch.Tensor(Y_mean)
-        self.Y_std = torch.Tensor(Y_std)
+        self.Y_mean = torch.Tensor(Y_mean).reshape(1, -1)
+        self.Y_std = torch.Tensor(Y_std).reshape(1, -1)
         self.device = device
         self.sigmoid = torch.nn.Sigmoid()
         self.logsigmoid = torch.nn.LogSigmoid()
