@@ -5,7 +5,7 @@ Example
 -------
 To run this script, pass in the version ID and the sampling method as the argument::
     
-    $ python generate_summary.py 21 simple_mc_default
+    $ python summarize.py 21 simple_mc_default
 
 The summary will be saved to the same directory level as the sample directory.
 
@@ -34,9 +34,7 @@ def main():
     # Read in test cfg for this version and sampling method
     test_cfg_path = os.path.join(samples_dir, '..', '{:s}.json'.format(args.sampling_method))
     test_cfg = TestConfig.from_file(test_cfg_path)
-    if args.sampling_method == 'simple_mc_default':
-        summarize_simple_mc_default(samples_dir, test_cfg)
-    elif args.sampling_method == 'mcmc_default':
+    if args.sampling_method == 'mcmc_default':
         summarize_mcmc(samples_dir, test_cfg, 'mcmc_default')
     elif args.sampling_method == 'hybrid':
         summarize_mcmc(samples_dir, test_cfg, 'hybrid')
@@ -51,15 +49,16 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
     H0_dicts.sort()
     # Read in the redshift columns of metadata
     metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
-    redshifts = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src'])
+    meta = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'])
 
     summary_df = pd.DataFrame() # instantiate empty dataframe for storing summary
     for i, f_name in enumerate(H0_dicts):
         lens_i = int(os.path.splitext(f_name)[0].split('h0_dict_')[1])
-        # Slice redshifts for this lensing system
-        redshifts_i = redshifts.iloc[lens_i]
-        z_lens = redshifts_i['z_lens']
-        z_src = redshifts_i['z_src']
+        # Slice meta for this lensing system
+        meta_i = meta.iloc[lens_i]
+        z_lens = meta_i['z_lens']
+        z_src = meta_i['z_src']
+        n_img = meta_i['n_img']
         # Read in H0 samples using lens identifier
         H0_dict = np.load(os.path.join(samples_dir, f_name), allow_pickle=True).item()
         H0_samples = H0_dict['h0_samples']
@@ -103,12 +102,13 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
                          n_eff=n_eff,
                          z_lens=z_lens,
                          z_src=z_src,
+                         n_img=n_img,
                          inference_time=H0_dict['inference_time'],
                          )
         summary_df = summary_df.append(summary_i, ignore_index=True)
     summary_df.to_csv(os.path.join(samples_dir, '..', 'summary.csv'))
     # Output list of problem lens IDs
-    problem_id = summary_df.loc[(summary_df['n_eff'] < 10) | (summary_df['H0_std'] < 1.0)]['id'].astype(int)
+    problem_id = summary_df.loc[(summary_df['n_eff'] < 3) | (summary_df['H0_std'] < 1.5)]['id'].astype(int)
     with open(os.path.join(samples_dir, '..', "mcmc_default_candidates.txt"), "w") as f:
         for pid in problem_id:
             f.write(str(pid) +"\n")
@@ -117,51 +117,67 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method):
     """Summarize the output of mcmc_default, i.e. MCMC samples from the D_dt posterior for each lens
 
     """
+    if sampling_method == 'mcmc_default':
+        # Read in the relevant columns of metadata, 
+        metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
+        summary_df = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'], nrows=500) # FIXME: capped test set size at 500, as the stored dataset may be much larger
+        summary_df['id'] = summary_df.index
+        summary_df['D_dt_mu'] = np.nan
+        summary_df['D_dt_sigma'] = np.nan
+        summary_df['H0_mean'] = np.nan
+        summary_df['H0_std'] = np.nan
+        summary_df['inference_time'] = 0.0
+    else:
+        summary_df = pd.read_csv(os.path.join(samples_dir, '..', 'summary.csv'), index_col=None) 
+
     D_dt_dicts = [f for f in os.listdir(samples_dir) if f.startswith('D_dt_dict')]
     D_dt_dicts.sort()
-    oversampling_factor = 10
-    n_sample_threshold = 5000
-    # Read in summary generated from the simple MC run
-    summary_df = pd.read_csv(os.path.join(samples_dir, '..', 'summary.csv'), index_col=None)
+    oversampling = 20
+    threshold = 1000
     # Initialize list for catastrophic lenses not solved by MCMC
     lenses_to_rerun = []
+    lenses_run = []
     for i, f_name in enumerate(D_dt_dicts):
         lens_i = int(os.path.splitext(f_name)[0].split('D_dt_dict_')[1])
+        lenses_run.append(lens_i)
+        meta = summary_df.loc[summary_df['id']==lens_i, ['z_lens', 'z_src']].squeeze()
         # Read in D_dt samples using lens identifier
         D_dt_dict = np.load(os.path.join(samples_dir, f_name), allow_pickle=True).item()
         # Rescale D_dt samples to correct for k_ext
         uncorrected_D_dt_samples = D_dt_dict['D_dt_samples'] # [old_n_samples,]
         uncorrected_D_dt_samples = h0_utils.remove_outliers_from_lognormal(uncorrected_D_dt_samples, 3).reshape(-1, 1) # [n_samples, 1] 
         k_ext_rv = getattr(scipy.stats, test_cfg.kappa_ext_prior.dist)(**test_cfg.kappa_ext_prior.kwargs)
-        k_ext = k_ext_rv.rvs(size=[len(uncorrected_D_dt_samples), oversampling_factor]) # [n_samples, oversampling_factor]
+        k_ext = k_ext_rv.rvs(size=[len(uncorrected_D_dt_samples), oversampling]) # [n_samples, oversampling]
         D_dt_samples = (uncorrected_D_dt_samples/(1.0 - k_ext)).squeeze() # [n_samples,]
         # Compute lognormal params for D_dt and update summary
         D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
-        summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = D_dt_stats['mu']
-        summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = D_dt_stats['sigma']
+        mu, sigma = D_dt_stats['mu'], D_dt_stats['sigma']
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = mu
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = sigma
         # Convert D_dt samples to H0
-        D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(D_dt_stats['mu']), s=D_dt_stats['sigma'], size=n_sample_threshold)
-        redshifts = summary_df.loc[summary_df['id']==lens_i].squeeze()
-        cosmo_converter = h0_utils.CosmoConverter(redshifts['z_lens'], redshifts['z_src'])
+        D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(mu), s=sigma, size=oversampling*threshold)
+        D_dt_samples = D_dt_samples[np.isfinite(D_dt_samples)]
+        cosmo_converter = h0_utils.CosmoConverter(meta['z_lens'], meta['z_src'])
         H0_samples = cosmo_converter.get_H0(D_dt_samples)
         # Reject H0 samples outside H0 prior
-        H0_samples = H0_samples[np.logical_and(H0_samples > 50.0, H0_samples < 90.0)]
-        if len(H0_samples) < n_sample_threshold:
-            summary_df.loc[summary_df['id']==lens_i, 'H0_mean'] = -1
-            summary_df.loc[summary_df['id']==lens_i, 'H0_std'] = -1
+        H0_samples = H0_samples[np.isfinite(H0_samples)]
+        if len(H0_samples) > 0:
+            H0_samples = H0_samples[np.logical_and(H0_samples > 50.0, H0_samples < 90.0)]
+        if len(H0_samples) < threshold:
             lenses_to_rerun.append(lens_i)
-        else:
-            # Compute normal params for H0 and update summary
-            summary_df.loc[summary_df['id']==lens_i, 'H0_mean'] = np.mean(H0_samples)
-            summary_df.loc[summary_df['id']==lens_i, 'H0_std'] = np.std(H0_samples)
-        # Add extra inference time due to MCMC
+        summary_df.loc[summary_df['id']==lens_i, 'H0_mean'] = np.mean(H0_samples)
+        summary_df.loc[summary_df['id']==lens_i, 'H0_std'] = np.std(H0_samples)
         summary_df.loc[summary_df['id']==lens_i, 'inference_time'] += D_dt_dict['inference_time']
     # Replace existing summary
     summary_df.to_csv(os.path.join(samples_dir, '..', 'summary.csv'))
     # Output list of catastrophic/no-good lens IDs
     if sampling_method == 'mcmc_default':
+        # List of lenses that skipped MCMC
+        total_lenses = np.arange(test_cfg.data.n_test)
+        lenses_not_run = set(list(total_lenses)) - set(list(lenses_run))
+        lenses_for_hybrid = list(lenses_not_run.union(set(lenses_to_rerun)))
         with open(os.path.join(samples_dir, '..', "hybrid_candidates.txt"), "w") as f:
-            for lens_i in lenses_to_rerun:
+            for lens_i in lenses_for_hybrid:
                 f.write(str(lens_i) +"\n")
     else: # hybrid case
         with open(os.path.join(samples_dir, '..', "no_good_candidates.txt"), "w") as f:
