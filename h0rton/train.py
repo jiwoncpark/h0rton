@@ -189,31 +189,23 @@ def main():
                     loss_dict.update(test=test_loss)
                 logger.add_scalars('metrics/loss', loss_dict, epoch)
                 #rmse = train_utils.get_rmse(mu, Y_plt)
-                rmse_dist = train_utils.get_rmse(mu_orig, Y_plt_orig, False)
-                rmse_dict = {
-                           #'rmse': rmse,
-                           'rmse_orig1': np.mean(rmse_dist),
-                           'rmse_std': np.std(rmse_dist),
-                           'rmse_lens_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 0),
-                           'rmse_src_x': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 1),
-                           'rmse_lens_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 2),
-                           'rmse_src_y': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 3),
-                           'rmse_gamma': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 4),
-                           'rmse_e1': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 6),
-                           'rmse_e2': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 7),
-                           'rmse_psi1': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 8),
-                           'rmse_psi2': train_utils.get_rmse_param(mu_orig, Y_plt_orig, 9),
-                           }
-                # Log second Gaussian stats
-                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
-                    logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
-                    mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
-                    rmse_orig2 = train_utils.get_rmse(mu2_orig, Y_plt_orig)
-                    rmse_dict.update(rmse_orig2=rmse_orig2)
+                rmse_dict = train_utils.get_rmse(mu_orig, Y_plt_orig, cfg.data.Y_cols)
                 logger.add_scalars('metrics/rmse', rmse_dict, epoch)
                 # Log log determinant of the covariance matrix
-                logdet = train_utils.get_logdet(pred_v[:, Y_dim:].cpu().numpy(), Y_dim)
-                logger.add_histogram('logdet_cov_mat', logdet, epoch)
+                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'FullRankGaussianNLL']:
+                    logdet = train_utils.get_logdet(bnn_post.tril_elements.cpu().numpy(), Y_dim)
+                    logger.add_histogram('logdet_cov_mat', logdet, epoch)
+                # Log second Gaussian stats
+                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
+                    # Log histogram of w2
+                    logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
+                    # Log RMSE of second Gaussian
+                    mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
+                    rmse2_dict = train_utils.get_rmse(mu2_orig, Y_plt_orig, cfg.data.Y_cols)
+                    logger.add_scalars('metrics/rmse2', rmse2_dict, epoch)
+                    # Log logdet of second Gaussian
+                    logdet2 = train_utils.get_logdet(bnn_post.tril_elements2.cpu().numpy(), Y_dim)
+                    logger.add_histogram('logdet_cov_mat2', logdet2, epoch)
                 # Log histograms of named parameters
                 if cfg.monitoring.weight_distributions:
                     for param_name, param in net.named_parameters():

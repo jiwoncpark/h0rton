@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib.figure import Figure
-__all__ = ['get_1d_mapping_fig', 'get_rmse', 'get_rmse_param', 'interpret_pred', 'get_logdet']
+__all__ = ['get_1d_mapping_fig', 'get_rmse', 'interpret_pred', 'get_logdet']
 
 def get_logdet(tril_elements, Y_dim):
     """Returns the log determinant of the covariance matrix
@@ -9,7 +9,8 @@ def get_logdet(tril_elements, Y_dim):
     batch_size = tril_elements.shape[0]
     tril = np.zeros([batch_size, Y_dim, Y_dim])
     tril_idx = np.tril_indices(Y_dim)
-    tril[:, tril_idx[0], tril_idx[1]] = tril_elements
+    tril_len = len(tril_idx[0])
+    tril[:, tril_idx[0], tril_idx[1]] = tril_elements[:, :tril_len] # safeguarding measure
     log_diag_tril = np.diagonal(tril, offset=0, axis1=1, axis2=2) # [batch_size, Y_dim]
     return -np.sum(log_diag_tril, axis=1) # [batch_size,]
 
@@ -52,7 +53,7 @@ def get_1d_mapping_fig(name, mu, Y):
 def _sigmoid(self, x):
     return 1.0/(np.exp(-x) + 1.0)
 
-def get_rmse(pred_mu, true_mu, reduce=True):
+def get_rmse(pred_mu, true_mu, Y_cols):
     """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
 
     Parameters
@@ -61,37 +62,25 @@ def get_rmse(pred_mu, true_mu, reduce=True):
         predicted means of the primary Gaussian
     true_mu : np.array of shape `[batch_size, Y_dim]`
         true (label) Gaussian means
+    Y_cols : np.array of shape `[Y_dim,]`
+        the column names
 
     Returns
     -------
-    float
+    dict
         total mean of the RMSE for that batch
 
     """
-    rmse = (np.sum((pred_mu - true_mu)**2.0, axis=1))**0.5
-    if reduce:
-        return np.mean(rmse)
-    else:
-        return rmse
-
-def get_rmse_param(pred_mu, true_mu, param_idx):
-    """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
-
-    Parameters
-    ----------
-    pred_mu : np.array of shape `[batch_size, Y_dim]`
-        predicted means of the primary Gaussian
-    true_mu : np.array of shape `[batch_size, Y_dim]`
-        true (label) Gaussian means
-
-    Returns
-    -------
-    float
-        RMSE for that batch
-
-    """
-    rmse = np.mean((pred_mu[:, param_idx] - true_mu[:, param_idx])**2.0)**0.5
-    return rmse
+    sq_error = (pred_mu - true_mu)**2.0 # [batch_size, Y_dim]
+    rmse_dict = {}
+    # Total sq error, averaged across examples
+    rmse_dict['rmse'] = np.mean(np.sum(sq_error, axis=1))**0.5 # float
+    # Parameter-wise sq error, averaged across examples
+    rmse_param = np.mean(sq_error, axis=0)**0.5 # [Y_dim,]
+    param_dict = dict(zip(Y_cols, range(len(Y_cols))))
+    for k, i in param_dict.items():
+        rmse_dict[k] = rmse_param[i]
+    return rmse_dict
 
 def interpret_pred(pred, Y_dim):
     """Slice the network prediction into means and cov matrix elements
