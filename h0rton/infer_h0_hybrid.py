@@ -79,7 +79,7 @@ def main():
     orig_Y_cols = train_val_cfg.data.Y_cols
     loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim, device=device)
     # Instantiate MCMC parameter penalty function
-    params_to_remove = ['src_light_center_x', 'src_light_center_y', 'lens_light_R_sersic', 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
+    params_to_remove = [ 'lens_light_R_sersic','src_light_center_x', 'src_light_center_y',]# 'src_light_R_sersic'] # must be removed, as post-processing scheme doesn't optimize them
     mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
     mcmc_loss_fn = getattr(h0rton.losses, train_val_cfg.model.likelihood_class)(Y_dim=train_val_cfg.data.Y_dim - len(params_to_remove), device=device)
     remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove, train_val_cfg.model.likelihood_class)
@@ -99,7 +99,6 @@ def main():
             Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
             pred = net(X)
             break
-    
     mcmc_pred = pred.cpu().numpy()
     if test_cfg.lens_posterior_type == 'hybrid_with_truth_mean':
         # Replace BNN posterior's primary gaussian mean with truth values
@@ -107,7 +106,8 @@ def main():
     mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=False)
 
     kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
-                        point_source_model_list=['LENSED_POSITION'],)
+                        point_source_model_list=['LENSED_POSITION'],
+                        source_light_model_list=['SERSIC_ELLIPSE'])
     astro_sig = test_cfg.image_position_likelihood.sigma
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
@@ -126,9 +126,9 @@ def main():
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
         # Init values for the lens model params
         if test_cfg.lens_posterior_type == 'hybrid':
-            init_lens = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
+            init_info = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
         else: # types 'hybrid_with_truth_mean' and 'truth'
-            init_lens = dict(zip(mcmc_Y_cols, data_i[mcmc_Y_cols].values)) # truth params
+            init_info = dict(zip(mcmc_Y_cols, data_i[mcmc_Y_cols].values)) # truth params
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             parameter_penalty.set_vel_disp_params()
             raise NotImplementedError
@@ -160,11 +160,13 @@ def main():
         #############################
         # Parameter init and bounds #
         #############################
-        lens_kwargs = mcmc_utils.get_lens_kwargs(init_lens)
+        lens_kwargs = mcmc_utils.get_lens_kwargs(init_info)
         ps_kwargs = mcmc_utils.get_ps_kwargs(measured_img_ra, measured_img_dec, astro_sig)
+        src_light_kwargs = mcmc_utils.get_light_kwargs(init_info['src_light_R_sersic'])
         special_kwargs = mcmc_utils.get_special_kwargs(n_img, astro_sig) # image position offset and time delay distance, aka the "special" parameters
         kwargs_params = {'lens_model': lens_kwargs,
                          'point_source_model': ps_kwargs,
+                         'source_model': src_light_kwargs,
                          'special': special_kwargs,}
         if test_cfg.numerics.solver_type == 'NONE':
             solver_type = 'NONE'
@@ -207,7 +209,7 @@ def main():
         # samples_mcmc : np.array of shape `[n_mcmc_eval, n_params]`
         # param_mcmc : list of str of length n_params, the parameter names
         sampler_type, samples_mcmc, param_mcmc, _  = chain_list_mcmc[0]
-        new_samples_mcmc = mcmc_utils.postprocess_mcmc_chain(kwargs_result_mcmc, samples_mcmc, kwargs_model, lens_kwargs[2], ps_kwargs[2], special_kwargs[2], kwargs_constraints)
+        new_samples_mcmc = mcmc_utils.postprocess_mcmc_chain(kwargs_result_mcmc, samples_mcmc, kwargs_model, lens_kwargs[2], ps_kwargs[2], src_light_kwargs[2], special_kwargs[2], kwargs_constraints)
         # Plot D_dt histogram
         D_dt_samples = new_samples_mcmc['D_dt'].values
         true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)

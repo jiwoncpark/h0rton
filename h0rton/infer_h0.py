@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Training the Bayesian neural network (BNN).
-This script performs H0 inference on a test (or validation) sample
+This script performs H0 inference on a test (or validation) sample using simple MC sampling
 
 Example
 -------
@@ -152,7 +152,7 @@ def main():
     aniso_param_prior = getattr(stats, test_cfg.aniso_param_prior.dist)(**test_cfg.aniso_param_prior.kwargs)
     # FIXME: hardcoded
     kwargs_model = dict(
-                        lens_model_list=['SPEMD', 'SHEAR'],
+                        lens_model_list=['PEMD', 'SHEAR'],
                         lens_light_model_list=['SERSIC_ELLIPSE'],
                         source_light_model_list=['SERSIC_ELLIPSE'],
                         point_source_model_list=['SOURCE_POSITION'],
@@ -180,13 +180,14 @@ def main():
     ########################
     n_samples = test_cfg.h0_posterior.n_samples # number of h0 samples per lens
     sampling_buffer = test_cfg.h0_posterior.sampling_buffer # FIXME: dynamically sample more if we run out of samples
+    actual_n_samples = int(n_samples*sampling_buffer)
 
     if test_cfg.lens_posterior_type == 'bnn':
         # Sample from the BNN posterior
         bnn_post.set_sliced_pred(pred)
-        lens_model_samples = bnn_post.sample(sampling_buffer*n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
+        lens_model_samples = bnn_post.sample(actual_n_samples, sample_seed=test_cfg.global_seed).reshape(-1, test_data.Y_dim) # [n_test*n_samples, Y_dim]
         lens_model_samples_df = pd.DataFrame(lens_model_samples, columns=train_val_cfg.data.Y_cols)
-        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(batch_size, sampling_buffer*n_samples, -1)
+        lens_model_samples_values = lens_model_samples_df[required_params].values.reshape(batch_size, actual_n_samples, -1)
         # Optionally export the BNN predictions, properly reverse-transformed
         if test_cfg.export.pred:
             # Primary mu
@@ -205,7 +206,7 @@ def main():
         Y_orig = bnn_post.transform_back_mu(Y).cpu().numpy().reshape(batch_size, test_data.Y_dim)
         Y_orig_df = pd.DataFrame(Y_orig, columns=train_val_cfg.data.Y_cols)
         Y_orig_values = Y_orig_df[required_params].values[:, np.newaxis, :] # [n_test, 1, Y_dim]
-        artificial_noise = np.random.randn(batch_size, sampling_buffer*n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
+        artificial_noise = np.random.randn(batch_size, actual_n_samples, test_data.Y_dim)*Y_orig_values*test_cfg.fractional_error_added_to_truth # [n_test, buffer*n_samples, Y_dim]
         lens_model_samples_values = Y_orig_values + artificial_noise # [n_test, buffer*n_samples, Y_dim]
     elif test_cfg.lens_posterior_type == 'hybrid':
         raise ValueError("Please run the infer_h0_hybrid.py script instead.")
@@ -232,6 +233,7 @@ def main():
         true_img_ra = np.trim_zeros(cosmo[['x_image_0', 'x_image_1', 'x_image_2', 'x_image_3']].values, 'b')
         measured_vd = cosmo['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
+        print(true_td, measured_td)
         if len(true_td) not in [2, 4]:
             total_progress.update(1)
             print("Metadata generated for this lens was faulty.")
@@ -255,7 +257,7 @@ def main():
         valid_sample_i = 0
         sample_i = 0
         while valid_sample_i < n_samples:
-            if sample_i > sampling_buffer*n_samples - 1:
+            if sample_i > actual_n_samples - 1:
                 break
             try:
                 # Each sample for a given lens gets a unique random state for H0, k_ext, and aniso_param realizations.

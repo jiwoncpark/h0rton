@@ -88,6 +88,7 @@ def main():
     mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
     parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     custom_logL_addition = parameter_penalty.evaluate if test_cfg.lens_posterior_type.startswith('default') else None
+    null_spread = True if test_cfg.lens_posterior_type == 'truth' else False
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
@@ -112,9 +113,9 @@ def main():
     bnn_post.set_sliced_pred(torch.tensor(mcmc_pred))
     n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # BNN params + H0 times walker ratio
     init_pos = bnn_post.sample(n_walkers, sample_seed=test_cfg.global_seed) # [batch_size, n_walkers, mcmc_Y_dim] contains just the lens model params, no D_dt
-    init_D_dt = np.random.normal(5000, 1000, size=(batch_size, n_walkers, 1)) # FIXME: init H0 hardcoded
+    init_D_dt = np.random.uniform(0.0, 10000.0, size=(batch_size, n_walkers, 1)) # FIXME: init H0 hardcoded
 
-    kwargs_model = dict(lens_model_list=['SPEMD', 'SHEAR'],
+    kwargs_model = dict(lens_model_list=['PEMD', 'SHEAR'],
                         point_source_model_list=['SOURCE_POSITION'],
                         source_light_model_list=['SERSIC_ELLIPSE'])
     astro_sig = test_cfg.image_position_likelihood.sigma
@@ -147,6 +148,7 @@ def main():
         n_img = len(true_img_dec)
         true_td = np.array(literal_eval(data_i['true_td']))
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
+        #print(true_td, measured_td)
         measured_td_sig = test_cfg.time_delay_likelihood.sigma # np.ones(n_img - 1)*
         measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astro_sig
         increasing_dec_i = np.argsort(true_img_dec) #np.argsort(measured_img_dec)
@@ -166,10 +168,10 @@ def main():
         #############################
         # Parameter init and bounds #
         #############################
-        lens_kwargs = mcmc_utils.get_lens_kwargs(init_info)
-        ps_kwargs = mcmc_utils.get_ps_kwargs_src_plane(init_info, astro_sig)
-        src_light_kwargs = mcmc_utils.get_light_kwargs(init_info['src_light_R_sersic'])
-        special_kwargs = mcmc_utils.get_special_kwargs(n_img, astro_sig) # image position offset and time delay distance, aka the "special" parameters
+        lens_kwargs = mcmc_utils.get_lens_kwargs(init_info, null_spread=null_spread)
+        ps_kwargs = mcmc_utils.get_ps_kwargs_src_plane(init_info, astro_sig, null_spread=null_spread)
+        src_light_kwargs = mcmc_utils.get_light_kwargs(init_info['src_light_R_sersic'], null_spread=null_spread)
+        special_kwargs = mcmc_utils.get_special_kwargs(n_img, astro_sig, null_spread=null_spread) # image position offset and time delay distance, aka the "special" parameters
         kwargs_params = {'lens_model': lens_kwargs,
                          'point_source_model': ps_kwargs,
                          'source_model': src_light_kwargs,
@@ -187,7 +189,7 @@ def main():
                              'sort_images_by_dec': True,
                              'prior_lens': [],
                              'prior_special': [],
-                             'check_bounds': False, 
+                             'check_bounds': True, 
                              'check_matched_source_position': False,
                              'source_position_tolerance': 0.01,
                              'source_position_sigma': 0.01,
@@ -204,21 +206,18 @@ def main():
             init_pos = mcmc_utils.reorder_to_param_class(mcmc_Y_cols, param_class_Y_cols, init_pos, init_D_dt)
         # MCMC sample from the post-processed BNN posterior jointly with cosmology
         lens_i_start_time = time.time()
-        test_cfg.numerics.mcmc.update(init_samples=init_pos[lens_i, :, :])
-        print(init_pos[lens_i, :2, :])
-        print(init_pos.shape)
+        if test_cfg.lens_posterior_type == 'default':
+            test_cfg.numerics.mcmc.update(init_samples=init_pos[lens_i, :, :])
         fitting_kwargs_list_mcmc = [['MCMC', test_cfg.numerics.mcmc]]
-        chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
-        kwargs_result_mcmc = fitting_seq.best_fit()
-        if False:
-            with HiddenPrints():
-                try:
-                    chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
-                    kwargs_result_mcmc = fitting_seq.best_fit()
-                except:
-                    total_progress.update(1)
-                    lenses_skipped.append(lens_i)
-                    continue
+        with HiddenPrints():
+            try:
+                chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
+                kwargs_result_mcmc = fitting_seq.best_fit()
+            except:
+                print("lens {:d} skipped".format(lens_i))
+                total_progress.update(1)
+                lenses_skipped.append(lens_i)
+                continue
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
 
@@ -248,7 +247,8 @@ def main():
             new_samples_mcmc.to_csv(mcmc_samples_path, index=None)
         # Optionally export the D_dt histogram
         if test_cfg.export.D_dt_histogram:
-            _ = plotting_utils.plot_D_dt_histogram(D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
+            cleaned_D_dt_samples = h0_utils.remove_outliers_from_lognormal(D_dt_samples, 3)
+            _ = plotting_utils.plot_D_dt_histogram(cleaned_D_dt_samples, lens_i, true_D_dt, save_dir=out_dir)
         # Optionally export the plot of MCMC chain
         if test_cfg.export.mcmc_chain:
             mcmc_chain_path = os.path.join(out_dir, 'mcmc_chain_{0:04d}.png'.format(lens_i))
