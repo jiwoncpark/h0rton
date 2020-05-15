@@ -38,6 +38,8 @@ def main():
         summarize_mcmc(samples_dir, test_cfg, 'mcmc_default')
     elif args.sampling_method == 'hybrid':
         summarize_mcmc(samples_dir, test_cfg, 'hybrid')
+    elif args.sampling_method == 'simple_mc_default':
+        summarize_simple_mc_default(samples_dir, test_cfg)
     else:
         raise ValueError("This sampling method is not supported. Choose one of [simple_mc_default, mcmc_default, hybrid].")
 
@@ -89,7 +91,7 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
             # Convert H0 H0_samples to D_dt
             cosmo_converter = h0_utils.CosmoConverter(z_lens, z_src)
             D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
-            D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples, weights)
+            D_dt_stats = h0_utils.get_lognormal_stats_naive(D_dt_samples, weights)
             D_dt_mu = D_dt_stats['mu']
             D_dt_sigma = D_dt_stats['sigma']
 
@@ -150,7 +152,14 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method):
         k_ext = k_ext_rv.rvs(size=[len(uncorrected_D_dt_samples), oversampling]) # [n_samples, oversampling]
         D_dt_samples = (uncorrected_D_dt_samples/(1.0 - k_ext)).squeeze() # [n_samples,]
         # Compute lognormal params for D_dt and update summary
-        D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
+        try:
+            D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
+        except:
+            print("lens", lens_i)
+            print(D_dt_samples)
+            print("==========")
+            lenses_to_rerun.append(lens_i)
+            continue
         mu, sigma = D_dt_stats['mu'], D_dt_stats['sigma']
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = mu
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = sigma

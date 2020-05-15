@@ -5,7 +5,9 @@ from lenstronomy.Sampling.parameters import Param
 import baobab.sim_utils.metadata_utils as metadata_utils
 import h0rton.losses
 
-__all__ = ['get_lens_kwargs', 'get_ps_kwargs', 'get_special_kwargs', "HybridBNNPenalty", "get_idx_for_params", "remove_parameters_from_pred", "split_component_param", "dict_to_array"]
+__all__ = ['get_lens_kwargs', 'get_ps_kwargs', 'get_special_kwargs', "HybridBNNPenalty", "get_idx_for_params", "remove_parameters_from_pred", "split_component_param", "get_idx_for_params", "dict_to_array"]
+
+eps = 1.e-3 # some small value
 
 # Conversion from param to BNN column naming
 baobab_to_param = dict(zip(['lens_mass_theta_E', 'lens_mass_gamma', 'lens_mass_e1', 'lens_mass_e2', 'lens_mass_center_x', 'lens_mass_center_y', 'external_shear_gamma1', 'external_shear_gamma2', 'src_light_R_sersic', 'src_light_center_x', 'src_light_center_y', 'D_dt'],
@@ -13,7 +15,7 @@ baobab_to_param = dict(zip(['lens_mass_theta_E', 'lens_mass_gamma', 'lens_mass_e
 param_to_baobab = dict(zip(['theta_E_lens0', 'gamma_lens0', 'e1_lens0', 'e2_lens0', 'center_x_lens0', 'center_y_lens0', 'gamma1_lens1', 'gamma2_lens1', 'R_sersic_source_light0', 'ra_source', 'dec_source', 'D_dt'], 
                            ['lens_mass_theta_E', 'lens_mass_gamma', 'lens_mass_e1', 'lens_mass_e2', 'lens_mass_center_x', 'lens_mass_center_y', 'external_shear_gamma1', 'external_shear_gamma2', 'src_light_R_sersic', 'src_light_center_x', 'src_light_center_y', 'D_dt']))
 
-def get_lens_kwargs(init_dict):
+def get_lens_kwargs(init_dict, null_spread=False):
     """Get the SPEMD, SHEAR kwargs with the provided init values and some conservative sigma, fixed, lower, and upper
 
     Note
@@ -27,13 +29,16 @@ def get_lens_kwargs(init_dict):
 
     """
     kwargs_init_lens = [{'theta_E': init_dict['lens_mass_theta_E'], 'gamma': init_dict['lens_mass_gamma'], 'center_x': init_dict['lens_mass_center_x'], 'center_y': init_dict['lens_mass_center_y'], 'e1': init_dict['lens_mass_e1'], 'e2': init_dict['lens_mass_e2']}, {'gamma1': init_dict['external_shear_gamma2'], 'gamma2': init_dict['external_shear_gamma2']}]
-    kwargs_sigma_lens = [{'theta_E': 0.05, 'e1': 0.05, 'e2': 0.05, 'gamma': 0.05, 'center_x': 0.02, 'center_y': 0.02}, {'gamma1': 0.05, 'gamma2': 0.05}]
-    kwargs_fixed_lens = [{'s_scale': 0.0001}, {'ra_0': 0.0, 'dec_0': 0.0}] # FIXME: fixing shear at the wrong position won't affect time delays but caution in case you add likelihoods affected by shear
+    if null_spread:
+        kwargs_sigma_lens = [{'theta_E': eps, 'e1': eps, 'e2': eps, 'gamma': eps, 'center_x': eps, 'center_y': eps}, {'gamma1': eps, 'gamma2': eps}]
+    else:
+        kwargs_sigma_lens = [{'theta_E': 0.05, 'e1': 0.05, 'e2': 0.05, 'gamma': 0.05, 'center_x': 0.02, 'center_y': 0.02}, {'gamma1': 0.05, 'gamma2': 0.05}]
+    kwargs_fixed_lens = [{}, {'ra_0': 0.0, 'dec_0': 0.0}] # FIXME: fixing shear at the wrong position won't affect time delays but caution in case you add likelihoods affected by shear
     kwargs_lower_lens = [{'theta_E': 0.01, 'e1': -0.5, 'e2': -0.5, 'gamma': 1, 'center_x': -10, 'center_y': -10}, {'gamma1': -0.3, 'gamma2': -0.3}]
     kwargs_upper_lens = [{'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 4, 'center_x': 10, 'center_y': 10}, {'gamma1': 0.3, 'gamma2': 0.3,}]
     return [kwargs_init_lens, kwargs_sigma_lens, kwargs_fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
-def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_bound=30.0):
+def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_bound=30.0, null_spread=False):
     """Get the point source kwargs for the image positions
 
     Parameters
@@ -56,13 +61,16 @@ def get_ps_kwargs(measured_img_ra, measured_img_dec, astrometry_sigma, hard_boun
     n_img = len(measured_img_dec)
     ones = np.ones(n_img)
     kwargs_ps_init = [{'ra_image': measured_img_ra, 'dec_image': measured_img_dec}]
-    kwargs_ps_sigma = [{'ra_image': astrometry_sigma*ones, 'dec_image': astrometry_sigma*ones}]
+    if null_spread:
+        kwargs_ps_sigma = [{'ra_image': eps, 'dec_image': eps}]
+    else:
+        kwargs_ps_sigma = [{'ra_image': astrometry_sigma*ones, 'dec_image': astrometry_sigma*ones}]
     fixed_ps = [{}] 
     kwargs_lower_ps = [{'ra_image': -hard_bound*ones, 'dec_image': -hard_bound*ones}]
     kwargs_upper_ps = [{'ra_image': hard_bound*ones, 'dec_image': hard_bound*ones}]
     return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-def get_ps_kwargs_src_plane(init_dict, astrometry_sigma, hard_bound=5.0):
+def get_ps_kwargs_src_plane(init_dict, astrometry_sigma, hard_bound=5.0, null_spread=False):
     """Get the point source kwargs for the source plane
 
     Parameters
@@ -83,24 +91,30 @@ def get_ps_kwargs_src_plane(init_dict, astrometry_sigma, hard_bound=5.0):
 
     """
     kwargs_ps_init = [{'ra_source': init_dict['src_light_center_x'] + init_dict['lens_mass_center_x'], 'dec_source': init_dict['src_light_center_y'] + init_dict['lens_mass_center_y']}]
-    kwargs_ps_sigma = [{'ra_source': astrometry_sigma, 'dec_source': astrometry_sigma}]
+    if null_spread:
+        kwargs_ps_sigma = [{'ra_source': eps, 'dec_source': eps}]
+    else:
+        kwargs_ps_sigma = [{'ra_source': astrometry_sigma, 'dec_source': astrometry_sigma}]
     fixed_ps = [{}] 
     kwargs_lower_ps = [{'ra_source': -hard_bound, 'dec_source': -hard_bound}]
     kwargs_upper_ps = [{'ra_source': hard_bound, 'dec_source': hard_bound}]
     return [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-def get_light_kwargs(init_R):
+def get_light_kwargs(init_R, null_spread=False):
     """Get the usual sigma, lower, upper, and fixed kwargs for a SERSIC_ELLIPSE light with only the R_sersic allowed to vary
 
     """
     kwargs_light_init = [{'R_sersic': init_R}]
-    kwargs_light_sigma = [{'R_sersic': 0.05}]
+    if null_spread:
+        kwargs_light_sigma = [{'R_sersic': eps}]
+    else:
+        kwargs_light_sigma = [{'R_sersic': 0.05}]
     kwargs_light_fixed = [{'n_sersic': None, 'e1': None, 'e2': None, 'center_x': None, 'center_y': None}]
     kwargs_light_lower = [{'R_sersic': 0.01}]
     kwargs_light_upper = [{'R_sersic': 10.0}]
     return [kwargs_light_init, kwargs_light_sigma, kwargs_light_fixed, kwargs_light_lower, kwargs_light_upper]
 
-def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=5.0, D_dt_init=5000.0, D_dt_sigma=1000.0, D_dt_lower=0.0, D_dt_upper=10000.0):
+def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=5.0, D_dt_init=5000.0, D_dt_sigma=1000.0, D_dt_lower=0.0, D_dt_upper=10000.0, null_spread=False):
     """Get the point source kwargs for the image positions
 
     Parameters
@@ -123,7 +137,10 @@ def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=5.0, D_dt_i
     zeros = np.zeros(n_img)
     ones = np.ones(n_img)
     kwargs_special_init = {'delta_x_image': zeros, 'delta_y_image': zeros, 'D_dt': D_dt_init}
-    kwargs_special_sigma = {'delta_x_image': ones*astrometry_sigma, 'delta_y_image': ones*astrometry_sigma, 'D_dt': D_dt_sigma}
+    if null_spread:
+        kwargs_special_sigma = {'delta_x_image': eps, 'delta_y_image': eps, 'D_dt': 2500}
+    else:
+        kwargs_special_sigma = {'delta_x_image': ones*astrometry_sigma, 'delta_y_image': ones*astrometry_sigma, 'D_dt': D_dt_sigma}
     fixed_special = {}
     kwargs_lower_special = {'delta_x_image': -ones*delta_pos_hard_bound, 'delta_y_image': -ones*delta_pos_hard_bound, 'D_dt': D_dt_lower}
     kwargs_upper_special = {'delta_x_image': ones*delta_pos_hard_bound, 'delta_y_image': ones*delta_pos_hard_bound, 'D_dt': D_dt_upper}
@@ -333,14 +350,11 @@ def reorder_to_param_class(bnn_Y_cols, param_class_Y_cols, bnn_array, D_dt_array
     """
     baobab_cols = bnn_Y_cols + ['D_dt']
     baobab_col_to_idx = dict(zip(baobab_cols, range(len(baobab_cols))))
-    param_col_to_idx = dict(zip(param_class_Y_cols, range(len(param_class_Y_cols))))
+    #param_col_to_idx = dict(zip(param_class_Y_cols, range(len(param_class_Y_cols))))
     # Store the absolute source position instead
     bnn_array[:, :, baobab_col_to_idx['src_light_center_x']] += bnn_array[:, :, baobab_col_to_idx['lens_mass_center_x']]
     bnn_array[:, :, baobab_col_to_idx['src_light_center_y']] += bnn_array[:, :, baobab_col_to_idx['lens_mass_center_y']]
     baobab_array = np.concatenate([bnn_array, D_dt_array], axis=-1) # [n_lenses, n_samples, bnn_Y_dim + 1]
     ordering = [baobab_col_to_idx[param_to_baobab[param_col]] for param_col in param_class_Y_cols]
-    print(baobab_array[0, :2, :])
     mcmc_array = baobab_array[:, :, ordering]
-    print(param_class_Y_cols, bnn_Y_cols, ordering)
-    print(mcmc_array[0, :2, :])
     return mcmc_array

@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit
 import corner
 from lenstronomy.Plots import chain_plot
 from h0rton.h0_inference import h0_utils
+from scipy.stats import norm, median_absolute_deviation
 
 __all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
 
@@ -126,8 +127,8 @@ def plot_h0_histogram(samples, lens_i=0, true_h0=None, include_fit_gaussian=True
         std = popt[1]
     else:
         # Compute the weighted mean and std analytically
-        mean = np.mean(samples)
-        std = np.std(samples)
+        mean = np.median(samples)
+        std = np.median_absolute_deviation(samples, axis=None)
         #print(mean, std)
         popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
@@ -198,9 +199,13 @@ def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
                         truths=truth, 
                         truth_color='r', 
                         labels=col_labels, 
+                        smooth=1.0,
+                        no_fill_contours=True,
+                        plot_datapoints=False,
                         show_titles=True, 
                         quiet=True,
                         plot_contours=True,
+                        use_math_text=True,
                         contour_kwargs=dict(linestyles='solid'),
                         levels=[0.68, 0.95],)
     fig.savefig(save_path, dpi=100)
