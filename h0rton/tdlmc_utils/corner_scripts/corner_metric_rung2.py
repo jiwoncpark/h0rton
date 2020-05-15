@@ -32,19 +32,25 @@ seed_name=['seed119',
 import os
 import glob
 dirpath = os.getcwd()
-folders = ['Tak', 'Martin','freeform','Rathnakumar']
+all_teams = True
+folders = ['H0rton']
+h0_rung2 = {'H0rton': 70.0}
+if all_teams:
+    for team in ['Tak', 'Martin','freeform','Rathnakumar']:
+        h0_rung2[team] = 66.643
+        folders.append(team)
 subnames = []
 for folder in folders:
     subnames += sorted(glob.glob('/home/jwp/stage/sl/h0rton/h0rton/tdlmc_utils/rung2_submit_result/{:s}/*'.format(folder)))
 
 label_name = []  
 efficiencys, goodnesses, precisions, accuracys =[], [], [] ,[]   
-h0_rung2 = 66.643
 for subname in subnames:
     if 'h0' in subname or 'txt' in subname:
         sub_name = subname
         root_name, ext_name = os.path.splitext(subname) #sub_name[1:].split(".")[-2]
         folder, subname = os.path.split(subname)
+        folder_name = os.path.basename(os.path.normpath(folder))
         filename = sub_name
         openfile = open(filename, "r")
         lines = openfile.readlines()
@@ -66,10 +72,10 @@ for subname in subnames:
                 submit.append(value)
         submit = np.asarray(submit)
         if len(submit) > 0:
-            efficiency = len(submit)/16.
-            goodness = round(1/float(len(submit))*np.sum(((submit[:,0]-h0_rung2)/submit[:,1])**2),3)
-            precision = round(1/float(len(submit))*np.sum(submit[:,1]/h0_rung2)*100, 3)
-            accuracy = round(1/float(len(submit))*np.sum((submit[:,0]-h0_rung2)/h0_rung2)*100, 3)
+            efficiency = len(submit)/len(result.items())
+            goodness = round(1/float(len(submit))*np.sum(((submit[:,0]-h0_rung2[folder_name])/submit[:,1])**2),3)
+            precision = round(1/float(len(submit))*np.sum(submit[:,1]/h0_rung2[folder_name])*100, 3)
+            accuracy = round(1/float(len(submit))*np.sum((submit[:,0]-h0_rung2[folder_name])/h0_rung2[folder_name])*100, 3)
             label_name.append(filename)
             efficiencys.append(efficiency)
             goodnesses.append(goodness)
@@ -139,13 +145,16 @@ for j in range(num_boxs):
         
         n += 1
         if i==1 and j ==0:
-            ax.legend(bbox_to_anchor=(2.1, 1), loc=2, borderaxespad=0.,prop={'size': 16})
+            #ax.legend(bbox_to_anchor=(2.1, 1), loc=2, borderaxespad=0.,prop={'size': 16})
+            ax.legend(bbox_to_anchor=(3.5, -0.5), loc='center left', borderaxespad=0., prop={'size': 16})
             axes[j][i] = ax
 
-fig.tight_layout() 
+#fig.tight_layout() 
+fig.subplots_adjust()
+fig.tight_layout(h_pad=-1.15, w_pad=-0.7)
 #fig.tight_layout(h_pad=-1.15,w_pad=-0.7)
 #plt.savefig('../Rung2_metrics.pdf')
-plt.savefig('Rung2_metrics.png')
+plt.savefig('Rung2_metrics.png', bbox_inches='tight')
 
 ##%%Print for table
 #for i in range(len(label)):

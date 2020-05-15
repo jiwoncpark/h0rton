@@ -4,8 +4,11 @@ from lenstronomy.Cosmo.lens_cosmo import LensCosmo
 from hierarc.Sampling.mcmc_sampling import MCMCSampler
 import corner
 import matplotlib.pyplot as plt
+from scipy.stats import norm, median_absolute_deviation
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "remove_outliers_from_lognormal", "combine_lenses"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses"]
+
+MAD_to_sig = 1.0/norm.ppf(0.75) # 1.4826 built into scipy, so not used.
 
 def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge
@@ -71,7 +74,24 @@ class CosmoConverter:
         D_dt = self.h0_fiducial * self.ddt_fiducial / H0
         return D_dt
 
-def get_lognormal_stats(samples, weights=None):
+def get_lognormal_stats(samples):
+    """Compute lognormal stats robustly, using median stats, assuming the samples are drawn from a lognormal distribution
+
+    """
+    log_samples = np.log(samples)
+    mu = np.median(log_samples)
+    sig2 = median_absolute_deviation(log_samples, axis=None)**2.0
+    mode = np.exp(mu - sig2)
+    std = ((np.exp(sig2) - 1.0)*(np.exp(2*mu - sig2)))**0.5
+    stats = dict(
+                 mu=mu,
+                 sigma=sig2**0.5,
+                 mode=mode,
+                 std=std
+                 )
+    return stats
+
+def get_lognormal_stats_naive(samples, weights=None):
     """Compute lognormal stats assuming the samples are drawn from a lognormal distribution
 
     """
@@ -101,9 +121,11 @@ def remove_outliers_from_lognormal(data, level=3):
     """
     # Quantiles are preserved under monotonic transformations
     log_data = np.log(data)
-    return data[abs(log_data - np.mean(log_data)) < level*np.std(log_data)]
+    robust_mean = np.median(log_data)
+    robust_std = median_absolute_deviation(log_data)
+    return data[abs(log_data - robust_mean) < level*robust_std]
 
-def combine_lenses(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, samples_save_path, corner_save_path=None):
+def combine_lenses(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, samples_save_path, corner_save_path=None, n_run=100, n_burn=400, n_walkers=10):
     """Combine lenses in the D_dt space
 
     """
@@ -135,10 +157,6 @@ def combine_lenses(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, samples_save_
     kwargs_sigma_start = {'kwargs_cosmo': {'h0': 10.0},
                          'kwargs_lens': {},
                          'kwargs_kin': {}}
-
-    n_walkers = 10
-    n_run = 100
-    n_burn = 400
 
     kwargs_bounds = {'kwargs_lower_cosmo': kwargs_lower_cosmo,
                 'kwargs_lower_lens': kwargs_lower_lens,

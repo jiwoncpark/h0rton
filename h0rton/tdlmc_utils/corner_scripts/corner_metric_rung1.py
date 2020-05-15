@@ -33,19 +33,25 @@ seed_name = [ 'seed101',
 import os
 import glob
 dirpath = os.getcwd()
-folders = ['Tak', 'MartinMillon','freeform','Rathnakumar', 'Rathnakumar1', 'BNN']
+all_teams = True
+folders = ['H0rton']
+h0_rung1 = {'H0rton': 70.0}
+if all_teams:
+    for team in ['Tak', 'MartinMillon','freeform','Rathnakumar', 'Rathnakumar1']:
+        h0_rung1[team] = 74.151
+        folders.append(team)
 subnames = []
 for folder in folders:
     subnames += sorted(glob.glob('/home/jwp/stage/sl/h0rton/h0rton/tdlmc_utils/rung1_submit_result/{:s}/*'.format(folder)))
 
 label_name = []  
-efficiencys, goodnesses, precisions, accuracys =[], [], [] ,[]   
-h0_rung1 = 74.151
+efficiencys, goodnesses, precisions, accuracys = [], [], [] ,[]   
 for subname in subnames:
     if 'h0' in subname or 'txt' in subname:
         sub_name = subname
         root_name, ext_name = os.path.splitext(subname) #sub_name[1:].split(".")[-2]
         folder, subname = os.path.split(subname)
+        folder_name = os.path.basename(os.path.normpath(folder))
         filename = sub_name
         openfile = open(filename, "r")
         lines = openfile.readlines()
@@ -68,9 +74,11 @@ for subname in subnames:
         submit = np.asarray(submit)
         if len(submit) > 0:
             efficiency = len(submit)/len(result.items())
-            goodness = round(np.mean(((submit[:,0]-h0_rung1)/submit[:,1])**2), 3)
-            precision = round(np.mean(submit[:,1]/h0_rung1)*100, 3)
-            accuracy = round(np.mean((submit[:,0]-h0_rung1)/h0_rung1)*100, 3)
+            print("Efficiency: ", efficiency)
+            goodness = round(np.mean(((submit[:,0]-h0_rung1[folder_name])/submit[:,1])**2), 3)
+            print("Log goodness: ", np.log10(goodness))
+            precision = round(np.mean(submit[:,1]/h0_rung1[folder_name])*100, 3)
+            accuracy = round(np.mean((submit[:,0]-h0_rung1[folder_name])/h0_rung1[folder_name])*100, 3)
             label_name.append(filename)
             efficiencys.append(efficiency)
             goodnesses.append(goodness)
