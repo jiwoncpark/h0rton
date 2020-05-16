@@ -3,7 +3,9 @@
 It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy Extensions, which you can find `here <https://github.com/sibirrer/lenstronomy_extensions/blob/master/lenstronomy_extensions/Notebooks/catalogue%20modelling.ipynb>`_.
 
 """
+import argparse
 import os
+import sys
 import time
 from tqdm import tqdm
 from ast import literal_eval
@@ -13,13 +15,24 @@ import torch
 from torch.utils.data import DataLoader
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
-from h0rton.script_utils import parse_args, seed_everything, HiddenPrints
+from h0rton.script_utils import seed_everything, HiddenPrints
 import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
 import h0rton.train_utils as train_utils
 from h0rton.h0_inference import h0_utils, plotting_utils, mcmc_utils
 from h0rton.trainval_data import TDLMCData
+
+def parse_args():
+    """Parse command-line arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('test_config_file_path', help='path to the user-defined test config file')
+    parser.add_argument('rung_idx', help='TLDMC rung number', type=int)
+    parser.add_argument('--lens_indices_path', default=None, dest='lens_indices_path', type=str,
+                        help='path to a text file with specific lens indices to test on (Default: None)')
+    args = parser.parse_args()
+    return args
 
 def main():
     args = parse_args()
@@ -36,7 +49,7 @@ def main():
     ############
     # Data I/O #
     ############
-    test_data = TDLMCData(data_cfg=train_val_cfg.data, rung_i=1)
+    test_data = TDLMCData(data_cfg=train_val_cfg.data, rung_i=args.rung_idx)
     master_truth = test_data.cosmo_df
     if test_cfg.data.lens_indices is None:
         if args.lens_indices_path is None:
