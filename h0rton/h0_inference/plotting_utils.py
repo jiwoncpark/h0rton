@@ -6,6 +6,23 @@ import corner
 from lenstronomy.Plots import chain_plot
 from h0rton.h0_inference import h0_utils
 from scipy.stats import norm, median_absolute_deviation
+from lenstronomy.LensModel.lens_model_extensions import LensModelExtensions
+from lenstronomy.LensModel.Solver.lens_equation_solver import LensEquationSolver
+#import lenstronomy.Util.util as util
+import lenstronomy.Util.simulation_util as sim_util
+from lenstronomy.Data.imaging_data import ImageData
+from lenstronomy.Plots import plot_util
+#import scipy.ndimage as ndimage
+
+plt.rcParams.update(plt.rcParamsDefault)
+plt.rc('font', family='STIXGeneral', size=15, weight='bold')
+plt.rc('xtick', labelsize='medium')
+plt.rc('ytick', labelsize='medium')
+
+## for Palatino and other serif fonts use:
+#rc('font',**{'family':'serif','serif':['Palatino']})
+plt.rc('text', usetex=True)
+plt.rc('axes', linewidth=2, titlesize='large', labelsize='medium', labelweight='bold')
 
 __all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
 
@@ -210,3 +227,54 @@ def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
                         levels=[0.68, 0.95],)
     fig.savefig(save_path, dpi=100)
     plt.close()
+
+
+#TODO define coordinate grid beforehand, e.g. kwargs_data
+def lens_model_plot_custom(image, ax, lensModel, kwargs_lens, numPix=500, deltaPix=0.01, sourcePos_x=0, sourcePos_y=0, point_source=False, with_caustics=False):
+    """
+    plots a lens model (convergence) and the critical curves and caustics
+
+    :param ax:
+    :param kwargs_lens:
+    :param numPix:
+    :param deltaPix:
+    :return:
+    """
+    kwargs_data = sim_util.data_configure_simple(numPix, deltaPix)
+    data = ImageData(**kwargs_data)
+    _coords = data
+    _frame_size = numPix * deltaPix
+    x_grid, y_grid = data.pixel_coordinates
+    lensModelExt = LensModelExtensions(lensModel)
+    #ra_crit_list, dec_crit_list, ra_caustic_list, dec_caustic_list = lensModelExt.critical_curve_caustics(
+    #    kwargs_lens, compute_window=_frame_size, grid_scale=deltaPix/2.)
+    #x_grid1d = util.image2array(x_grid)
+    #y_grid1d = util.image2array(y_grid)
+    #kappa_result = lensModel.kappa(x_grid1d, y_grid1d, kwargs_lens)
+    #kappa_result = util.array2image(kappa_result)
+    #im = ax.matshow(np.log10(kappa_result), origin='lower', extent=[0, _frame_size, 0, _frame_size], cmap='Greys',vmin=-1, vmax=1) #, cmap=self._cmap, vmin=v_min, vmax=v_max)
+    im = ax.matshow(image, origin='lower', extent=[0, _frame_size, 0, _frame_size])
+    if with_caustics is True:
+        ra_crit_list, dec_crit_list = lensModelExt.critical_curve_tiling(kwargs_lens, compute_window=_frame_size, start_scale=deltaPix, max_order=20)
+        ra_caustic_list, dec_caustic_list = lensModel.ray_shooting(ra_crit_list, dec_crit_list, kwargs_lens)
+        plot_util.plot_line_set(ax, _coords, ra_caustic_list, dec_caustic_list, color='y')
+        plot_util.plot_line_set(ax, _coords, ra_crit_list, dec_crit_list, color='r')
+    if point_source:
+        solver = LensEquationSolver(lensModel)
+        theta_x, theta_y = solver.image_position_from_source(sourcePos_x, sourcePos_y, kwargs_lens,
+                                                             min_distance=deltaPix, search_window=deltaPix*numPix)
+        mag_images = lensModel.magnification(theta_x, theta_y, kwargs_lens)
+        x_image, y_image = _coords.map_coord2pix(theta_x, theta_y)
+        abc_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
+        for i in range(len(x_image)):
+            x_ = (x_image[i] + 0.5) * deltaPix
+            y_ = (y_image[i] + 0.5) * deltaPix
+            ax.plot(x_, y_, 'dk', markersize=4*(1 + np.log(np.abs(mag_images[i]))), alpha=0.5)
+            ax.text(x_, y_, abc_list[i], fontsize=20, color='k')
+        x_source, y_source = _coords.map_coord2pix(sourcePos_x, sourcePos_y)
+        ax.plot((x_source + 0.5) * deltaPix, (y_source + 0.5) * deltaPix, '*r', markersize=5)
+    #ax.plot(numPix * deltaPix*0.5 + pred['lens_mass_center_x'] + pred['src_light_center_x'], numPix * deltaPix*0.5 + pred['lens_mass_center_y'] + pred['src_light_center_y'], '*k', markersize=5)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    ax.autoscale(False)
+    return ax
