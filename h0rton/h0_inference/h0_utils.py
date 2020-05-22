@@ -23,7 +23,7 @@ def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     array-like
         `img_array` reordered to the TDLMC order
     """
-    #print(img_array.shape, self.increasing_dec_i.shape, self.abcd_ordering_i.shape)
+    #print(img_array, increasing_dec_i.shape, abcd_ordering_i.shape)
     img_array = np.array(img_array)[increasing_dec_i][abcd_ordering_i]
     return img_array
 

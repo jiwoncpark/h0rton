@@ -130,6 +130,7 @@ class H0Posterior:
         """Reorder the measured time delays (same for all lens model samples)
 
         """
+        #print(self.measured_td, self.true_img_dec, self.abcd_ordering_i)
         reordered_measured_td = h0_utils.reorder_to_tdlmc(self.measured_td, np.argsort(self.true_img_dec), self.abcd_ordering_i)
         # Measured time in days (offset from the image with the smallest dec)
         self.measured_td_wrt0 = reordered_measured_td[1:] - reordered_measured_td[0]
