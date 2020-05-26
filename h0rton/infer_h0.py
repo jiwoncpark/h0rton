@@ -229,8 +229,8 @@ def main():
         # Cosmology observables for lens_i
         cosmo = cosmo_df.iloc[lens_i]
         true_td = np.array(literal_eval(cosmo['true_td']))
-        true_img_dec = np.trim_zeros(cosmo[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
-        true_img_ra = np.trim_zeros(cosmo[['x_image_0', 'x_image_1', 'x_image_2', 'x_image_3']].values, 'b')
+        true_img_dec = np.array(literal_eval(cosmo['y_image']))
+        true_img_ra = np.array(literal_eval(cosmo['x_image']))
         measured_vd = cosmo['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
         #print(true_td, measured_td)
