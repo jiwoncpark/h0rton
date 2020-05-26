@@ -293,7 +293,7 @@ class H0Posterior:
                                                        )
             ll_vd = gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
         # Time delays
-        inferred_td = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_img'], kappa_ext=k_ext)
+        inferred_td, x_image, y_image = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_img'], kappa_ext=k_ext)
         if lens_prior_sample['requires_reordering']:
             inferred_td = h0_utils.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
         else:
