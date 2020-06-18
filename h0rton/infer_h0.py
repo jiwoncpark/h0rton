@@ -168,6 +168,7 @@ def main():
                           kinematics=baobab_cfg.bnn_omega.kinematics,
                           Om0=baobab_cfg.bnn_omega.cosmology.Om0,
                           define_src_pos_wrt_lens=train_val_cfg.data.define_src_pos_wrt_lens,
+                          kwargs_lens_eq_solver={'min_distance': baobab_cfg.instrument.pixel_scale, 'search_window': baobab_cfg.instrument.pixel_scale*baobab_cfg.image.num_pix, 'num_iter_max': 100},
                           )
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:

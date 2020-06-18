@@ -30,7 +30,7 @@ class H0Posterior:
 
     """
     required_params = ["lens_mass_center_x", "src_light_center_x","lens_mass_center_y", "src_light_center_y", "lens_mass_gamma", "lens_mass_theta_E", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "lens_light_R_sersic", "src_light_R_sersic"]
-    def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, define_src_pos_wrt_lens, kinematics=None):
+    def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, define_src_pos_wrt_lens, kinematics=None, kwargs_lens_eq_solver={}):
         """
 
         Parameters
@@ -57,6 +57,7 @@ class H0Posterior:
         self.define_src_pos_wrt_lens = define_src_pos_wrt_lens
         self.kinematics = kinematics
         self.Om0 = Om0 # Omega matter
+        self.kwargs_lens_eq_solver = kwargs_lens_eq_solver
         # Always define point source in terms of `LENSED_POSITION` for speed
         self.kwargs_model.update(dict(point_source_model_list=['LENSED_POSITION']))
 
@@ -272,7 +273,7 @@ class H0Posterior:
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions
-        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo)
+        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eq_solver=self.kwargs_lens_eq_solver)
         # Velocity dispersion
         # TODO: separate sampling function if vel_disp is excluded
         if self.exclude_vel_disp:
