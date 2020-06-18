@@ -60,8 +60,8 @@ class CosmoConverter:
     This was modified from lenstronomy.Cosmo.cosmo_solver to handle array types.
 
     """
-    def __init__(self, z_lens, z_src):
-        self.cosmo_fiducial = FlatLambdaCDM(H0=70.0, Om0=0.3, Ob0=0.0) # arbitrary
+    def __init__(self, z_lens, z_src, H0=70.0, Om0=0.3):
+        self.cosmo_fiducial = FlatLambdaCDM(H0=H0, Om0=Om0, Ob0=0.0) # arbitrary
         self.h0_fiducial = self.cosmo_fiducial.H0.value
         self.lens_cosmo = LensCosmo(z_lens=z_lens, z_source=z_src, cosmo=self.cosmo_fiducial)
         self.ddt_fiducial = self.lens_cosmo.ddt

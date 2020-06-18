@@ -16,13 +16,14 @@ from lenstronomy.Plots import plot_util
 
 plt.rcParams.update(plt.rcParamsDefault)
 plt.rc('font', family='STIXGeneral', size=15, weight='bold')
-plt.rc('xtick', labelsize='medium')
-plt.rc('ytick', labelsize='medium')
-
+plt.rc('xtick', labelsize='small')
+plt.rc('ytick', labelsize='small')
 ## for Palatino and other serif fonts use:
 #rc('font',**{'family':'serif','serif':['Palatino']})
-plt.rc('text', usetex=True)
-plt.rc('axes', linewidth=2, titlesize='large', labelsize='medium', labelweight='bold')
+#plt.rc('text', usetex=True)
+plt.rc('axes', linewidth=2, titlesize='medium', labelsize='medium', labelweight='bold')
+params = {'mathtext.default': 'regular' }          
+plt.rcParams.update(params)
 
 __all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
 
@@ -197,9 +198,9 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
     if save_dir is not None:
         if true_D_dt is not None:
             plt.axvline(x=true_D_dt, linestyle='--', color='red', label='truth')
-        plt.xlabel('D_dt (Mpc)')
+        plt.xlabel(r'$D_{{\Delta t}}$ (Mpc)')
         plt.ylabel('density')
-        plt.title('D_dt posterior for lens {0:04d}'.format(lens_i))
+        plt.title(r'$D_{{\Delta t}}$ posterior for lens {0:04d}'.format(lens_i))
         plt.legend()
         save_path = os.path.join(save_dir, 'D_dt_histogram_{0:04d}.png'.format(lens_i))
         plt.savefig(save_path)
