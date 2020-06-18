@@ -17,6 +17,7 @@ import argparse
 import scipy.stats
 from h0rton.configs import TestConfig
 from h0rton.h0_inference import h0_utils
+import h0rton.tdlmc_utils
 
 def parse_args():
     """Parse command-line arguments
@@ -24,6 +25,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('version_id', help='version ID', type=int)
     parser.add_argument('sampling_method', help='the sampling method (one of simple_mc_default, mcmc_default, hybrid', type=str)
+    parser.add_argument('--rung_idx', help='the TDLMC rung index, if H0rton was run on TDLMC data', type=int, default=None)
     args = parser.parse_args()
     return args
 
@@ -34,8 +36,8 @@ def main():
     # Read in test cfg for this version and sampling method
     test_cfg_path = os.path.join(samples_dir, '..', '{:s}.json'.format(args.sampling_method))
     test_cfg = TestConfig.from_file(test_cfg_path)
-    if args.sampling_method == 'mcmc_default':
-        summarize_mcmc(samples_dir, test_cfg, 'mcmc_default')
+    if 'mcmc_default' in args.sampling_method:
+        summarize_mcmc(samples_dir, test_cfg, 'mcmc_default', args.rung_idx)
     elif args.sampling_method == 'hybrid':
         summarize_mcmc(samples_dir, test_cfg, 'hybrid')
     elif args.sampling_method == 'simple_mc_default':
@@ -115,14 +117,22 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
         for pid in problem_id:
             f.write(str(pid) +"\n")
 
-def summarize_mcmc(samples_dir, test_cfg, sampling_method):
+def summarize_mcmc(samples_dir, test_cfg, sampling_method, rung_idx):
     """Summarize the output of mcmc_default, i.e. MCMC samples from the D_dt posterior for each lens
 
     """
-    if sampling_method == 'mcmc_default':
-        # Read in the relevant columns of metadata, 
-        metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
-        summary_df = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'], nrows=500) # FIXME: capped test set size at 500, as the stored dataset may be much larger
+    true_H0 = 70.0
+    true_Om0 = 0.3
+    if 'mcmc_default' in sampling_method:
+        if rung_idx is None:
+            # Read in the relevant columns of metadata, 
+            metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
+            summary_df = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'], nrows=500) # FIXME: capped test set size at 500, as the stored dataset may be much larger
+        else:
+            summary_df = h0rton.tdlmc_utils.convert_to_dataframe(rung=rung_idx, save_csv_path=None)
+            summary_df.sort_values('seed', axis=0, inplace=True)
+            true_H0 = summary_df.iloc[0]['H0']
+            true_Om0 = 0.27
         summary_df['id'] = summary_df.index
         summary_df['D_dt_mu'] = np.nan
         summary_df['D_dt_sigma'] = np.nan
@@ -156,17 +166,18 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method):
             D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
         except:
             print("lens", lens_i)
-            print(D_dt_samples)
+            #print(D_dt_samples)
             print("==========")
             lenses_to_rerun.append(lens_i)
-            continue
+            #continue
+        print(D_dt_stats)
         mu, sigma = D_dt_stats['mu'], D_dt_stats['sigma']
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = mu
         summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = sigma
         # Convert D_dt samples to H0
         D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(mu), s=sigma, size=oversampling*threshold)
         D_dt_samples = D_dt_samples[np.isfinite(D_dt_samples)]
-        cosmo_converter = h0_utils.CosmoConverter(meta['z_lens'], meta['z_src'])
+        cosmo_converter = h0_utils.CosmoConverter(meta['z_lens'], meta['z_src'], H0=true_H0, Om0=true_Om0)
         H0_samples = cosmo_converter.get_H0(D_dt_samples)
         # Reject H0 samples outside H0 prior
         H0_samples = H0_samples[np.isfinite(H0_samples)]
