@@ -26,7 +26,7 @@ class BasicBlock(nn.Module):
     __constants__ = ['downsample']
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
-                 base_width=64, dilation=1, norm_layer=None):
+                 base_width=64, dilation=1, norm_layer=None, dropout_rate=0.0):
         super(BasicBlock, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -42,6 +42,9 @@ class BasicBlock(nn.Module):
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
+        self.dropout_rate = dropout_rate
+        self.dropout_1d = nn.Dropout(self.dropout_rate)
+        self.dropout_2d = nn.Dropout2d(self.dropout_rate)
 
     def forward(self, x):
         identity = x
@@ -58,6 +61,7 @@ class BasicBlock(nn.Module):
 
         out += identity
         out = self.relu(out)
+        out = self.dropout_1d(out)
 
         return out
 
@@ -81,6 +85,7 @@ class Bottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
+        # TODO: add dropout; this class is only used for resnet50
 
     def forward(self, x):
         identity = x

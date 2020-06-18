@@ -6,6 +6,10 @@ It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy 
 import os
 import time
 from tqdm import tqdm
+import gc
+import glob
+from addict import Dict
+import json
 from ast import literal_eval
 import numpy as np
 import pandas as pd
@@ -14,6 +18,7 @@ from torch.utils.data import DataLoader
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
 import baobab.sim_utils.metadata_utils as metadata_utils
+from baobab import BaobabConfig
 from h0rton.script_utils import parse_args, seed_everything, HiddenPrints
 import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
@@ -22,9 +27,31 @@ import h0rton.train_utils as train_utils
 from h0rton.h0_inference import h0_utils, plotting_utils, mcmc_utils
 from h0rton.trainval_data import XYCosmoData
 
+
+def get_baobab_config(baobab_out_dir):
+    """Load the baobab log
+
+    Parameters
+    ----------
+    baobab_out_dir : str or os.path object
+        path to the baobab output directory
+
+    Returns
+    -------
+    baobab.BaobabConfig object
+        log of the baobab-generated dataset, including the input config
+
+    """
+    baobab_log_path = glob.glob(os.path.join(baobab_out_dir, 'log_*_baobab.json'))[0]
+    with open(baobab_log_path, 'r') as f:
+        log_str = f.read()
+    baobab_cfg = BaobabConfig(Dict(json.loads(log_str)))
+    return baobab_cfg
+
 def main():
     args = parse_args()
     test_cfg = TestConfig.from_file(args.test_config_file_path)
+    baobab_cfg = get_baobab_config(test_cfg.data.test_dir)
     train_val_cfg = TrainValConfig.from_file(test_cfg.train_val_config_file_path)
     # Set device and default data type
     device = torch.device(test_cfg.device_type)
@@ -87,33 +114,36 @@ def main():
     mcmc_train_Y_mean = np.delete(train_val_cfg.data.train_Y_mean, remove_param_idx)
     mcmc_train_Y_std = np.delete(train_val_cfg.data.train_Y_std, remove_param_idx)
     parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, train_val_cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
-    custom_logL_addition = parameter_penalty.evaluate if test_cfg.lens_posterior_type.startswith('default') else None
-    null_spread = True if test_cfg.lens_posterior_type == 'truth' else False
+    custom_logL_addition = parameter_penalty.evaluate
+    null_spread = False
     # Instantiate model
     net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)
+    dropout_samples = 20
+    init_pos = 0 # initialize zero array with shape unknown a priori
     with torch.no_grad():
-        net.eval()
-        for X_, Y_ in test_loader:
-            X = X_.to(device)
-            Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
-            pred = net(X)
-            break
+        for d in range(dropout_samples):
+            net.eval()
+            for X_, Y_ in test_loader:
+                X = X_.to(device)
+                Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
+                pred = net(X)
+                break
+            mcmc_pred = pred.cpu().numpy()
+            if test_cfg.lens_posterior_type == 'default_with_truth_mean':
+                # Replace BNN posterior's primary gaussian mean with truth values
+                mcmc_pred[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
+            mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=False)
 
-    mcmc_pred = pred.cpu().numpy()
-    if test_cfg.lens_posterior_type == 'default_with_truth_mean':
-        # Replace BNN posterior's primary gaussian mean with truth values
-        mcmc_pred[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
-    mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=False)
-
-    # Instantiate posterior for BNN samples, to initialize the walkers
-    bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(mcmc_Y_dim, device, mcmc_train_Y_mean, mcmc_train_Y_std)
-    bnn_post.set_sliced_pred(torch.tensor(mcmc_pred))
-    n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # BNN params + H0 times walker ratio
-    init_pos = bnn_post.sample(n_walkers, sample_seed=test_cfg.global_seed) # [batch_size, n_walkers, mcmc_Y_dim] contains just the lens model params, no D_dt
-    init_D_dt = np.random.uniform(0.0, 10000.0, size=(batch_size, n_walkers, 1)) # FIXME: init H0 hardcoded
+            # Instantiate posterior for BNN samples, to initialize the walkers
+            bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(mcmc_Y_dim, device, mcmc_train_Y_mean, mcmc_train_Y_std)
+            bnn_post.set_sliced_pred(torch.tensor(mcmc_pred))
+            n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # BNN params + H0 times walker ratio
+            init_pos += bnn_post.sample(n_walkers, sample_seed=test_cfg.global_seed+d)/dropout_samples # [batch_size, n_walkers, mcmc_Y_dim] contains just the lens model params, no D_dt
+            gc.collect()
+    init_D_dt = np.random.uniform(0.0, 10000.0, size=(batch_size, n_walkers, 1))
 
     kwargs_model = dict(lens_model_list=['PEMD', 'SHEAR'],
                         point_source_model_list=['SOURCE_POSITION'],
@@ -123,9 +153,13 @@ def main():
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
         if 'abcd_ordering_i' not in master_truth:
             raise ValueError("If the time delay measurements were not generated using Baobab, the user must specify the order of image positions in which the time delays are listed, in order of increasing dec.")
+    kwargs_lens_eq_solver = {'min_distance': 0.05, 'search_window': baobab_cfg.instrument.pixel_scale*baobab_cfg.image.num_pix, 'num_iter_max': 100}
 
     lenses_skipped = [] # keeps track of lenses that skipped MCMC
     total_progress = tqdm(total=n_test)
+    realized_time_delays = pd.DataFrame()
+    realized_time_delays['measured_td'] = [[]]*master_truth.shape[0]
+    realized_time_delays['measured_y_image'] = [[]]*master_truth.shape[0]
     # For each lens system...
     for i, lens_i in enumerate(lens_range):
         # Each lens gets a unique random state for td and vd measurement error realizations.
@@ -136,15 +170,12 @@ def main():
         data_i = master_truth.iloc[lens_i].copy()
         parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
         # Init values for the lens model params
-        if test_cfg.lens_posterior_type == 'default':
-            init_info = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
-        else: # types 'hybrid_with_truth_mean' and 'truth'
-            init_info = dict(zip(mcmc_Y_cols, data_i[mcmc_Y_cols].values)) # truth params
+        init_info = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             parameter_penalty.set_vel_disp_params()
             raise NotImplementedError
         lcdm = LCDM(z_lens=data_i['z_lens'], z_source=data_i['z_src'], flat=True)
-        true_img_dec = np.trim_zeros(data_i[['y_image_0', 'y_image_1', 'y_image_2', 'y_image_3']].values, 'b')
+        true_img_dec = literal_eval(data_i['y_image'])
         n_img = len(true_img_dec)
         true_td = np.array(literal_eval(data_i['true_td']))
         measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
@@ -160,6 +191,8 @@ def main():
                                  #vel_disp_measured=measured_vd, # TODO: optionally exclude
                                  #vel_disp_uncertainty=vel_disp_sig,
                                  )
+        realized_time_delays.at[lens_i, 'measured_td'] = list(measured_td)
+        realized_time_delays.at[lens_i, 'measured_y_image'] = list(measured_img_dec)
         if not test_cfg.h0_posterior.exclude_velocity_dispersion:
             measured_vd = data_i['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
             kwargs_data_joint['vel_disp_measured'] = measured_vd
@@ -194,7 +227,8 @@ def main():
                              'source_position_tolerance': 0.01,
                              'source_position_sigma': 0.01,
                              'source_position_likelihood': False,
-                             'custom_logL_addition': custom_logL_addition,}
+                             'custom_logL_addition': custom_logL_addition,
+                             'kwargs_lens_eq_solver': kwargs_lens_eq_solver}
 
         ###########################
         # MCMC posterior sampling #
@@ -258,6 +292,8 @@ def main():
             mcmc_corner_path = os.path.join(out_dir, 'mcmc_corner_{0:04d}.png'.format(lens_i))
             plotting_utils.plot_mcmc_corner(new_samples_mcmc[test_cfg.export.mcmc_cols], data_i[test_cfg.export.mcmc_cols], test_cfg.export.mcmc_col_labels, mcmc_corner_path)
         total_progress.update(1)
+        gc.collect()
+    realized_time_delays.to_csv(os.path.join(out_dir, 'realized_time_delays.csv'), index=None)
     total_progress.close()
 
 if __name__ == '__main__':

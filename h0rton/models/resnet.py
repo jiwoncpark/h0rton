@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 from .basics import BasicBlock, Bottleneck, conv1x1
 
-__all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50']
+__all__ = ['ResNet', 'resnet18', 'resnet34']
 
 
 class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                 norm_layer=None):
+                 norm_layer=None, dropout_rate=0.0):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -17,6 +17,7 @@ class ResNet(nn.Module):
 
         self.inplanes = 64
         self.dilation = 1
+        self.dropout_rate = dropout_rate
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
             # the 2x2 stride with a dilated convolution instead
@@ -39,7 +40,11 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        #self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Sequential(
+                                nn.Linear(512 * block.expansion, num_classes),
+                                nn.Dropout(self.dropout_rate),
+                                )
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -73,12 +78,12 @@ class ResNet(nn.Module):
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer))
+                            self.base_width, previous_dilation, norm_layer, dropout_rate=self.dropout_rate))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer))
+                                norm_layer=norm_layer, dropout_rate=self.dropout_rate))
 
         return nn.Sequential(*layers)
 
@@ -127,14 +132,4 @@ def resnet34(progress=True, **kwargs):
     
     """
     return _resnet('resnet34', BasicBlock, [3, 4, 6, 3], progress,
-                   **kwargs)
-
-def resnet50(progress=True, **kwargs):
-    r"""ResNet-50 model from
-    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-        progress (bool): If True, displays a progress bar of the download to stderr
-    """
-    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], progress,
                    **kwargs)
