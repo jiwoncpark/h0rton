@@ -232,7 +232,7 @@ def main():
         new_samples_mcmc = mcmc_utils.postprocess_mcmc_chain(kwargs_result_mcmc, samples_mcmc, kwargs_model, lens_kwargs[2], ps_kwargs[2], src_light_kwargs[2], special_kwargs[2], kwargs_constraints)
         # Plot D_dt histogram
         D_dt_samples = new_samples_mcmc['D_dt'].values
-        true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.3)
+        true_D_dt = lcdm.D_dt(H_0=data_i['H0'], Om0=0.27)
         data_i['D_dt'] = true_D_dt
         # Export D_dt samples for this lens
         lens_inference_dict = dict(
