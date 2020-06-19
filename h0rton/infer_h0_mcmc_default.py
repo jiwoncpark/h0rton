@@ -121,8 +121,9 @@ def main():
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)
-    dropout_samples = 20
+    dropout_samples = 1
     init_pos = 0 # initialize zero array with shape unknown a priori
+    mcmc_pred = 0
     with torch.no_grad():
         for d in range(dropout_samples):
             net.eval()
@@ -131,15 +132,16 @@ def main():
                 Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
                 pred = net(X)
                 break
-            mcmc_pred = pred.cpu().numpy()
+            mcmc_pred_d = pred.cpu().numpy()
             if test_cfg.lens_posterior_type == 'default_with_truth_mean':
                 # Replace BNN posterior's primary gaussian mean with truth values
-                mcmc_pred[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
-            mcmc_pred = mcmc_utils.remove_parameters_from_pred(mcmc_pred, remove_idx, return_as_tensor=False)
-
+                mcmc_pred_d[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
+            mcmc_pred_d = mcmc_utils.remove_parameters_from_pred(mcmc_pred_d, remove_idx, return_as_tensor=False)
+            mcmc_pred += mcmc_pred_d/dropout_samples
             # Instantiate posterior for BNN samples, to initialize the walkers
+            print(mcmc_pred_d[0, :2])
             bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(mcmc_Y_dim, device, mcmc_train_Y_mean, mcmc_train_Y_std)
-            bnn_post.set_sliced_pred(torch.tensor(mcmc_pred))
+            bnn_post.set_sliced_pred(torch.tensor(mcmc_pred_d))
             n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # BNN params + H0 times walker ratio
             init_pos += bnn_post.sample(n_walkers, sample_seed=test_cfg.global_seed+d)/dropout_samples # [batch_size, n_walkers, mcmc_Y_dim] contains just the lens model params, no D_dt
             gc.collect()
