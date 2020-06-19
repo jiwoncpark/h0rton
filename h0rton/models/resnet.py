@@ -18,6 +18,8 @@ class ResNet(nn.Module):
         self.inplanes = 64
         self.dilation = 1
         self.dropout_rate = dropout_rate
+        self.dropout_1d = nn.Dropout(self.dropout_rate)
+        self.dropout_2d = nn.Dropout2d(self.dropout_rate)
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
             # the 2x2 stride with a dilated convolution instead
@@ -40,11 +42,7 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        #self.fc = nn.Linear(512 * block.expansion, num_classes)
-        self.fc = nn.Sequential(
-                                nn.Linear(512 * block.expansion, num_classes),
-                                nn.Dropout(self.dropout_rate),
-                                )
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):

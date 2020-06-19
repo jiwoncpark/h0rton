@@ -61,7 +61,6 @@ class BasicBlock(nn.Module):
 
         out += identity
         out = self.relu(out)
-        out = self.dropout_1d(out)
 
         return out
 
