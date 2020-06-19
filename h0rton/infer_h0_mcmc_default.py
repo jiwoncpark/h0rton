@@ -117,7 +117,7 @@ def main():
     custom_logL_addition = parameter_penalty.evaluate
     null_spread = False
     # Instantiate model
-    net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim)
+    net = getattr(h0rton.models, train_val_cfg.model.architecture)(num_classes=loss_fn.out_dim, dropout_rate=train_val_cfg.model.dropout_rate)
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, train_val_cfg.optim.n_epochs, device)

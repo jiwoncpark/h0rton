@@ -98,7 +98,7 @@ def main():
     # Instantiate posterior (for logging)
     bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(val_data.Y_dim, device, val_data.train_Y_mean, val_data.train_Y_std)
     # Instantiate model
-    net = getattr(h0rton.models, cfg.model.architecture)(num_classes=loss_fn.out_dim)
+    net = getattr(h0rton.models, cfg.model.architecture)(num_classes=loss_fn.out_dim, dropout_rate=cfg.model.dropout_rate)
     net.to(device)
 
     ################
