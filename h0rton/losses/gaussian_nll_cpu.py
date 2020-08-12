@@ -143,9 +143,9 @@ class BaseGaussianNLLCPU(ABC):
         batch_size, _ = target.shape
         log_ll = np.empty([batch_size, 2], dtype=None)
         alpha = alpha.reshape(-1)
-        log_ll[:, 0] = -alpha - np.log1p(np.exp(-alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
+        log_ll[:, 0] = np.log1p(2.0*np.exp(-alpha)) - log_2 - np.log1p(np.exp(-alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
         # np.log(np.tensor([0.5])).double()
-        log_ll[:, 1] = self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         log_nll = -logsumexp(log_ll, axis=1)
         return np.mean(log_nll)
 

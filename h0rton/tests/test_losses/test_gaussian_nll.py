@@ -117,7 +117,7 @@ class TestGaussianNLL(unittest.TestCase):
             #matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             #matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
             #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 
-            matched_nll += (-np.log((1.0 - w2_b) * np.exp(-nll1) + w2_b * np.exp(-nll2)))/batch_size # logsumexp
+            matched_nll += (-np.log((1.0 - 0.5*w2_b) * np.exp(-nll1) + 0.5*w2_b * np.exp(-nll2)))/batch_size # logsumexp
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=5)
 
     def test_full_rank_gaussian_nll(self):
@@ -198,7 +198,7 @@ class TestGaussianNLL(unittest.TestCase):
             #matched_nll1 = (2.0*nll1 - Y_dim*np.log(2.0*np.pi))
             #matched_nll2 = (2.0*nll2 - Y_dim*np.log(2.0*np.pi))
             #matched_nll += (-np.log((1.0 - w2_b) * np.exp(-matched_nll1) + w2_b * np.exp(-matched_nll2)))/batch_size 
-            matched_nll += (-np.log((1.0 - w2_b) * np.exp(-nll1) + w2_b * np.exp(-nll2)))/batch_size # logsumexp
+            matched_nll += (-np.log((1.0 - 0.5*w2_b) * np.exp(-nll1) + 0.5*w2_b * np.exp(-nll2)))/batch_size # logsumexp
         np.testing.assert_array_almost_equal(h0rton_nll, matched_nll, decimal=5)
 
 if __name__ == '__main__':

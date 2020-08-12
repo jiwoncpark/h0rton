@@ -175,8 +175,8 @@ class BaseGaussianNLL(ABC):
         #log_ll[:, 0] = torch.log1p(-0.5*self.sigmoid(alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
         # torch.log(torch.tensor([0.5], device=self.device)).double()
         #log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
-        log_w1p1 = -alpha -torch.log1p(torch.exp(-alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
-        log_w2p2 = self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
+        log_w1p1 = torch.log1p(2.0*torch.exp(-alpha)) - log_2 - torch.log1p(torch.exp(-alpha)) - self.nll_low_rank(target, mu, logvar, F=F, reduce=False) # [batch_size]
+        log_w2p2 = -log_2 + self.logsigmoid(alpha) - self.nll_low_rank(target, mu2, logvar2, F=F2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
         stacked = torch.stack([log_w1p1, log_w2p2], dim=1)
         log_nll = -torch.logsumexp(stacked, dim=1)
         return torch.mean(log_nll)
@@ -248,8 +248,8 @@ class BaseGaussianNLL(ABC):
         alpha = alpha.reshape(-1)
         #log_ll[:, 0] = torch.log1p(-0.5*self.sigmoid(alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
         #log_ll[:, 1] = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size], 0.6931471 = np.log(2)
-        log_w1p1 = -alpha - torch.log1p(torch.exp(-alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
-        log_w2p2 = self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size]
+        log_w1p1 = torch.log1p(2.0*torch.exp(-alpha)) - log_2 - torch.log1p(torch.exp(-alpha)) - self.nll_full_rank(target, mu, tril_elements, reduce=False) # [batch_size]
+        log_w2p2 = -log_2 + self.logsigmoid(alpha) - self.nll_full_rank(target, mu2, tril_elements2, reduce=False) # [batch_size]
         stacked = torch.stack([log_w1p1, log_w2p2], dim=1)
         log_nll = -torch.logsumexp(stacked, dim=1)
         return torch.mean(log_nll)
