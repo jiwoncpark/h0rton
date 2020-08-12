@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import torch
 from h0rton.h0_inference import DiagonalGaussianBNNPosterior, LowRankGaussianBNNPosterior, DoubleLowRankGaussianBNNPosterior, FullRankGaussianBNNPosterior, DoubleGaussianBNNPosterior
-from h0rton.losses import sigmoid
+from h0rton.h0_inference.gaussian_bnn_posterior_cpu import sigmoid
 
 class TestGaussianBNNPosterior(unittest.TestCase):
     """A suite of tests verifying that the input PDFs and the sample distributions
@@ -24,8 +24,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         # Get h0rton samples
         #Y_mean = np.random.randn(batch_size, Y_dim)
         #Y_std = np.abs(np.random.randn(batch_size, Y_dim))
-        Y_mean = np.zeros((batch_size, Y_dim))
-        Y_std = np.ones((batch_size, Y_dim))
+        Y_mean = np.zeros(Y_dim)
+        Y_std = np.ones(Y_dim)
         diagonal_bnn_post = DiagonalGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         diagonal_bnn_post.set_sliced_pred(torch.Tensor(pred))
         h0rton_samples = diagonal_bnn_post.sample(10**7, sample_seed)
@@ -60,8 +60,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         # Get h0rton samples
         #Y_mean = np.random.randn(batch_size, Y_dim)
         #Y_std = np.abs(np.random.randn(batch_size, Y_dim))
-        Y_mean = np.zeros((batch_size, Y_dim))
-        Y_std = np.ones((batch_size, Y_dim))
+        Y_mean = np.zeros(Y_dim)
+        Y_std = np.ones(Y_dim)
         low_rank_bnn_post = LowRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         low_rank_bnn_post.set_sliced_pred(torch.Tensor(pred),)
         h0rton_samples = low_rank_bnn_post.sample(10**7, sample_seed)
@@ -112,15 +112,15 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         # Get h0rton samples
         #Y_mean = np.random.randn(batch_size, Y_dim)
         #Y_std = np.abs(np.random.randn(batch_size, Y_dim))
-        Y_mean = np.zeros((batch_size, Y_dim))
-        Y_std = np.ones((batch_size, Y_dim))
+        Y_mean = np.zeros(Y_dim)
+        Y_std = np.ones(Y_dim)
         double_bnn_post = DoubleLowRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         double_bnn_post.set_sliced_pred(torch.Tensor(pred),)
         h0rton_samples = double_bnn_post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
-        w2 = sigmoid(alpha)
+        w2 = 0.5*sigmoid(alpha)
         w1 = 1.0 - w2
         exp_mean = mu*w1 + mu2*w2
         np.testing.assert_array_almost_equal(h0rton_mean, exp_mean, decimal=2)
@@ -142,8 +142,8 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         # Get h0rton samples
         #Y_mean = np.random.randn(batch_size, Y_dim)
         #Y_std = np.abs(np.random.randn(batch_size, Y_dim))
-        Y_mean = np.zeros((batch_size, Y_dim))
-        Y_std = np.ones((batch_size, Y_dim))
+        Y_mean = np.zeros(Y_dim)
+        Y_std = np.ones(Y_dim)
         post = FullRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         post.set_sliced_pred(torch.from_numpy(pred),)
         h0rton_samples = post.sample(10**7, sample_seed)
@@ -198,15 +198,15 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         # Get h0rton samples
         #Y_mean = np.random.randn(batch_size, Y_dim)
         #Y_std = np.abs(np.random.randn(batch_size, Y_dim))
-        Y_mean = np.zeros((batch_size, Y_dim))
-        Y_std = np.ones((batch_size, Y_dim))
+        Y_mean = np.zeros(Y_dim)
+        Y_std = np.ones(Y_dim)
         post = DoubleGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         post.set_sliced_pred(torch.Tensor(pred),)
         h0rton_samples = post.sample(10**7, sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
-        w2 = sigmoid(alpha)
+        w2 = 0.5*sigmoid(alpha)
         w1 = 1.0 - w2
         np_mean = mu*w1 + mu2*w2
         np.testing.assert_array_almost_equal(h0rton_mean, np_mean, decimal=2)
