@@ -1,3 +1,2 @@
-from .xy_data import XYData, XData
-from .xycosmo_data import XYCosmoData
+from .xy_data import XYData
 from .tdlmc_data import TDLMCData
