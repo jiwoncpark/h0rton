@@ -2,7 +2,8 @@ import numpy as np
 import unittest
 from scipy.stats import multivariate_normal
 import torch
-from h0rton.losses import DiagonalGaussianNLLNative, LowRankGaussianNLLNative, DoubleLowRankGaussianNLLNative, FullRankGaussianNLLNative, DoubleGaussianNLLNative, sigmoid
+from h0rton.losses import DiagonalGaussianNLLNative, LowRankGaussianNLLNative, DoubleLowRankGaussianNLLNative, FullRankGaussianNLLNative, DoubleGaussianNLLNative
+from h0rton.h0_inference.gaussian_bnn_posterior_cpu import sigmoid
 
 class TestGaussianNLLNative(unittest.TestCase):
     """A suite of tests verifying the PDF evaluation of GaussianNLLNative

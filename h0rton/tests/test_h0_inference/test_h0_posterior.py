@@ -16,8 +16,9 @@ class TestH0Posterior(unittest.TestCase):
         m = 0.5
         s = 1
         eval_x = np.linspace(-3, 3, 100)
-        truth = np.log(norm.pdf(eval_x, m, s))
-        pred = gaussian_ll_pdf(eval_x, m, s)
+        truth = norm.logpdf(eval_x, m, s)
+        # Note output of gaussian_nll_pdf is unnormalized
+        pred = gaussian_ll_pdf(eval_x, m, s) - np.log(s) - 0.5*np.log(2.0*np.pi) 
         np.testing.assert_array_almost_equal(pred, truth)
 
 if __name__ == '__main__':

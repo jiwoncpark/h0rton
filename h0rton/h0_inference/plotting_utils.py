@@ -25,7 +25,7 @@ plt.rc('axes', linewidth=2, titlesize='medium', labelsize='medium', labelweight=
 params = {'mathtext.default': 'regular' }          
 plt.rcParams.update(params)
 
-__all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner"]
+__all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner", "gaussian"]
 
 def gaussian(x, mean, standard_deviation, amplitude):
     return amplitude * np.exp( - ((x - mean) / standard_deviation) ** 2)
@@ -42,37 +42,18 @@ def plot_weighted_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None,
         H0 weights corresponding to `all_samples`, possibly including nan values
 
     """
-    # Normalize weights to unity
-    is_nan_mask = np.logical_or(np.isnan(all_weights), ~np.isfinite(all_weights))
-    all_weights[~is_nan_mask] = all_weights[~is_nan_mask]/np.sum(all_weights[~is_nan_mask])
-    samples = all_samples[~is_nan_mask]
-    weights = all_weights[~is_nan_mask]
-    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=80, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[40.0, 100.0])
-    bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
-    if include_fit_gaussian:
-        # Fit a gaussian
-        best_guess_mean = bin_centers[np.argmax(bin_heights)]
-        popt, _ = curve_fit(gaussian, bin_centers, bin_heights, p0=[best_guess_mean, 0.3, 3.0], maxfev=10000)
-        mean = popt[0]
-        std = popt[1]
-    else:
-        # Compute the weighted mean and std analytically
-        mean = np.average(samples, weights=weights)
-        std = np.average((samples - mean)**2.0, weights=weights)**0.5
-        #print(mean, std)
-        popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
-    #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
-    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
+    keep = np.isfinite(all_weights)
+    all_samples = all_samples[keep]
+    all_weights = all_weights[keep]
+    mean, std, samples, weights = h0_utils.get_normal_stats(all_samples, all_weights)
+    _ = plt.hist(samples, weights=weights, bins=290, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[10.0, 300.0])
+    # Compute the weighted mean and std from the sample
+    mean = np.average(samples, weights=weights)
+    std = np.average((samples - mean)**2.0, weights=weights)**0.5
+    #print(mean, std)
+    x_interval_for_fit = np.linspace(10, 300, 1000) 
     # Overlay the fit gaussian pdf
-    plt.plot(x_interval_for_fit, gaussian(x_interval_for_fit, *popt), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(mean, std))
-    #if std < 1.0:
-    #    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=80, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[mean - 5, mean + 5])
-    #    bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
-    #    best_guess_mean = bin_centers[np.argmax(bin_heights)]
-    #    popt, _ = curve_fit(gaussian, bin_centers, bin_heights, p0=[mean, 0.3, 1.0], maxfev=10000)
-    #    mean = popt[0]
-    #    std = popt[-1]
-    #print(popt)
+    plt.plot(x_interval_for_fit, norm.pdf(x_interval_for_fit, mean, std), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(mean, std))
     if save_dir is not None:
         if true_h0 is not None:
             plt.axvline(x=true_h0, linestyle='--', color='red', label='truth')
@@ -103,7 +84,7 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     
     # Compute the weighted mean and std analytically
-    lognorm_stats = h0_utils.get_lognormal_stats(samples, weights)
+    lognorm_stats = h0_utils.get_lognormal_stats_naive(samples, weights)
     mu = lognorm_stats['mu']
     sigma = lognorm_stats['sigma']
     mode = lognorm_stats['mode']

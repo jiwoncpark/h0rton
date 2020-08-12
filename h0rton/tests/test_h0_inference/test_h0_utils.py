@@ -21,8 +21,8 @@ class TestH0Utils(unittest.TestCase):
         n_samples = int(1e7)
         samples = np.exp(np.random.randn(n_samples)*sigma_in + mu_in)
         stats = h0_utils.get_lognormal_stats(samples)
-        np.testing.assert_almost_equal(stats['mu'], mu_in, 2)
-        np.testing.assert_almost_equal(stats['sigma'], sigma_in, 2)
+        np.testing.assert_almost_equal(stats['mu'], mu_in, decimal=2)
+        np.testing.assert_almost_equal(stats['sigma'], sigma_in, decimal=2)
         #plotting_utils.plot_D_dt_histogram(samples, lens_i=99999, true_D_dt=stats['mode'], save_dir='.')
 
     def test_get_lognormal_stats_weighted(self):
@@ -37,9 +37,9 @@ class TestH0Utils(unittest.TestCase):
         max_val = 10000.0
         samples = np.random.rand(n_samples)*(max_val - min_val) + min_val
         weights = lognorm_obj.pdf(samples)
-        stats = h0_utils.get_lognormal_stats(samples, weights)
-        np.testing.assert_almost_equal(stats['mu'], mu_in, 1)
-        np.testing.assert_almost_equal(stats['sigma'], sigma_in, 1)
+        stats = h0_utils.get_lognormal_stats_naive(samples, weights)
+        np.testing.assert_almost_equal(stats['mu'], mu_in, decimal=1)
+        np.testing.assert_almost_equal(stats['sigma'], sigma_in, decimal=1)
         #plotting_utils.plot_weighted_D_dt_histogram(samples, weights, lens_i=99999, true_D_dt=stats['mode'], save_dir='.')
 
 if __name__ == '__main__':

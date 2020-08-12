@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 from lenstronomy.Cosmo.lens_cosmo import LensCosmo
@@ -61,7 +62,7 @@ class CosmoConverter:
 
     """
     def __init__(self, z_lens, z_src, H0=70.0, Om0=0.3):
-        self.cosmo_fiducial = FlatLambdaCDM(H0=H0, Om0=Om0, Ob0=0.0) # arbitrary
+        self.cosmo_fiducial = FlatLambdaCDM(H0=H0, Om0=Om0) # arbitrary
         self.h0_fiducial = self.cosmo_fiducial.H0.value
         self.lens_cosmo = LensCosmo(z_lens=z_lens, z_source=z_src, cosmo=self.cosmo_fiducial)
         self.ddt_fiducial = self.lens_cosmo.ddt
@@ -97,9 +98,10 @@ def get_lognormal_stats_naive(samples, weights=None):
     """
     if weights is None:
         weights = np.ones_like(samples)
+    n_samples = len(samples)
     log_samples = np.log(samples)
     mu = np.average(log_samples, weights=weights)
-    sig2 = np.average((log_samples - mu)**2.0, weights=weights)
+    sig2 = np.average((log_samples - mu)**2.0, weights=weights)*(n_samples/(n_samples - 1))
     mode = np.exp(mu - sig2)
     std = ((np.exp(sig2) - 1.0)*(np.exp(2*mu - sig2)))**0.5
     stats = dict(
@@ -109,6 +111,21 @@ def get_lognormal_stats_naive(samples, weights=None):
                  std=std
                  )
     return stats
+
+def get_normal_stats(all_samples, all_weights):
+    is_nan_mask = np.logical_or(np.logical_or(np.isnan(all_weights), ~np.isfinite(all_weights)), np.isnan(all_samples))
+    all_weights[~is_nan_mask] = all_weights[~is_nan_mask]/np.sum(all_weights[~is_nan_mask])
+    samples = all_samples[~is_nan_mask]
+    weights = all_weights[~is_nan_mask]
+    mean = np.average(samples, weights=weights)
+    std = np.average((samples - mean)**2.0, weights=weights)**0.5
+    #print(mean, std)
+    return mean, std, samples, weights
+
+def get_normal_stats_robust(all_samples):
+    mean = np.median(all_samples)
+    std = median_absolute_deviation(all_samples, axis=None)
+    return mean, std
 
 def remove_outliers_from_lognormal(data, level=3):
     """Remove extreme outliers corresponding to level-STD away from the mean
@@ -169,10 +186,16 @@ def combine_lenses(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, samples_save_
                 'kwargs_fixed_kin': kwargs_fixed_kin}
 
     cosmology = 'FLCDM'  # available models: 'FLCDM', "FwCDM", "w0waCDM", "oLCDM"
-    mcmc_sampler = MCMCSampler(kwargs_posterior_list, cosmology, kwargs_bounds, ppn_sampling=False,
-                     lambda_mst_sampling=False, lambda_mst_distribution='NONE', anisotropy_sampling=False,
+    mcmc_sampler = MCMCSampler(kwargs_posterior_list, 
+                               cosmology, kwargs_bounds, 
+                               ppn_sampling=False,
+                               lambda_mst_sampling=False, lambda_mst_distribution='NONE', anisotropy_sampling=False,
                                kappa_ext_sampling=False, kappa_ext_distribution='NONE',
-                     anisotropy_model='NONE', anisotropy_distribution='NONE', custom_prior=None, interpolate_cosmo=True, num_redshift_interp=100,
+                     anisotropy_model='NONE', 
+                     anisotropy_distribution='NONE', 
+                     custom_prior=None, 
+                     interpolate_cosmo=True, 
+                     num_redshift_interp=100,
                      cosmo_fixed=None)
 
     mcmc_samples, log_prob_cosmo = mcmc_sampler.mcmc_emcee(n_walkers, n_run, n_burn, kwargs_mean_start, kwargs_sigma_start)
@@ -197,6 +220,83 @@ def combine_lenses_normal(true_cosmo, D_dt_mu, D_dt_sigma, z_lens, z_src, sample
         kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
                             'ddt_mean': D_dt_mu[i], 'ddt_sigma': D_dt_sigma[i],
                            'likelihood_type': 'DdtGaussian'}
+        kwargs_posterior_list.append(kwargs_posterior)
+
+    kwargs_lower_cosmo = {'h0': 50.0}
+    kwargs_lower_lens = {}
+    kwargs_lower_kin = {}
+
+    kwargs_upper_cosmo = {'h0': 90.0}
+    kwargs_upper_lens = {}
+    kwargs_upper_kin = {}
+
+    kwargs_fixed_cosmo = {'om': true_cosmo.Om0}
+    kwargs_fixed_lens = {}
+    kwargs_fixed_kin = {}
+
+    kwargs_mean_start = {'kwargs_cosmo': {'h0': 70.0},
+                         'kwargs_lens': {},
+                         'kwargs_kin': {}}
+
+    kwargs_sigma_start = {'kwargs_cosmo': {'h0': 10.0},
+                         'kwargs_lens': {},
+                         'kwargs_kin': {}}
+
+    kwargs_bounds = {'kwargs_lower_cosmo': kwargs_lower_cosmo,
+                'kwargs_lower_lens': kwargs_lower_lens,
+                'kwargs_lower_kin': kwargs_lower_kin,
+                'kwargs_upper_cosmo': kwargs_upper_cosmo,
+                'kwargs_upper_lens': kwargs_upper_lens,
+                'kwargs_upper_kin': kwargs_upper_kin,
+                'kwargs_fixed_cosmo': kwargs_fixed_cosmo,
+                'kwargs_fixed_lens': kwargs_fixed_lens,
+                'kwargs_fixed_kin': kwargs_fixed_kin}
+
+    cosmology = 'FLCDM'  # available models: 'FLCDM', "FwCDM", "w0waCDM", "oLCDM"
+    mcmc_sampler = MCMCSampler(kwargs_posterior_list, cosmology, kwargs_bounds, 
+                               ppn_sampling=False,
+                               lambda_mst_sampling=False, 
+                               lambda_mst_distribution='NONE', 
+                               anisotropy_sampling=False,
+                               kappa_ext_sampling=False, 
+                               kappa_ext_distribution='NONE',
+                               anisotropy_model='NONE', 
+                               anisotropy_distribution='NONE', 
+                               custom_prior=None, 
+                               interpolate_cosmo=True, 
+                               num_redshift_interp=100,
+                               cosmo_fixed=None)
+
+    mcmc_samples, log_prob_cosmo = mcmc_sampler.mcmc_emcee(n_walkers, n_run, n_burn, kwargs_mean_start, kwargs_sigma_start)
+    np.save(samples_save_path, mcmc_samples)
+
+    if corner_save_path is not None:
+        corner.corner(mcmc_samples, show_titles=True, labels=mcmc_sampler.param_names(latex_style=True))
+        plt.show()
+        plt.savefig(corner_save_path)
+        plt.close()
+
+    return mcmc_samples, log_prob_cosmo
+
+
+def combine_lenses_kde(true_cosmo, lens_ids, samples_dir, z_lens, z_src, samples_save_path, corner_save_path=None, n_run=100, n_burn=400, n_walkers=10):
+    """Combine lenses in the D_dt space
+
+    """
+    kwargs_posterior_list = []
+    for i, lens_i in enumerate(lens_ids):
+        h0_dict_path = os.path.join(samples_dir, 'h0_dict_{:04d}.npy'.format(lens_i))
+        h0_dict = np.load(h0_dict_path, allow_pickle=True).item()
+        H0_samples = h0_dict['h0_samples']
+        weights = h0_dict['h0_weights']
+        remove = np.logical_or(np.isnan(weights), np.isnan(H0_samples))
+        H0_samples = H0_samples[~remove]
+        weights = weights[~remove]
+        cosmo_converter = CosmoConverter(z_lens[i], z_src[i])
+        D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
+        kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
+                            'ddt_samples': D_dt_samples, 'ddt_weights': weights,
+                           'likelihood_type': 'DdtHistKDE'}
         kwargs_posterior_list.append(kwargs_posterior)
 
     kwargs_lower_cosmo = {'h0': 50.0}
