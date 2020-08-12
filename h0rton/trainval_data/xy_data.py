@@ -65,7 +65,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
         # Number of predictive columns
         self.Y_dim = len(self.Y_cols)
         # Whiten the columns
-        Y_df = whiten_Y_cols(Y_df, self.train_Y_mean, self.train_Y_std, self.Y_cols)
+        whiten_Y_cols(Y_df, self.train_Y_mean, self.train_Y_std, self.Y_cols)
         # Convert into array the columns required for training
         self.img_filenames = Y_df['img_filename'].values
         self.Y_array = Y_df[self.Y_cols].values.astype(self.float_type_numpy)
