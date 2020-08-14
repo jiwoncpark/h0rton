@@ -11,15 +11,14 @@ cache:
   pip: true
 
 before_install:
-  - pip install coveralls
-  - pip install python-coveralls
+  - pip install -q coveralls
 
 install:
 # Install SLRealizer dependencies
   - "pip install -e . -r requirements.txt"
 
 script:
-  - coverage run --source h0rton setup.py test
+  - coverage run -m unittest discover -s h0rton/tests
 
 after_success:
   - codecov

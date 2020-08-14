@@ -1,6 +1,6 @@
 #conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
 git+https://github.com/jiwoncpark/corner.py.git@master
-git+https://github.com/sibirrer/lenstronomy.git@master
+git+https://github.com/jiwoncpark/lenstronomy.git@master
 git+https://github.com/jiwoncpark/baobab.git@master
 torch
 torchvision
@@ -14,5 +14,6 @@ pandas
 dynesty
 tqdm
 mpmath
+scikit-image
 addict
 progressbar
