@@ -14,7 +14,7 @@ before_install:
   - pip install -q coveralls
   - git clone https://github.com/sibirrer/hierArc.git
   - cd hierArc
-  - pip install -e .
+  - pip install -e . -r requirements.txt
   - cd ..
 
 install:
