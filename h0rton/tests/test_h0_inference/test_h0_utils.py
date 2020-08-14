@@ -157,8 +157,8 @@ class TestH0Utils(unittest.TestCase):
         z_src = np.amax(random_z, axis=0)
         ddt_mean = np.random.normal(5000, 1000, size=n_lenses)
         ddt_mu = np.log(ddt_mean)
-        h0_utils.combine_lenses('DdtGaussian', z_lens, z_src, true_Om0=0.2, samples_save_path=None, corner_save_path=None, n_run=1, n_burn=4, n_walkers=3, ddt_mean=ddt_mean, ddt_sigma=np.random.normal(500, 5, size=n_lenses))
-        h0_utils.combine_lenses('DdtLogNorm', z_lens, z_src, true_Om0=0.2, samples_save_path=None, corner_save_path=None, n_run=1, n_burn=4, n_walkers=3, ddt_mu=ddt_mu, ddt_sigma=np.random.normal(1, 0.5, size=n_lenses))
+        mcmc_samples_normal, log_prob_cosmo_normal = h0_utils.combine_lenses('DdtGaussian', z_lens, z_src, true_Om0=0.2, samples_save_path=None, corner_save_path=None, n_run=1, n_burn=4, n_walkers=3, ddt_mean=ddt_mean, ddt_sigma=np.random.normal(500, 5, size=n_lenses))
+        mcmc_samples_lognormal, log_prob_cosmo_lognormal = h0_utils.combine_lenses('DdtLogNorm', z_lens, z_src, true_Om0=0.2, samples_save_path=None, corner_save_path=None, n_run=1, n_burn=4, n_walkers=3, ddt_mu=ddt_mu, ddt_sigma=np.random.normal(1, 0.5, size=n_lenses))
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,6 +9,13 @@ class TestGaussianBNNPosterior(unittest.TestCase):
     match.
     
     """
+    @classmethod
+    def setUpClass(cls):
+        cls.sample_seed = 1113
+
+    def setUp(self):
+        np.random.seed(self.sample_seed)
+
     def test_diagonal_gaussian_bnn_posterior(self):
         """Test the sampling of `DiagonalGaussianBNNPosterior`
 
@@ -16,7 +23,6 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_dim = 2
         batch_size = 3
         rank = 2
-        sample_seed = 1113
         device = torch.device('cpu')
         mu = np.random.randn(batch_size, Y_dim)
         logvar = np.abs(np.random.randn(batch_size, Y_dim))
@@ -28,7 +34,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_std = np.ones(Y_dim)
         diagonal_bnn_post = DiagonalGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         diagonal_bnn_post.set_sliced_pred(torch.Tensor(pred))
-        h0rton_samples = diagonal_bnn_post.sample(10**7, sample_seed)
+        h0rton_samples = diagonal_bnn_post.sample(10**7, self.sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         h0rton_covmat = np.zeros((batch_size, Y_dim, Y_dim))
@@ -49,7 +55,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_dim = 2
         batch_size = 3
         rank = 2
-        sample_seed = 1113
+        
         device = torch.device('cpu')
         mu = np.random.randn(batch_size, Y_dim)
         logvar = np.abs(np.random.randn(batch_size, Y_dim))
@@ -64,7 +70,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_std = np.ones(Y_dim)
         low_rank_bnn_post = LowRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         low_rank_bnn_post.set_sliced_pred(torch.Tensor(pred),)
-        h0rton_samples = low_rank_bnn_post.sample(10**7, sample_seed)
+        h0rton_samples = low_rank_bnn_post.sample(10**7, self.sample_seed)
         #import matplotlib.pyplot as plt
         #plt.hist(h0rton_samples[0, :, 0], bins=30)
         #plt.axvline(mu[0, 0], color='r')
@@ -93,7 +99,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_dim = 2
         batch_size = 3
         rank = 2
-        sample_seed = 1113
+        
         device = torch.device('cpu')
         # First gaussian
         mu = np.random.randn(batch_size, Y_dim)
@@ -116,7 +122,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_std = np.ones(Y_dim)
         double_bnn_post = DoubleLowRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         double_bnn_post.set_sliced_pred(torch.Tensor(pred),)
-        h0rton_samples = double_bnn_post.sample(10**7, sample_seed)
+        h0rton_samples = double_bnn_post.sample(10**7, self.sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
@@ -133,7 +139,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         batch_size = 3
         tril_idx = np.tril_indices(Y_dim)
         tril_len = len(tril_idx[0])
-        sample_seed = 1113
+        
         device = torch.device('cpu')
         # Get h0rton evaluation
         mu = np.random.randn(batch_size, Y_dim)
@@ -146,7 +152,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_std = np.ones(Y_dim)
         post = FullRankGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         post.set_sliced_pred(torch.from_numpy(pred),)
-        h0rton_samples = post.sample(10**7, sample_seed)
+        h0rton_samples = post.sample(10**7, self.sample_seed)
         #import matplotlib.pyplot as plt
         #plt.hist(h0rton_samples[0, :, 0], bins=30)
         #plt.axvline(mu[0, 0], color='r')
@@ -184,7 +190,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         batch_size = 3
         tril_idx = np.tril_indices(Y_dim)
         tril_len = len(tril_idx[0])
-        sample_seed = 1113
+        
         device = torch.device('cpu')
         # Get h0rton evaluation
         # First gaussian
@@ -202,7 +208,7 @@ class TestGaussianBNNPosterior(unittest.TestCase):
         Y_std = np.ones(Y_dim)
         post = DoubleGaussianBNNPosterior(Y_dim, device, Y_mean, Y_std)
         post.set_sliced_pred(torch.Tensor(pred),)
-        h0rton_samples = post.sample(10**7, sample_seed)
+        h0rton_samples = post.sample(10**7, self.sample_seed)
         # Get h0rton summary stats
         h0rton_mean = np.mean(h0rton_samples, axis=1)
         # Get expected summary stats
