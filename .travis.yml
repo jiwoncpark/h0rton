@@ -12,6 +12,10 @@ cache:
 
 before_install:
   - pip install -q coveralls
+  - git clone https://github.com/sibirrer/hierArc.git
+  - cd hierArc
+  - pip install -e .
+  - cd ..
 
 install:
 # Install SLRealizer dependencies
