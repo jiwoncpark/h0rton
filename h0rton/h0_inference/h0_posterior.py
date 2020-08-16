@@ -8,30 +8,14 @@ from lenstronomy.Analysis.td_cosmography import TDCosmography
 from scipy.stats import norm
 from h0rton.h0_inference import h0_utils
 
-__all__ = ['gaussian_ll_pdf', 'H0Posterior']
-
-def gaussian_ll_pdf(x, mu, sigma):
-    """Evaluates the (unnormalized) log of the normal PDF at point x
-    
-    Parameters
-    ----------
-    x : float or array-like
-        point at which to evaluate the log pdf
-    mu : float or array-like
-        mean of the normal on a linear scale
-    sigma : float or array-like
-        standard deviation of the normal on a linear scale
-        
-    """
-    log_pdf = -0.5*(x - mu)**2.0/sigma**2.0 #- np.log(sigma) - 0.5*np.log(2.0*np.pi)
-    return log_pdf
+__all__ = ['H0Posterior']
 
 class H0Posterior:
     """Represents the posterior over H0
 
     """
     required_params = ["lens_mass_center_x", "src_light_center_x","lens_mass_center_y", "src_light_center_y", "lens_mass_gamma", "lens_mass_theta_E", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "lens_light_R_sersic", "src_light_R_sersic"]
-    def __init__(self, H0_prior, kappa_ext_prior, aniso_param_prior, exclude_vel_disp, kwargs_model, baobab_time_delays, Om0, define_src_pos_wrt_lens, kinematics=None, kwargs_lens_eq_solver={}):
+    def __init__(self, H0_prior, kappa_ext_prior,  kwargs_model, baobab_time_delays, Om0, define_src_pos_wrt_lens, exclude_vel_disp=True, aniso_param_prior=None, kinematics=None, kappa_transformed=True, kwargs_lens_eqn_solver={}):
         """
 
         Parameters
@@ -50,8 +34,12 @@ class H0Posterior:
         
         """
         self.H0_prior = H0_prior
+        self.kappa_transformed = kappa_transformed
         self.kappa_ext_prior = kappa_ext_prior
-        self.kappa_ext_transformed_prior = norm(loc=1.0, scale=0.025)
+        if self.kappa_transformed:
+            self.sample_kappa_ext = self.sample_kappa_ext_transformed
+        else:
+            self.sample_kappa_ext = self.sample_kappa_ext_original
         self.aniso_param_prior = aniso_param_prior
         self.exclude_vel_disp = exclude_vel_disp
         self.kwargs_model = kwargs_model
@@ -59,18 +47,16 @@ class H0Posterior:
         self.define_src_pos_wrt_lens = define_src_pos_wrt_lens
         self.kinematics = kinematics
         self.Om0 = Om0 # Omega matter
-        self.kwargs_lens_eq_solver = kwargs_lens_eq_solver
+        self.kwargs_lens_eqn_solver = kwargs_lens_eqn_solver
         self.kwargs_model.update(dict(point_source_model_list=['SOURCE_POSITION']))
-
-        if self.kinematics.anisotropy_model == 'analytic':
-            self.get_velocity_dispersion = getattr(kinematics_utils, 'velocity_dispersion_analytic')
-        else:
-            # TODO: currently not available, as BNN does not predict lens light profile
-            self.get_velocity_disperison = getattr(kinematics_utils, 'velocity_dispersion_numerical')
-
         if not self.exclude_vel_disp:
             if self.kinematics is None:
                 raise ValueError("kinematics is required to calculate velocity dispersion.")
+            if self.kinematics.anisotropy_model == 'analytic':
+                self.get_velocity_dispersion = getattr(kinematics_utils, 'velocity_dispersion_analytic')
+            else:
+                # TODO: currently not available, as BNN does not predict lens light profile
+                self.get_velocity_disperison = getattr(kinematics_utils, 'velocity_dispersion_numerical')
 
     @classmethod
     def from_dict(cls, lens_dict):
@@ -84,7 +70,7 @@ class H0Posterior:
         """
         return cls(lens_dict.items())
 
-    def set_cosmology_observables(self, z_lens, z_src, measured_vd, measured_vd_err, measured_td_wrt0, measured_td_err, abcd_ordering_i, true_img_dec, true_img_ra, kappa_ext=None):
+    def set_cosmology_observables(self, z_lens, z_src, measured_td_wrt0, measured_td_err, abcd_ordering_i, true_img_dec, true_img_ra, kappa_ext, measured_vd=None, measured_vd_err=None):
         """Set the cosmology observables for a given lens system, persistent across all the samples for that system
 
         Parameters
@@ -219,14 +205,14 @@ class H0Posterior:
     def sample_H0(self, random_state):
         return self.H0_prior.rvs(random_state=random_state)
 
-    def sample_kappa_ext(self, random_state):
+    def sample_kappa_ext_original(self, random_state):
         return self.kappa_ext_prior.rvs(random_state=random_state)
 
     def sample_kappa_ext_transformed(self, random_state):
-        x = self.kappa_ext_transformed_prior.rvs(random_state=random_state)
+        x = self.kappa_ext_prior.rvs(random_state=random_state)
         i = 0
         while ~np.isfinite(1.0 - 1.0/x):
-            x = self.kappa_ext_transformed_prior.rvs(random_state=random_state + i)
+            x = self.kappa_ext_prior.rvs(random_state=random_state + i)
             i += 1
         return 1.0 - 1.0/x
 
@@ -288,7 +274,7 @@ class H0Posterior:
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions
-        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eq_solver=self.kwargs_lens_eq_solver)
+        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
         # Velocity dispersion
         # TODO: separate sampling function if vel_disp is excluded
         if self.exclude_vel_disp:
@@ -307,7 +293,7 @@ class H0Posterior:
                                                        self.kinematics.kwargs_numerics,
                                                        k_ext
                                                        )
-            ll_vd = gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
+            ll_vd = h0_utils.gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
         # Time delays
         inferred_td, x_image, y_image = td_cosmo.time_delays(kwargs_lens, lens_prior_sample['kwargs_ps'], kappa_ext=k_ext)
         if len(inferred_td) > len(self.measured_td_wrt0) + 1:
@@ -319,7 +305,7 @@ class H0Posterior:
             inferred_td = np.array(inferred_td)
         inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]
         #print(inferred_td, self.measured_td)
-        ll_td = np.sum(gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
+        ll_td = np.sum(h0_utils.gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
         log_w = ll_vd + ll_td
         weight = mp.exp(log_w)
         return h0_candidate, weight
@@ -330,7 +316,7 @@ class H0Posterior:
         self.kwargs_model.update(dict(point_source_model_list=['SOURCE_POSITION']))
         self.lens_prior_sample = self.format_lens_model(sampled_lens_model_raw)
         cosmo = FlatLambdaCDM(H0=70.0, Om0=self.Om0) # fiducial cosmology, doesn't matter
-        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eq_solver=self.kwargs_lens_eq_solver)
+        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
         _, x_image, y_image = td_cosmo.time_delays(self.lens_prior_sample['kwargs_lens'], self.lens_prior_sample['kwargs_ps'], kappa_ext=0.0)
         while len(y_image) not in [2, 4]:
             _, x_image, y_image = td_cosmo.time_delays(self.lens_prior_sample['kwargs_lens'], self.lens_prior_sample['kwargs_ps'], kappa_ext=0.0)
@@ -360,7 +346,7 @@ class H0Posterior:
         # Define cosmology
         cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
         # Tool for getting time delays and velocity dispersions
-        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eq_solver=self.kwargs_lens_eq_solver)
+        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
         # Velocity dispersion
         # TODO: separate sampling function if vel_disp is excluded
         if self.exclude_vel_disp:
@@ -379,7 +365,7 @@ class H0Posterior:
                                                        self.kinematics.kwargs_numerics,
                                                        k_ext
                                                        )
-            ll_vd = gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
+            ll_vd = h0_utils.gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
         # Time delays
         inferred_td, x_image, y_image = td_cosmo.time_delays(self.lens_prior_sample['kwargs_lens'], self.kwargs_image, kappa_ext=k_ext)
         #print(inferred_td, y_image)
@@ -393,7 +379,7 @@ class H0Posterior:
             inferred_td = np.array(inferred_td)
         inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]
         #print(inferred_td_wrt0, self.measured_td_wrt0)
-        ll_td = np.sum(gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
+        ll_td = np.sum(h0_utils.gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
         log_w = ll_vd + ll_td
         weight = mp.exp(log_w)
         return h0_candidate, weight

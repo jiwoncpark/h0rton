@@ -7,9 +7,31 @@ import corner
 import matplotlib.pyplot as plt
 from scipy.stats import norm, median_absolute_deviation
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "get_normal_stats", "get_normal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "get_normal_stats", "get_normal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses", "gaussian_ll_pdf", "TrueKappa"]
 
 MAD_to_sig = 1.0/norm.ppf(0.75) # 1.4826 built into scipy, so not used.
+
+class DeltaFunction:
+    def __init__(self, true_value=0.0):
+        self.true_value = true_value
+    def rvs(self, random_state=None):
+        return self.true_value
+
+def gaussian_ll_pdf(x, mu, sigma):
+    """Evaluates the (unnormalized) log of the normal PDF at point x
+    
+    Parameters
+    ----------
+    x : float or array-like
+        point at which to evaluate the log pdf
+    mu : float or array-like
+        mean of the normal on a linear scale
+    sigma : float or array-like
+        standard deviation of the normal on a linear scale
+        
+    """
+    log_pdf = -0.5*(x - mu)**2.0/sigma**2.0 #- np.log(sigma) - 0.5*np.log(2.0*np.pi)
+    return log_pdf
 
 def reorder_to_tdlmc(img_array, increasing_dec_i, abcd_ordering_i):
     """Apply the permutation scheme for reordering the list of ra, dec, and time delays to conform to the order in the TDLMC challenge

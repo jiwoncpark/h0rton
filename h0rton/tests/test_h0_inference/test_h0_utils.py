@@ -24,6 +24,18 @@ class TestH0Utils(unittest.TestCase):
     def setUp(self):
         np.random.seed(331)
 
+    def test_gaussian_ll_pdf(self):
+        """Test the unnormalized log normal PDF
+
+        """
+        m = 0.5
+        s = 1
+        eval_x = np.linspace(-3, 3, 100)
+        truth = norm.logpdf(eval_x, m, s)
+        # Note output of gaussian_nll_pdf is unnormalized
+        pred = gaussian_ll_pdf(eval_x, m, s) - np.log(s) - 0.5*np.log(2.0*np.pi) 
+        np.testing.assert_array_almost_equal(pred, truth)
+
     def test_pred_to_natural_gaussian(self):
         """Test if the predicted mu, cov are being transformed back correctly into natural (original) space
 
