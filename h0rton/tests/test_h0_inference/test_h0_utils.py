@@ -33,7 +33,7 @@ class TestH0Utils(unittest.TestCase):
         eval_x = np.linspace(-3, 3, 100)
         truth = norm.logpdf(eval_x, m, s)
         # Note output of gaussian_nll_pdf is unnormalized
-        pred = gaussian_ll_pdf(eval_x, m, s) - np.log(s) - 0.5*np.log(2.0*np.pi) 
+        pred = h0_utils.gaussian_ll_pdf(eval_x, m, s) - np.log(s) - 0.5*np.log(2.0*np.pi) 
         np.testing.assert_array_almost_equal(pred, truth)
 
     def test_pred_to_natural_gaussian(self):
