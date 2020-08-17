@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import pandas as pd
 import torch
@@ -15,7 +16,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
     """Represents the XYData used to train or validate the BNN
 
     """
-    def __init__(self, is_train, train_Y_mean, train_Y_std, Y_cols, float_type, define_src_pos_wrt_lens, rescale_pixels, log_pixels, add_pixel_noise, eff_exposure_time, train_baobab_cfg_path=None, val_baobab_cfg_path=None, for_cosmology=False):
+    def __init__(self, is_train, Y_cols, float_type, define_src_pos_wrt_lens, rescale_pixels, log_pixels, add_pixel_noise, eff_exposure_time, train_Y_mean=None, train_Y_std=None, train_baobab_cfg_path=None, val_baobab_cfg_path=None, for_cosmology=False):
         """
         Parameters
         ----------
@@ -35,6 +36,9 @@ class XYData(Dataset): # torch.utils.data.Dataset
         else:
             self.baobab_cfg = BaobabConfig.from_file(val_baobab_cfg_path)
         self.dataset_dir = self.baobab_cfg.out_dir
+        if not self.is_train:
+            if train_Y_mean is None or train_Y_std is None:
+                raise ValueError("Mean and std of training set must be provided for whitening.")
         self.train_Y_mean = train_Y_mean
         self.train_Y_std = train_Y_std
         self.Y_cols = Y_cols
@@ -59,6 +63,10 @@ class XYData(Dataset): # torch.utils.data.Dataset
         if self.define_src_pos_wrt_lens:
             Y_df['src_light_center_x'] -= Y_df['lens_mass_center_x']
             Y_df['src_light_center_y'] -= Y_df['lens_mass_center_y']
+        train_Y_to_whiten = Y_df[self.Y_cols].values
+        if self.is_train:
+            self.train_Y_mean = np.mean(train_Y_to_whiten, axis=0, keepdims=True)
+            self.train_Y_std = np.std(train_Y_to_whiten, axis=0, keepdims=True)
         # Store the unwhitened metadata
         if self.for_cosmology:
             self.Y_df = Y_df        
@@ -75,6 +83,11 @@ class XYData(Dataset): # torch.utils.data.Dataset
         ################
         # Input images #
         ################
+        # Set some metadata
+        img_path = glob.glob(os.path.join(self.dataset_dir, '*.npy'))[0]
+        img = np.load(img_path)
+        self.X_dim = img.shape[0]
+
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
         rescale = transforms.Lambda(whiten_pixels)
         log = transforms.Lambda(plus_1_log)

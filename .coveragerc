@@ -1,0 +1,5 @@
+[report]
+omit = 
+    */baobab_configs/*
+    *__init__*
+    */plotting_utils.py
