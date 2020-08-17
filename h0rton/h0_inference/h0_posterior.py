@@ -324,66 +324,6 @@ class H0Posterior:
         self.kwargs_model.update(dict(point_source_model_list=['LENSED_POSITION']))
         self.kwargs_image = [dict(ra_image=x_image, dec_image=y_image)]
 
-    def get_h0_sample_truth(self, random_state):
-        """Get MC samples from the H0Posterior
-
-        Parameters
-        ----------
-        sampled_lens_model_raw : dict
-            sampled lens model parameters, pre-formatting
-        random_state : np.random.RandomState object
-
-        Returns
-        -------
-        tuple of floats
-            the candidate H0 and its weight
-
-        """
-        #increasing_dec_i = lens_prior_sample['increasing_dec_i']
-        # Sample from respective predefined priors
-        h0_candidate = self.sample_H0(random_state)
-        k_ext = self.sample_kappa_ext_transformed(random_state)#self.kappa_ext #self.sample_kappa_ext(random_state) #
-        # Define cosmology
-        cosmo = FlatLambdaCDM(H0=h0_candidate, Om0=self.Om0)
-        # Tool for getting time delays and velocity dispersions
-        td_cosmo = TDCosmography(self.z_lens, self.z_src, self.kwargs_model, cosmo_fiducial=cosmo, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
-        # Velocity dispersion
-        # TODO: separate sampling function if vel_disp is excluded
-        if self.exclude_vel_disp:
-            ll_vd = 0.0
-        else:
-            aniso_param = self.sample_aniso_param(random_state)
-            inferred_vd = self.get_velocity_dispersion(
-                                                       td_cosmo, 
-                                                       self.lens_prior_sample['kwargs_lens'], 
-                                                       None, #FIXME: only analytic
-                                                       {'aniso_param': aniso_param}, 
-                                                       self.kinematics.kwargs_aperture, 
-                                                       self.kinematics.kwargs_psf, 
-                                                       self.kinematics.anisotropy_model, 
-                                                       self.lens_prior_sample['lens_light_R_sersic'],
-                                                       self.kinematics.kwargs_numerics,
-                                                       k_ext
-                                                       )
-            ll_vd = h0_utils.gaussian_ll_pdf(inferred_vd, self.measured_vd, self.measured_vd_err)
-        # Time delays
-        inferred_td, x_image, y_image = td_cosmo.time_delays(self.lens_prior_sample['kwargs_lens'], self.kwargs_image, kappa_ext=k_ext)
-        #print(inferred_td, y_image)
-        if len(inferred_td) > len(self.measured_td_wrt0) + 1:
-            inferred_td, x_image, y_image = self.chuck_images(inferred_td, x_image, y_image)
-            #print("after correct: ", inferred_td, y_image)
-        if self.lens_prior_sample['requires_reordering']:
-            increasing_dec_i = np.argsort(y_image)
-            inferred_td = h0_utils.reorder_to_tdlmc(inferred_td, increasing_dec_i, self.abcd_ordering_i)
-        else:
-            inferred_td = np.array(inferred_td)
-        inferred_td_wrt0 = inferred_td[1:] - inferred_td[0]
-        #print(inferred_td_wrt0, self.measured_td_wrt0)
-        ll_td = np.sum(h0_utils.gaussian_ll_pdf(inferred_td_wrt0, self.measured_td_wrt0, self.measured_td_err))
-        log_w = ll_vd + ll_td
-        weight = mp.exp(log_w)
-        return h0_candidate, weight
-
     def chuck_images(self, inferred_td, x_image, y_image):
         """If the number of predicted images are greater than the measured, choose the images that best correspond to the measured.
 

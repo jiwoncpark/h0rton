@@ -111,13 +111,13 @@ class TestH0Posterior(unittest.TestCase):
         # Instantiate H0Posterior with the delta-function prior on kappa_ext at the truth
         h0_post = H0Posterior(self.H0_prior, self.kappa_ext_prior_true, self.kwargs_model, self.baobab_time_delays, self.true_Om0, self.define_src_pos_wrt_lens, exclude_vel_disp=True, aniso_param_prior=None, kinematics=None, kappa_transformed=False, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
         formatted_lens_model = h0_post.format_lens_model(self.lens_model) # tested separately in test_H0Posterior_format_lens_model, used as a utility function here
+        # Generate the true time delays and image positions
         true_td, true_x_image, true_y_image = self.td_cosmo.time_delays(formatted_lens_model['kwargs_lens'], formatted_lens_model['kwargs_ps'], kappa_ext=self.true_kappa_ext)
         # Compute the true time delay offset
         increasing_dec_i = np.argsort(true_y_image)
         measured_td = true_td[increasing_dec_i]
         measured_td_wrt0 = measured_td[1:] - measured_td[0]
         
-        # Generate the true time delays and image positions
         h0_post.set_cosmology_observables(self.z_lens, self.z_src, measured_td_wrt0, 0.25, abcd_ordering_i=range(len(true_y_image)), true_img_dec=true_y_image, true_img_ra=true_x_image, kappa_ext=self.true_kappa_ext)
         # "Infer" the H0 given the true time delays as measurement data, true kappa, and true lens model
         h0_samples = np.empty(5000)
@@ -128,6 +128,38 @@ class TestH0Posterior(unittest.TestCase):
 
         # Compare the inferred central H0 with truth
         np.testing.assert_almost_equal(normal_stats['mean'], self.true_H0, decimal=1, err_msg="H0 sampling")
+
+    def test_chuck_images(self):
+        """Test if the correct images are removed in the case of extra image detections
+
+        """
+        # Instantiate a dummy H0Posterior to test its method, chuck_images
+        h0_post = H0Posterior(self.H0_prior, self.kappa_ext_prior_true, self.kwargs_model, self.baobab_time_delays, self.true_Om0, self.define_src_pos_wrt_lens, exclude_vel_disp=True, aniso_param_prior=None, kinematics=None, kappa_transformed=False, kwargs_lens_eqn_solver=self.kwargs_lens_eqn_solver)
+        formatted_lens_model = h0_post.format_lens_model(self.lens_model) # tested separately in test_H0Posterior_format_lens_model, used as a utility function here
+        # Generate the true time delays and image positions
+        true_td, true_x_image, true_y_image = self.td_cosmo.time_delays(formatted_lens_model['kwargs_lens'], formatted_lens_model['kwargs_ps'], kappa_ext=self.true_kappa_ext)
+        # Compute the true time delay offset
+        increasing_dec_i = np.argsort(true_y_image)
+        measured_td = true_td[increasing_dec_i]
+        measured_td_wrt0 = measured_td[1:] - measured_td[0]
+        h0_post.set_cosmology_observables(self.z_lens, self.z_src, measured_td_wrt0, 0.25, abcd_ordering_i=range(len(true_y_image)), true_img_dec=true_y_image, true_img_ra=true_x_image, kappa_ext=self.true_kappa_ext)
+
+        true_n_img = len(true_x_image)
+        # Generate some fake measured td (10% error) and images (1% error) with 2 extra images
+        extra_images_x = np.random.randn(true_n_img + 2)
+        extra_images_y = np.random.randn(true_n_img + 2)
+        extra_td = np.random.randn(true_n_img + 2)
+        measured_images_x = true_x_image*(1.0 + np.random.randn(true_n_img)*0.01)
+        measured_images_y = true_y_image*(1.0 + np.random.randn(true_n_img)*0.01)
+        measured_td = true_td*(1.0 + np.random.randn(true_n_img)*0.1)
+        extra_images_x[[0, 2, 4, 5]] = measured_images_x # randomly assign location of extra images but note that the measured y image must be ordered increasing dec at this point (so the random assignment is monotonic increasing)
+        extra_images_y[[0, 2, 4, 5]] = measured_images_y
+        extra_td[[0, 2, 4, 5]] = measured_td
+        inferred_td, x_image, y_image = h0_post.chuck_images(extra_td, extra_images_x, extra_images_y)
+
+        np.testing.assert_array_almost_equal(x_image, measured_images_x, err_msg="x image")
+        np.testing.assert_array_almost_equal(y_image, measured_images_y, err_msg="y image")
+        np.testing.assert_array_almost_equal(inferred_td, measured_td, err_msg="td")
 
 if __name__ == '__main__':
     unittest.main()
