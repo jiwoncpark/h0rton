@@ -12,15 +12,14 @@ cache:
 
 before_install:
   - pip install -q coveralls
-
-install:
-# Install SLRealizer dependencies
-  - pip install -e . -r requirements.txt
-  - cd ..
   - git clone https://github.com/sibirrer/hierArc.git
   - cd hierArc
   - pip install -e . -r requirements.txt
-  - cd ../h0rton
+  - cd ..
+
+install:
+  - pip install -e . -U -r requirements.txt
+  - 
 
 script:
   - coverage run --source=h0rton -m pytest h0rton/tests/
