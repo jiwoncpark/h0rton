@@ -18,6 +18,7 @@ import numpy as np # linear algebra
 from tqdm import tqdm
 # torch modules
 import torch
+import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -28,6 +29,7 @@ import h0rton.losses
 import h0rton.models
 import h0rton.h0_inference
 import h0rton.train_utils as train_utils
+import h0rton.script_utils as script_utils
 
 def parse_args():
     """Parse command-line arguments
@@ -44,55 +46,60 @@ def parse_args():
         #args.n_data = sys.argv[1]
     return args
 
-def seed_everything(global_seed):
-    """Seed everything for reproducibility
-
-    global_seed : int
-        seed for `np.random`, `random`, and relevant `torch` backends
-
-    """
-    np.random.seed(global_seed)
-    random.seed(global_seed)
-    torch.manual_seed(global_seed)
-    torch.cuda.manual_seed_all(global_seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
 def main():
     args = parse_args()
     cfg = TrainValConfig.from_file(args.user_cfg_path)
     # Set device and default data type
     device = torch.device(cfg.device_type)
     if device.type == 'cuda':
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        torch.set_default_tensor_type('torch.cuda.' + train_val_cfg.data.float_type)
     else:
-        torch.set_default_tensor_type('torch.FloatTensor')
-    seed_everything(cfg.global_seed)
+        torch.set_default_tensor_type('torch.' + train_val_cfg.data.float_type)
+    script_utils.seed_everything(cfg.global_seed)
 
     ############
     # Data I/O #
     ############
 
     # Define training data and loader
-    torch.multiprocessing.set_start_method('spawn', force=True)
-    train_data = XYData(cfg.data.train_dir, data_cfg=cfg.data)
-    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
-    n_train = train_data.n_data - (train_data.n_data % cfg.optim.batch_size)
+    #torch.multiprocessing.set_start_method('spawn', force=True)
+    train_data = XYData(is_train=True, 
+                        Y_cols=cfg.data.Y_cols, 
+                        float_type=cfg.data.float_type, 
+                        define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
+                        rescale_pixels=cfg.data.rescale_pixels, 
+                        log_pixels=cfg.data.log_pixels, 
+                        add_pixel_noise=cfg.data.add_pixel_noise, 
+                        eff_exposure_time=cfg.data.eff_exposure_time, 
+                        train_Y_mean=None, 
+                        train_Y_std=None, 
+                        train_baobab_cfg_path=cfg.data.train_baobab_cfg_path, 
+                        val_baobab_cfg_path=cfg.data.val_baobab_cfg_path, 
+                        for_cosmology=False)
+    train_loader = DataLoader(train_data, batch_size=cfg.optim.batch_size, shuffle=True, drop_last=True)
+    n_train = len(train_data) - (len(train_data) % cfg.optim.batch_size)
 
     # Define val data and loader
-    val_data = XYData(cfg.data.val_dir, data_cfg=cfg.data)
-    val_loader = DataLoader(val_data, batch_size=cfg.optim.batch_size, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
-    n_val = val_data.n_data - (val_data.n_data % cfg.optim.batch_size)
-
-    if cfg.data.test_dir is not None:
-        test_data = XYData(cfg.data.test_dir, data_cfg=cfg.data)
-        test_loader = DataLoader(test_data, batch_size=min(cfg.optim.batch_size, test_data.n_data), shuffle=False, drop_last=True, num_workers=4, pin_memory=True)
-        n_test = test_data.n_data #- (test_data.n_data % cfg.optim.batch_size)
+    val_data = XYData(is_train=False, 
+                      Y_cols=cfg.data.Y_cols, 
+                      float_type=cfg.data.float_type, 
+                      define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
+                      rescale_pixels=cfg.data.rescale_pixels, 
+                      log_pixels=cfg.data.log_pixels, 
+                      add_pixel_noise=cfg.data.add_pixel_noise, 
+                      eff_exposure_time=cfg.data.eff_exposure_time, 
+                      train_Y_mean=train_data.train_Y_mean, 
+                      train_Y_std=train_data.train_Y_std, 
+                      train_baobab_cfg_path=cfg.data.train_baobab_cfg_path, 
+                      val_baobab_cfg_path=cfg.data.val_baobab_cfg_path, 
+                      for_cosmology=False)
+    val_loader = DataLoader(val_data, batch_size=min(len(val_data), cfg.optim.batch_size), shuffle=False, drop_last=True,)
+    n_val = len(val_data) - (len(val_data) % min(len(val_data), cfg.optim.batch_size))
 
     #########
     # Model #
     #########
-    Y_dim = cfg.data.Y_dim
+    Y_dim = val_data.Y_dim
     # Instantiate loss function
     loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=Y_dim, device=device)
     # Instantiate posterior (for logging)
@@ -107,7 +114,9 @@ def main():
 
     # Instantiate optimizer
     optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=False, weight_decay=cfg.optim.weight_decay)
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=cfg.optim.lr_scheduler.factor, patience=cfg.optim.lr_scheduler.patience, verbose=True)
+    #optimizer = optim.SGD(net.parameters(), lr=cfg.optim.learning_rate, weight_decay=cfg.optim.weight_decay)
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, cooldown=50, verbose=True)
+    #lr_scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=cfg.optim.learning_rate*0.2, max_lr=cfg.optim.learning_rate, step_size_up=cfg.optim.lr_scheduler.step_size_up, step_size_down=None, mode='triangular2', gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9, last_epoch=-1)
     
     # Saving/loading state dicts
     checkpoint_dir = cfg.checkpoint.save_dir
@@ -119,6 +128,7 @@ def main():
         epoch += 1 # resume with next epoch
         last_saved_val_loss = val_loss
         print(lr_scheduler.state_dict())
+        print(optimizer.state_dict())
     else:
         epoch = 0
         last_saved_val_loss = np.inf
@@ -127,110 +137,79 @@ def main():
     model_path = ''
     print("Training set size: {:d}".format(n_train))
     print("Validation set size: {:d}".format(n_val))
-    if cfg.data.test_dir is not None:
-        print("Test set size: {:d}".format(n_test))
+    
     progress = tqdm(range(epoch, cfg.optim.n_epochs))
+    n_iter = 0
     for epoch in progress:
-        net.train()
         #net.apply(h0rton.models.deactivate_batchnorm)
         train_loss = 0.0
-
         for batch_idx, (X_tr, Y_tr) in enumerate(train_loader):
+            n_iter += 1
+            net.train()
             X_tr = X_tr.to(device)
             Y_tr = Y_tr.to(device)
             # Update weights
             optimizer.zero_grad()
-            pred_tr = net(X_tr)
+            pred_tr = net.forward(X_tr)
             loss = loss_fn(pred_tr, Y_tr)
             loss.backward()
             optimizer.step()
             # For logging
-            train_loss += (loss.item() - train_loss)/(1 + batch_idx)
+            train_loss += (loss.detach().item() - train_loss)/(1 + batch_idx)
+            # Step lr_scheduler every batch
+            lr_scheduler.step(train_loss)
+            tqdm.write("Iter [{}/{}/{}]: TRAIN Loss: {:.4f}".format(n_iter, epoch+1, cfg.optim.n_epochs, train_loss))
 
-        with torch.no_grad():
-            net.eval()
-            #net.apply(h0rton.models.deactivate_batchnorm)
-            val_loss = 0.0
-            test_loss = 0.0
+            if (n_iter)%(cfg.monitoring.interval) == 0:
+                net.eval()         
+                with torch.no_grad():
+                    #net.apply(h0rton.models.deactivate_batchnorm)
+                    val_loss = 0.0
+           
+                    for batch_idx, (X_v, Y_v) in enumerate(val_loader):
+                        X_v = X_v.to(device)
+                        Y_v = Y_v.to(device)
+                        pred_v = net.forward(X_v)
+                        nograd_loss_v = loss_fn(pred_v, Y_v)
+                        val_loss += (nograd_loss_v.detach().item() - val_loss)/(1 + batch_idx)
 
-            if cfg.data.test_dir is not None:
-                for batch_idx, (X_t, Y_t) in enumerate(test_loader):
-                    X_t = X_t.to(device)
-                    Y_t = Y_t.to(device)
-                    pred_t = net(X_t)
-                    nograd_loss_t = loss_fn(pred_t, Y_t)
-                    test_loss += (nograd_loss_t.item() - test_loss)/(1 + batch_idx)
+                    tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
+                    
+                    # Subset of validation for plotting
+                    n_plotting = cfg.monitoring.n_plotting
+                    X_plt = X_v[:n_plotting].cpu().numpy()
+                    #Y_plt = Y[:n_plotting].cpu().numpy()
+                    Y_plt_orig = bnn_post.transform_back_mu(Y_v[:n_plotting]).cpu().numpy()
+                    pred_plt = pred_v[:n_plotting]
+                    # Slice pred_plt into meaningful Gaussian parameters for this batch
+                    bnn_post.set_sliced_pred(pred_plt)
+                    mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
+                    # Log train and val metrics
+                    loss_dict = {'train': train_loss, 'val': val_loss}
+                    logger.add_scalars('metrics/loss', loss_dict, n_iter)
+                    #rmse = train_utils.get_rmse(mu, Y_plt)
+                    rmse_dict = train_utils.get_rmse(mu_orig, Y_plt_orig, cfg.data.Y_cols)
+                    logger.add_scalars('metrics/rmse', rmse_dict, n_iter)
+                    # Log log determinant of the covariance matrix
+                    if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'FullRankGaussianNLL']:
+                        logdet = train_utils.get_logdet(bnn_post.tril_elements.cpu().numpy(), Y_dim)
+                        logger.add_histogram('logdet_cov_mat', logdet, n_iter)
+                    # Log second Gaussian stats
+                    if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
+                        # Log histogram of w2
+                        logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), n_iter)
+                        # Log RMSE of second Gaussian
+                        mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
+                        rmse2_dict = train_utils.get_rmse(mu2_orig, Y_plt_orig, cfg.data.Y_cols)
+                        logger.add_scalars('metrics/rmse2', rmse2_dict, n_iter)
+                        # Log logdet of second Gaussian
+                        logdet2 = train_utils.get_logdet(bnn_post.tril_elements2.cpu().numpy(), Y_dim)
+                        logger.add_histogram('logdet_cov_mat2', logdet2, n_iter)
 
-            for batch_idx, (X_v, Y_v) in enumerate(val_loader):
-                X_v = X_v.to(device)
-                Y_v = Y_v.to(device)
-                pred_v = net(X_v)
-                nograd_loss_v = loss_fn(pred_v, Y_v)
-                val_loss += (nograd_loss_v.item() - val_loss)/(1 + batch_idx)
-
-            tqdm.write("Epoch [{}/{}]: TRAIN Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, train_loss))
-            tqdm.write("Epoch [{}/{}]: VALID Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, val_loss))
-            if cfg.data.test_dir is not None:
-                tqdm.write("Epoch [{}/{}]: TEST Loss: {:.4f}".format(epoch+1, cfg.optim.n_epochs, test_loss))
-            
-            if (epoch + 1)%(cfg.monitoring.interval) == 0:
-                # Subset of validation for plotting
-                n_plotting = cfg.monitoring.n_plotting
-                X_plt = X_v[:n_plotting].cpu().numpy()
-                #Y_plt = Y[:n_plotting].cpu().numpy()
-                Y_plt_orig = bnn_post.transform_back_mu(Y_v[:n_plotting]).cpu().numpy()
-                pred_plt = pred_v[:n_plotting]
-                # Slice pred_plt into meaningful Gaussian parameters for this batch
-                bnn_post.set_sliced_pred(pred_plt)
-                mu_orig = bnn_post.transform_back_mu(bnn_post.mu).cpu().numpy()
-                # Log train and val metrics
-                loss_dict = {'train': train_loss, 'val': val_loss}
-                if cfg.data.test_dir is not None:
-                    loss_dict.update(test=test_loss)
-                logger.add_scalars('metrics/loss', loss_dict, epoch)
-                #rmse = train_utils.get_rmse(mu, Y_plt)
-                rmse_dict = train_utils.get_rmse(mu_orig, Y_plt_orig, cfg.data.Y_cols)
-                logger.add_scalars('metrics/rmse', rmse_dict, epoch)
-                # Log log determinant of the covariance matrix
-                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'FullRankGaussianNLL']:
-                    logdet = train_utils.get_logdet(bnn_post.tril_elements.cpu().numpy(), Y_dim)
-                    logger.add_histogram('logdet_cov_mat', logdet, epoch)
-                # Log second Gaussian stats
-                if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'DoubleLowRankGaussianNLL']:
-                    # Log histogram of w2
-                    logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), epoch)
-                    # Log RMSE of second Gaussian
-                    mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
-                    rmse2_dict = train_utils.get_rmse(mu2_orig, Y_plt_orig, cfg.data.Y_cols)
-                    logger.add_scalars('metrics/rmse2', rmse2_dict, epoch)
-                    # Log logdet of second Gaussian
-                    logdet2 = train_utils.get_logdet(bnn_post.tril_elements2.cpu().numpy(), Y_dim)
-                    logger.add_histogram('logdet_cov_mat2', logdet2, epoch)
-                # Log histograms of named parameters
-                if cfg.monitoring.weight_distributions:
-                    for param_name, param in net.named_parameters():
-                        logger.add_histogram(param_name, param.clone().cpu().data.numpy(), epoch)
-                # Log sample images
-                if cfg.monitoring.sample_images:
-                    sample_img = X_plt[:5]
-                    #pred = pred.cpu().numpy()
-                    logger.add_images('val_images', sample_img, epoch, dataformats='NCHW')
-                # Log 1D marginal mapping
-                if cfg.monitoring.marginal_1d_mapping:
-                    for param_idx, param_name in enumerate(cfg.data.Y_cols):
-                        tag = '1d_mapping/{:s}'.format(param_name)
-                        fig = train_utils.get_1d_mapping_fig(param_name, mu_orig[:, param_idx], Y_plt_orig[:, param_idx])
-                        logger.add_figure(tag, fig, global_step=epoch)
-
-            if (epoch + 1)%(cfg.checkpoint.interval) == 0:
-                # FIXME compare to last saved epoch val loss
-                if val_loss < last_saved_val_loss:
-                    os.remove(model_path) if os.path.exists(model_path) else None
-                    model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
-                    last_saved_val_loss = val_loss
-
-        # Step lr_scheduler every epoch
-        lr_scheduler.step(val_loss)
+                    if val_loss < last_saved_val_loss:
+                        os.remove(model_path) if os.path.exists(model_path) else None
+                        model_path = train_utils.save_state_dict(net, optimizer, lr_scheduler, train_loss, val_loss, checkpoint_dir, cfg.model.architecture, epoch)
+                        last_saved_val_loss = val_loss
 
     logger.close()
     # Save final state dict

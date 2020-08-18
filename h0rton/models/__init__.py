@@ -1,2 +1,1 @@
-from .basics import *
-from .resnet import *
+from .bayesian_resnet import *
