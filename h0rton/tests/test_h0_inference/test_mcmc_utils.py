@@ -161,7 +161,7 @@ class TestMCMCUtils(unittest.TestCase):
         bnn_array = np.arange(20).reshape([1, 4, 5])
         bnn_Y_cols = ['lens_mass_center_x', 'lens_mass_center_y', 'src_light_center_x', 'src_light_center_y', 'lens_mass_theta_E']
         D_dt_array = -np.arange(4).reshape([1, 4, 1])
-        param_class_Y_cols = ['ra_source', 'dec_source', 'theta_E_lens0', 'center_x_lens0', 'center_y_lens0',]
+        param_class_Y_cols = ['ra_source', 'dec_source', 'theta_E_lens0', 'center_x_lens0', 'center_y_lens0', 'D_dt']
         actual = mcmc_utils.reorder_to_param_class(bnn_Y_cols, param_class_Y_cols, bnn_array, D_dt_array)
         expected = np.array([[[   2+0,  3+1,  4, 0,  1, -0],
                              [   7+5,  8+6,  9, 5,  6, -1],
