@@ -347,6 +347,6 @@ def reorder_to_param_class(bnn_Y_cols, param_class_Y_cols, bnn_array, D_dt_array
     bnn_array[:, :, baobab_col_to_idx['src_light_center_x']] += bnn_array[:, :, baobab_col_to_idx['lens_mass_center_x']]
     bnn_array[:, :, baobab_col_to_idx['src_light_center_y']] += bnn_array[:, :, baobab_col_to_idx['lens_mass_center_y']]
     baobab_array = np.concatenate([bnn_array, D_dt_array], axis=-1) # [n_lenses, n_samples, bnn_Y_dim + 1]
-    ordering = [baobab_col_to_idx[param_to_baobab[param_col]] for param_col in param_class_Y_cols] + [len(baobab_cols) - 1]
+    ordering = [baobab_col_to_idx[param_to_baobab[param_col]] for param_col in param_class_Y_cols]
     mcmc_array = baobab_array[:, :, ordering] # [n_lenses, n_samples, len(param_class_Y_cols)]
     return mcmc_array

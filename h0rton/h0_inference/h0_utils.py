@@ -5,7 +5,7 @@ from lenstronomy.Cosmo.lens_cosmo import LensCosmo
 from hierarc.Sampling.mcmc_sampling import MCMCSampler
 import corner
 import matplotlib.pyplot as plt
-from scipy.stats import norm, median_absolute_deviation
+from scipy.stats import norm, median_abs_deviation
 
 __all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "get_normal_stats", "get_normal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses", "gaussian_ll_pdf", "TrueKappa"]
 
@@ -109,7 +109,7 @@ def get_lognormal_stats(all_samples):
     samples = all_samples[~is_nan_mask]
     log_samples = np.log(samples)
     mu = np.median(log_samples)
-    sig2 = median_absolute_deviation(log_samples, axis=None)**2.0
+    sig2 = median_abs_deviation(log_samples, axis=None, scale='normal')**2.0
     mode = np.exp(mu - sig2)
     std = ((np.exp(sig2) - 1.0)*(np.exp(2*mu - sig2)))**0.5
     stats = dict(
@@ -148,7 +148,7 @@ def get_normal_stats(all_samples):
     is_nan_mask = np.logical_or(np.isnan(all_samples), ~np.isfinite(all_samples))
     samples = all_samples[~is_nan_mask]
     mean = np.median(samples)
-    std = median_absolute_deviation(samples, axis=None)
+    std = median_abs_deviation(samples, axis=None, scale='normal')
     stats = dict(
                  mean=mean,
                  std=std
@@ -183,7 +183,7 @@ def remove_outliers_from_lognormal(data, level=3):
     # Quantiles are preserved under monotonic transformations
     log_data = np.log(data)
     robust_mean = np.median(log_data)
-    robust_std = median_absolute_deviation(log_data)
+    robust_std = median_abs_deviation(log_data, scale='normal')
     return data[abs(log_data - robust_mean) < level*robust_std]
 
 def combine_lenses(likelihood_type, z_lens, z_src, true_Om0, samples_save_path=None, corner_save_path=None, n_run=100, n_burn=400, n_walkers=10, **posterior_parameters):
