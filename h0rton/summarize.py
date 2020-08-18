@@ -15,9 +15,10 @@ import numpy as np
 import pandas as pd
 import argparse
 import scipy.stats
+from baobab.configs import BaobabConfig
 from h0rton.configs import TestConfig
-from h0rton.h0_inference import h0_utils
-import h0rton.tdlmc_utils
+import h0rton.h0_inference.h0_utils as h0_utils
+import h0rton.tdlmc_utils as tdlmc_utils
 
 def parse_args():
     """Parse command-line arguments
@@ -52,7 +53,8 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
     H0_dicts = [f for f in os.listdir(samples_dir) if f.startswith('h0_dict')]
     H0_dicts.sort()
     # Read in the redshift columns of metadata
-    metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
+    baobab_cfg = BaobabConfig.from_file(test_cfg.data.test_baobab_cfg_path)
+    metadata_path = os.path.join(baobab_cfg.out_dir, 'metadata.csv')
     meta = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'])
 
     summary_df = pd.DataFrame() # instantiate empty dataframe for storing summary
@@ -67,9 +69,6 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
         H0_dict = np.load(os.path.join(samples_dir, f_name), allow_pickle=True).item()
         H0_samples = H0_dict['h0_samples']
         weights = H0_dict['h0_weights']
-        remove = np.isnan(weights)
-        H0_samples = H0_samples[~remove]
-        weights = weights[~remove]
         if np.sum(weights) == 0:
             H0_mean = -1
             H0_std = -1
@@ -79,30 +78,22 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
             z_lens = -1
             z_src = -1
         else:
-            H0_mean = np.average(H0_samples, weights=weights)
-            H0_std = np.average((H0_samples - H0_mean)**2.0, weights=weights)**0.5
+            H0_normal_stats = h0_utils.get_normal_stats_naive(H0_samples, weights)
             n_eff = np.sum(weights)**2.0/(np.sum(weights**2.0))
-            # Mean can be NaN even when there's no NaN in the weights
-            if np.isnan(H0_mean):
-                remove = np.logical_or(np.isnan(weights), weights == 0)
-                H0_samples = H0_samples[~remove]
-                weights = weights[~remove]
-                H0_mean = np.average(H0_samples, weights=weights)
-                H0_std = np.average((H0_samples - H0_mean)**2.0, weights=weights)**0.5
-                n_eff = np.sum(weights)**2.0/(np.sum(weights**2.0))
             # Convert H0 H0_samples to D_dt
             cosmo_converter = h0_utils.CosmoConverter(z_lens, z_src)
             D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
             D_dt_stats = h0_utils.get_lognormal_stats_naive(D_dt_samples, weights)
-            D_dt_mu = D_dt_stats['mu']
-            D_dt_sigma = D_dt_stats['sigma']
-
+            D_dt_normal_stats = h0_utils.get_normal_stats_naive(D_dt_samples, weights)
         summary_i = dict(
                          id=lens_i,
-                         H0_mean=H0_mean,
-                         H0_std=H0_std,
-                         D_dt_mu=D_dt_mu,
-                         D_dt_sigma=D_dt_sigma,
+                         measured_td_wrt0=list(H0_dict['measured_td_wrt0']),
+                         H0_mean=H0_normal_stats['mean'],
+                         H0_std=H0_normal_stats['std'],
+                         D_dt_mu=D_dt_stats['mu'],
+                         D_dt_sigma=D_dt_stats['sigma'],
+                         D_dt_mean=D_dt_normal_stats['mean'],
+                         D_dt_std=D_dt_normal_stats['std'],
                          n_eff=n_eff,
                          z_lens=z_lens,
                          z_src=z_src,
@@ -112,7 +103,7 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
         summary_df = summary_df.append(summary_i, ignore_index=True)
     summary_df.to_csv(os.path.join(samples_dir, '..', 'summary.csv'))
     # Output list of problem lens IDs
-    problem_id = summary_df.loc[(summary_df['n_eff'] < 3) | (summary_df['H0_std'] < 1.5)]['id'].astype(int)
+    problem_id = summary_df.loc[(summary_df['n_eff'] < 3) | (summary_df['H0_std'] < 1.0)]['id'].astype(int)
     with open(os.path.join(samples_dir, '..', "mcmc_default_candidates.txt"), "w") as f:
         for pid in problem_id:
             f.write(str(pid) +"\n")
@@ -126,7 +117,8 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method, rung_idx):
     if 'mcmc_default' in sampling_method:
         if rung_idx is None:
             # Read in the relevant columns of metadata, 
-            metadata_path = os.path.join(test_cfg.data.test_dir, 'metadata.csv')
+            baobab_cfg = BaobabConfig.from_file(test_cfg.data.test_baobab_cfg_path)
+            metadata_path = os.path.join(baobab_cfg.out_dir, 'metadata.csv')
             summary_df = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'], nrows=500) # FIXME: capped test set size at 500, as the stored dataset may be much larger
         else:
             summary_df = h0rton.tdlmc_utils.convert_to_dataframe(rung=rung_idx, save_csv_path=None)
@@ -164,18 +156,19 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method, rung_idx):
         # Compute lognormal params for D_dt and update summary
         try:
             D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
+            D_dt_normal_stats = h0_utils.get_normal_stats(D_dt_samples)
         except:
             print("lens", lens_i)
             #print(D_dt_samples)
             print("==========")
             lenses_to_rerun.append(lens_i)
             #continue
-        print(D_dt_stats)
-        mu, sigma = D_dt_stats['mu'], D_dt_stats['sigma']
-        summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = mu
-        summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = sigma
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_mu'] = D_dt_stats['mu']
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_sigma'] = D_dt_stats['sigma']
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_mean'] = D_dt_normal_stats['mean']
+        summary_df.loc[summary_df['id']==lens_i, 'D_dt_std'] = D_dt_normal_stats['std']
         # Convert D_dt samples to H0
-        D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(mu), s=sigma, size=oversampling*threshold)
+        D_dt_samples = scipy.stats.lognorm.rvs(scale=np.exp(D_dt_stats['mu']), s=D_dt_stats['sigma'], size=oversampling*threshold)
         D_dt_samples = D_dt_samples[np.isfinite(D_dt_samples)]
         cosmo_converter = h0_utils.CosmoConverter(meta['z_lens'], meta['z_src'], H0=true_H0, Om0=true_Om0)
         H0_samples = cosmo_converter.get_H0(D_dt_samples)
