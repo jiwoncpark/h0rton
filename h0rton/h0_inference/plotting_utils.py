@@ -74,7 +74,7 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
     all_weights[~is_nan_mask] = all_weights[~is_nan_mask]/np.sum(all_weights[~is_nan_mask])
     samples = all_samples[~is_nan_mask]
     weights = all_weights[~is_nan_mask]
-    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 10000.0])
+    bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 15000.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     
     # Compute the weighted mean and std analytically
@@ -155,7 +155,7 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
         D_dt MCMC samples
 
     """
-    bin_heights, bin_borders, _ = plt.hist(all_samples, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 10000.0])
+    bin_heights, bin_borders, _ = plt.hist(all_samples, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 15000.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
     
     # Compute the mode and std for lognormal
