@@ -168,6 +168,28 @@ def resnet34(progress=True, **kwargs):
     return _resnet('resnet34', BayesianBasicBlock, [3, 4, 6, 3], progress,
                    **kwargs)
 
+def resnet50(progress=True, **kwargs):
+    r"""ResNet-50 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet50', BayesianBasicBlock, [3, 4, 6, 3], progress,
+                   **kwargs)
+
+def resnet101(progress=True, **kwargs):
+    r"""ResNet-101 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet101', BayesianBasicBlock, [3, 4, 23, 3], progress,
+                   **kwargs)
+
 def resnet44(progress=True, **kwargs):
     r"""ResNet-34 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
