@@ -4,7 +4,7 @@ from torchvision.models.resnet import conv1x1, BasicBlock
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ['resnet44', 'resnet56']
+__all__ = ['resnet34', 'resnet44', 'resnet56']
 
 class BayesianBasicBlock(BasicBlock):
     """Basic block of ResNet BNN with architectural modifications from the torchvision implementation
@@ -48,10 +48,26 @@ class BayesianResNet(models.ResNet):
                  norm_layer)
         # Override first conv layer 
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        # Remove fourth layer so number of filters in FC should be 256, not 512
-        self.fc = nn.Linear(256 * block.expansion, num_classes)
+        self.include_layer4 = False if layers[-1] == 1 else True
+        # If removing layer4, number of filters in FC should be 256, not 512
+        if self.include_layer4:
+            self._forward_impl = self._forward_impl_4layer
+        else:
+            self.fc = nn.Linear(256 * block.expansion, num_classes)
+            self._forward_impl = self._forward_impl_3layer
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+        """
+
+        Parameters
+        ----------
+        block : BasicBlock class
+        planes : int
+            number of input filters
+        blocks : int
+            number of BasicBlocks for this layer (depth)
+
+        """
         # Override _make_layer to pass in dropout_rate
         norm_layer = self._norm_layer
         downsample = None
@@ -64,7 +80,7 @@ class BayesianResNet(models.ResNet):
                 conv1x1(self.inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion),
             )
-
+        # Note "layers" below represents a single layer that's returned
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
                             self.base_width, previous_dilation, norm_layer, dropout_rate=self.dropout_rate))
@@ -76,7 +92,7 @@ class BayesianResNet(models.ResNet):
                                 norm_layer=norm_layer, dropout_rate=self.dropout_rate))
         return nn.Sequential(*layers)
 
-    def _forward_impl(self, x):
+    def _forward_impl_3layer(self, x):
         # See note [TorchScript super()
         x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
         x = self.conv1(x)
@@ -86,16 +102,71 @@ class BayesianResNet(models.ResNet):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        #x = self.layer4(x)
         x = self.avgpool(x)
         x = F.dropout(x, p=self.dropout_rate)
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
 
+    def _forward_impl_4layer(self, x):
+        # See note [TorchScript super()
+        x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.avgpool(x)
+        x = F.dropout(x, p=self.dropout_rate)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+    def _forward_debug(self, x):
+        # See note [TorchScript super()
+        activation_map_shapes = []
+        activation_map_shapes.append(x.shape)
+        x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        activation_map_shapes.append(x.shape)
+        x = self.maxpool(x)
+        activation_map_shapes.append(x.shape)
+        x = self.layer1(x)
+        activation_map_shapes.append(x.shape)
+        x = self.layer2(x)
+        activation_map_shapes.append(x.shape)
+        x = self.layer3(x)
+        activation_map_shapes.append(x.shape)
+        if self.include_layer4:
+            x = self.layer4(x)
+        activation_map_shapes.append(x.shape)
+        x = self.avgpool(x)
+        activation_map_shapes.append(x.shape)
+        x = F.dropout(x, p=self.dropout_rate)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        activation_map_shapes.append(x.shape)
+        return activation_map_shapes
+
 def _resnet(arch, block, layers, progress, **kwargs):
     model = BayesianResNet(block, layers, **kwargs)
     return model
+
+def resnet34(progress=True, **kwargs):
+    r"""ResNet-34 model from
+    `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet34', BayesianBasicBlock, [3, 4, 6, 3], progress,
+                   **kwargs)
 
 def resnet44(progress=True, **kwargs):
     r"""ResNet-34 model from
