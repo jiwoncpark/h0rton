@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib.figure import Figure
-__all__ = ['get_1d_mapping_fig', 'get_rmse', 'interpret_pred', 'get_logdet']
+__all__ = ['get_1d_mapping_fig', 'get_mae', 'interpret_pred', 'get_logdet']
 
 def get_logdet(tril_elements, Y_dim):
     """Returns the log determinant of the covariance matrix
@@ -53,7 +53,7 @@ def get_1d_mapping_fig(name, mu, Y):
 def _sigmoid(self, x):
     return 1.0/(np.exp(-x) + 1.0)
 
-def get_rmse(pred_mu, true_mu, Y_cols):
+def get_mae(pred_mu, true_mu, Y_cols):
     """Get the total RMSE of predicted mu of the primary Gaussian wrt the transformed labels mu in a batch of validation data
 
     Parameters
@@ -71,16 +71,16 @@ def get_rmse(pred_mu, true_mu, Y_cols):
         total mean of the RMSE for that batch
 
     """
-    sq_error = (pred_mu - true_mu)**2.0 # [batch_size, Y_dim]
-    rmse_dict = {}
+    abs_error = np.abs(pred_mu - true_mu) # [batch_size, Y_dim]
+    mae_dict = {}
     # Total sq error, averaged across examples
-    rmse_dict['rmse'] = np.mean(np.sum(sq_error, axis=1))**0.5 # float
+    mae_dict['mae'] = np.mean(np.sum(abs_error, axis=1)) # float
     # Parameter-wise sq error, averaged across examples
-    rmse_param = np.mean(sq_error, axis=0)**0.5 # [Y_dim,]
+    mae_param = np.mean(abs_error, axis=0)**0.5 # [Y_dim,]
     param_dict = dict(zip(Y_cols, range(len(Y_cols))))
     for k, i in param_dict.items():
-        rmse_dict[k] = rmse_param[i]
-    return rmse_dict
+        mae_dict[k] = mae_param[i]
+    return mae_dict
 
 def interpret_pred(pred, Y_dim):
     """Slice the network prediction into means and cov matrix elements

@@ -187,9 +187,9 @@ def main():
                     # Log train and val metrics
                     loss_dict = {'train': train_loss, 'val': val_loss}
                     logger.add_scalars('metrics/loss', loss_dict, n_iter)
-                    #rmse = train_utils.get_rmse(mu, Y_plt)
-                    rmse_dict = train_utils.get_rmse(mu_orig, Y_plt_orig, cfg.data.Y_cols)
-                    logger.add_scalars('metrics/rmse', rmse_dict, n_iter)
+                    #mae = train_utils.get_mae(mu, Y_plt)
+                    mae_dict = train_utils.get_mae(mu_orig, Y_plt_orig, cfg.data.Y_cols)
+                    logger.add_scalars('metrics/mae', mae_dict, n_iter)
                     # Log log determinant of the covariance matrix
                     if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'FullRankGaussianNLL']:
                         logdet = train_utils.get_logdet(bnn_post.tril_elements.cpu().numpy(), Y_dim)
@@ -200,8 +200,8 @@ def main():
                         logger.add_histogram('val_pred/weight_gaussian2', bnn_post.w2.cpu().numpy(), n_iter)
                         # Log RMSE of second Gaussian
                         mu2_orig = bnn_post.transform_back_mu(bnn_post.mu2).cpu().numpy()
-                        rmse2_dict = train_utils.get_rmse(mu2_orig, Y_plt_orig, cfg.data.Y_cols)
-                        logger.add_scalars('metrics/rmse2', rmse2_dict, n_iter)
+                        mae2_dict = train_utils.get_mae(mu2_orig, Y_plt_orig, cfg.data.Y_cols)
+                        logger.add_scalars('metrics/mae2', mae2_dict, n_iter)
                         # Log logdet of second Gaussian
                         logdet2 = train_utils.get_logdet(bnn_post.tril_elements2.cpu().numpy(), Y_dim)
                         logger.add_histogram('logdet_cov_mat2', logdet2, n_iter)
