@@ -3,3 +3,8 @@ omit =
     */baobab_configs/*
     *__init__*
     */plotting_utils.py
+    */infer_h0_simple_mc_truth.py
+    */infer_h0_precision_ceiling.py
+    */infer_h0.py
+    */infer_h0_mcmc_default.py
+    */infer_h0_hybrid.py
