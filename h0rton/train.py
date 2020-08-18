@@ -52,9 +52,9 @@ def main():
     # Set device and default data type
     device = torch.device(cfg.device_type)
     if device.type == 'cuda':
-        torch.set_default_tensor_type('torch.cuda.' + train_val_cfg.data.float_type)
+        torch.set_default_tensor_type('torch.cuda.' + cfg.data.float_type)
     else:
-        torch.set_default_tensor_type('torch.' + train_val_cfg.data.float_type)
+        torch.set_default_tensor_type('torch.' + cfg.data.float_type)
     script_utils.seed_everything(cfg.global_seed)
 
     ############

@@ -42,18 +42,12 @@ def plot_weighted_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None,
         H0 weights corresponding to `all_samples`, possibly including nan values
 
     """
-    keep = np.isfinite(all_weights)
-    all_samples = all_samples[keep]
-    all_weights = all_weights[keep]
-    mean, std, samples, weights = h0_utils.get_normal_stats(all_samples, all_weights)
-    _ = plt.hist(samples, weights=weights, bins=290, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[10.0, 300.0])
-    # Compute the weighted mean and std from the sample
-    mean = np.average(samples, weights=weights)
-    std = np.average((samples - mean)**2.0, weights=weights)**0.5
+    stats = h0_utils.get_normal_stats_naive(all_samples, all_weights)
+    _ = plt.hist(stats['samples'], weights=stats['weights'], bins=290, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[10.0, 300.0])
     #print(mean, std)
     x_interval_for_fit = np.linspace(10, 300, 1000) 
     # Overlay the fit gaussian pdf
-    plt.plot(x_interval_for_fit, norm.pdf(x_interval_for_fit, mean, std), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(mean, std))
+    plt.plot(x_interval_for_fit, norm.pdf(x_interval_for_fit, stats['mean'], stats['std']), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(stats['mean'], stats['std']))
     if save_dir is not None:
         if true_h0 is not None:
             plt.axvline(x=true_h0, linestyle='--', color='red', label='truth')
@@ -64,7 +58,7 @@ def plot_weighted_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None,
         save_path = os.path.join(save_dir, 'h0_histogram_{0:04d}.png'.format(lens_i))
         plt.savefig(save_path)
         plt.close()
-    return mean, std
+    return stats
 
 def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=None, save_dir='.'):
     """Plot the histogram of H0 samples, overlaid with a Gaussian fit and truth H0

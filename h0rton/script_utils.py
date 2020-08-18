@@ -6,9 +6,9 @@ from addict import Dict
 import numpy as np
 import torch
 
-__all__ = ['parse_args', 'seed_everything', 'HiddenPrints']
+__all__ = ['parse_inference_args', 'seed_everything', 'HiddenPrints']
 
-def parse_args():
+def parse_inference_args():
     """Parse command-line arguments
     """
     parser = argparse.ArgumentParser()
