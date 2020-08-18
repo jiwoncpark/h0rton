@@ -4,7 +4,7 @@ from torchvision.models.resnet import conv1x1, BasicBlock
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ['resnet34', 'resnet44', 'resnet56']
+__all__ = ['resnet34', 'resnet44', 'resnet50', 'resnet56', 'resnet101']
 
 class BayesianBasicBlock(BasicBlock):
     """Basic block of ResNet BNN with architectural modifications from the torchvision implementation

@@ -27,9 +27,15 @@ class TestBayesianResNet(unittest.TestCase):
         pred44 = resnet44.forward(self.dummy_X)
         resnet56 = models.resnet56(num_classes=self.out_dim, dropout_rate=self.dropout_rate)
         pred56 = resnet56.forward(self.dummy_X)
+        resnet50 = models.resnet50(num_classes=self.out_dim, dropout_rate=self.dropout_rate)
+        pred50 = resnet50.forward(self.dummy_X)
+        resnet101 = models.resnet101(num_classes=self.out_dim, dropout_rate=self.dropout_rate)
+        pred101 = resnet101.forward(self.dummy_X)
         np.testing.assert_array_equal(pred34.shape, [self.batch_size, self.out_dim], err_msg="output shape of resnet34")
         np.testing.assert_array_equal(pred44.shape, [self.batch_size, self.out_dim], err_msg="output shape of resnet44")
         np.testing.assert_array_equal(pred56.shape, [self.batch_size, self.out_dim], err_msg="output shape of resnet56")
+        np.testing.assert_array_equal(pred50.shape, [self.batch_size, self.out_dim], err_msg="output shape of resnet50")
+        np.testing.assert_array_equal(pred101.shape, [self.batch_size, self.out_dim], err_msg="output shape of resnet101")
         
     def test_bayesian_resnet_dropout(self):
         """Test if dropout rate is propagated to basic blocks
