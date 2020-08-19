@@ -14,16 +14,16 @@ import lenstronomy
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 from lenstronomy.Cosmo.lcdm import LCDM
 import baobab.sim_utils.metadata_utils as metadata_utils
-from h0rton.script_utils import parse_args, seed_everything, HiddenPrints
 import h0rton.models
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
 import h0rton.train_utils as train_utils
+import h0rton.script_utils as script_utils
 from h0rton.h0_inference import plotting_utils, mcmc_utils
-from h0rton.trainval_data import XYCosmoData
+from h0rton.trainval_data import XYData
 
 def main():
-    args = parse_args()
+    args = script_utils.parse_inference_args()
     test_cfg = TestConfig.from_file(args.test_config_file_path)
     train_val_cfg = TrainValConfig.from_file(test_cfg.train_val_config_file_path)
     # Set device and default data type
@@ -37,8 +37,8 @@ def main():
     ############
     # Data I/O #
     ############
-    test_data = XYCosmoData(test_cfg.data.test_dir, data_cfg=train_val_cfg.data)
-    master_truth = test_data.cosmo_df
+    test_data = XYData(test_cfg.data.test_dir, data_cfg=train_val_cfg.data)
+    master_truth = test_data.Y_df
     master_truth = metadata_utils.add_qphi_columns(master_truth)
     master_truth = metadata_utils.add_gamma_psi_ext_columns(master_truth)
     if test_cfg.data.lens_indices is None:

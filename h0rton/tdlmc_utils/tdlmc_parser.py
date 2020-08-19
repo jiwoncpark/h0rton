@@ -30,8 +30,8 @@ def read_from_csv(csv_path):
     # These are columns that are lists
     for list_col in [
                     'host_pos', 
-                    'measured_time_delays', 
-                    'measured_time_delays_err',
+                    'measured_td', 
+                    'measured_td_err',
                     'agn_img_pos_x', 
                     'agn_img_pos_y', 
                     'agn_img_amp', 
@@ -72,6 +72,7 @@ def convert_to_dataframe(rung, save_csv_path):
             open_box_path = os.path.join(open_code_dir, seed, 'lens_all_info.txt')
             # Save seed path for easy access
             row['name'] = 'rung{:d}_{:s}_{:s}'.format(rung, code, seed)
+            row['seed'] = seed
             row['seed_path'] = os.path.join(closed_code_dir, seed)
             # Parse the text files
             row = parse_closed_box(closed_box_path, row)
@@ -83,6 +84,50 @@ def convert_to_dataframe(rung, save_csv_path):
     ext_shear_bphi = df['ext_shear_bphi'].apply(pd.Series).copy().add_prefix('ext_shear_')
     ext_shear_e1e2 =  df['ext_shear_e1e2'].apply(pd.Series).copy().add_prefix('ext_shear_')
     df = pd.concat([df.drop(['lens_mass', 'lens_light', 'ext_shear_bphi', 'ext_shear_e1e2'], axis=1), lens_mass, lens_light, ext_shear_bphi, ext_shear_e1e2], axis=1)
+
+    # Manually add abcd_ordering_i
+    df = df.sort_values('seed', axis=0)
+    if rung == 1:
+        df['abcd_ordering_i'] = np.array([[0, 1, 2, 3], #101
+                                         [0, 1, 2, 3], #102
+                                         [0, 1, 2, 3], #103
+                                         [0, 1], #104
+                                         [0, 1], #105
+                                         [0, 1, 2, 3], #107
+                                         [1, 0, 3, 2], #108
+                                         [1, 2, 0, 3], #109
+                                         [1, 2, 3, 0], #110
+                                         [3, 1, 0, 2], #111
+                                         [2, 0, 1, 3], #113
+                                         [1, 0], #114
+                                         [1, 3, 2, 0], #115
+                                         [1, 0], #116
+                                         [3, 2, 0, 1], #117
+                                         [3, 1, 0, 2], #118
+                                         ])
+        df['H0'] = 74.151
+    elif rung == 2:
+        df['abcd_ordering_i'] = np.array([[0, 1, 2, 3], #119
+                                         [0, 1, 2, 3], #120
+                                         [0, 1, 2, 3], #121
+                                         [0, 1, 2, 3], #122
+                                         [0, 1, 2, 3], #123
+                                         [0, 2, 1, 3], #124
+                                         [0, 1], #125
+                                         [0, 1], #126
+                                         [3, 0, 1, 2], #127
+                                         [3, 2, 0, 1], #128
+                                         [3, 0, 1, 2], #129
+                                         [2, 1, 0, 3], #130
+                                         [3, 0, 2, 1], #131
+                                         [1, 3, 2, 0], #132
+                                         [1, 0], #133
+                                         [0, 1], #134
+                                         ])
+        df['H0'] = 66.643
+    else:
+        raise NotImplementedError
+    
     df.to_csv(save_csv_path, index=None)
     return df
 
@@ -108,8 +153,8 @@ def parse_closed_box(closed_box_path, row_dict=dict()):
     row_dict['z_lens'], row_dict['z_src'] = literal_eval(lines[2].split('\t')[1])
     row_dict['measured_vel_disp'] = float(lines[5].split('\t')[1].split('km/s')[0])
     row_dict['measured_vel_disp_err'] = float(lines[5].split('\t')[1].split('km/s')[1].split(':')[1])
-    row_dict['measured_time_delays'] = literal_eval(re.split(r'\(|\)', lines[7])[1])
-    row_dict['measured_time_delays_err'] = literal_eval(re.split(r'\(|\)', lines[7])[3])
+    row_dict['measured_td'] = literal_eval(re.split(r'\(|\)', lines[7])[1])
+    row_dict['measured_td_err'] = literal_eval(re.split(r'\(|\)', lines[7])[3])
     return row_dict
 
 def parse_open_box(open_box_path, row_dict=dict()):

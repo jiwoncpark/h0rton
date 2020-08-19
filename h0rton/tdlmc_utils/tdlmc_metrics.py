@@ -1,6 +1,12 @@
 import numpy as np
 
-__all__ = ['get_goodness', 'get_precision', 'get_accuracy']
+__all__ = ['get_goodness', 'get_precision', 'get_accuracy', 'format_submission']
+
+def format_submission(summary):
+    """Format the summary into submission form for getting the TDLMC metrics cornerplot
+
+    """
+    pass
 
 def get_goodness(h0_means, h0_errors, true_h0):
     """Get the goodness of fit (chi square)

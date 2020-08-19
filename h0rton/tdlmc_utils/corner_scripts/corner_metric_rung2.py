@@ -7,10 +7,16 @@ Created on Tue Oct  9 14:29:37 2018
 
 Read each seed.
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as matt
 matt.rcParams['font.family'] = 'STIXGeneral'
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--out_path', default='Rung2_metrics.png', type=str,
+                    help='path to the output plot')
+args = parser.parse_args()
 
 seed_name=['seed119',
  'seed120',
@@ -61,8 +67,8 @@ for subname in subnames:
                 line = lines[i].split('\t')
             else:
                 line = lines[i].split(' ')
-            if "rung" in line[0]:
-                result[line[0]] = np.array([float(line[1]),float(line[2])])
+            if "seed" in line[0] and 'rung2' in line[0]:
+                result[line[0]] = np.array([float(line[1]), float(line[2])])
         #==============================================================================
         # Calculate the metric
         #==============================================================================
@@ -154,7 +160,7 @@ fig.subplots_adjust()
 fig.tight_layout(h_pad=-1.15, w_pad=-0.7)
 #fig.tight_layout(h_pad=-1.15,w_pad=-0.7)
 #plt.savefig('../Rung2_metrics.pdf')
-plt.savefig('Rung2_metrics.png', bbox_inches='tight')
+plt.savefig(args.out_path, bbox_inches='tight')
 
 ##%%Print for table
 #for i in range(len(label)):

@@ -8,10 +8,16 @@ Created on Tue Oct  9 14:29:37 2018
 
 Read each seed.
 """
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as matt
 matt.rcParams['font.family'] = 'STIXGeneral'
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--out_path', default='Rung1_metrics.png', type=str,
+                    help='path to the output plot')
+args = parser.parse_args()
 
 seed_name = [ 'seed101',
  'seed102',
@@ -158,7 +164,7 @@ for j in range(num_boxes): # j = column idx
 
 fig.subplots_adjust()
 fig.tight_layout(h_pad=-1.15, w_pad=-0.7)
-plt.savefig('Rung1_metrics.png', bbox_inches='tight')
+plt.savefig(args.out_path, bbox_inches='tight')
 
 ##%%Print for table
 #for i in range(len(label)):

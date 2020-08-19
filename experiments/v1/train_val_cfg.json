@@ -15,7 +15,7 @@
     }
   },
   "model": {
-    "architecture": "resnet50",
+    "architecture": "resnet44",
     "load_state": false,
     "state_path": "",
     "dropout_rate": 0.001,
@@ -25,7 +25,7 @@
     "n_epochs": 500,
     "learning_rate": 0.001,
     "weight_decay": 0.00001,
-    "batch_size": 1024,
+    "batch_size": 512,
     "lr_scheduler": {
       "step_size_up": 300
     }
