@@ -258,6 +258,8 @@ def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debu
     else: # tested for 'DoubleLowRankGaussianNLL':
         tiling_by_Y_dim = np.arange(out_dim//Y_dim)*Y_dim
         idx = [tile + i for tile in tiling_by_Y_dim for i in param_idx]
+    param_idx = np.array(param_idx, dtype=int)
+    idx = np.array(idx, dtype=int)
     return param_idx, idx 
 
 def remove_parameters_from_pred(orig_pred, remove_idx, return_as_tensor=True, device='cpu'):
