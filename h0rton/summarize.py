@@ -69,22 +69,13 @@ def summarize_simple_mc_default(samples_dir, test_cfg):
         H0_dict = np.load(os.path.join(samples_dir, f_name), allow_pickle=True).item()
         H0_samples = H0_dict['h0_samples']
         weights = H0_dict['h0_weights']
-        if np.sum(weights) == 0:
-            H0_mean = -1
-            H0_std = -1
-            n_eff = 0
-            D_dt_mu = -1
-            D_dt_sigma = -1
-            z_lens = -1
-            z_src = -1
-        else:
-            H0_normal_stats = h0_utils.get_normal_stats_naive(H0_samples, weights)
-            n_eff = np.sum(weights)**2.0/(np.sum(weights**2.0))
-            # Convert H0 H0_samples to D_dt
-            cosmo_converter = h0_utils.CosmoConverter(z_lens, z_src)
-            D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
-            D_dt_stats = h0_utils.get_lognormal_stats_naive(D_dt_samples, weights)
-            D_dt_normal_stats = h0_utils.get_normal_stats_naive(D_dt_samples, weights)
+        H0_normal_stats = h0_utils.get_normal_stats_naive(H0_samples, weights)
+        n_eff = np.sum(weights)**2.0/(np.sum(weights**2.0))
+        # Convert H0 H0_samples to D_dt
+        cosmo_converter = h0_utils.CosmoConverter(z_lens, z_src)
+        D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
+        D_dt_stats = h0_utils.get_lognormal_stats_naive(D_dt_samples, weights)
+        D_dt_normal_stats = h0_utils.get_normal_stats_naive(D_dt_samples, weights)
         summary_i = dict(
                          id=lens_i,
                          measured_td_wrt0=list(H0_dict['measured_td_wrt0']),

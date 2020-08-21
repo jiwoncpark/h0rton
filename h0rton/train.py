@@ -33,6 +33,7 @@ import h0rton.script_utils as script_utils
 
 def parse_args():
     """Parse command-line arguments
+    
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('user_cfg_path', help='path to the user-defined training config file')
