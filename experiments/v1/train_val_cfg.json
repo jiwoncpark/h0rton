@@ -11,7 +11,7 @@
     "log_pixels": true,
     "add_pixel_noise" : true,
     "eff_exposure_time": {
-      "TDLMC_F160W": 21600
+      "TDLMC_F160W": 21600.0
     }
   },
   "model": {
