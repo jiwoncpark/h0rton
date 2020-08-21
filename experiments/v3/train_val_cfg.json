@@ -3,8 +3,8 @@
   "global_seed": 11133,
   "data": {
     "float_type": "FloatTensor",
-    "train_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/train_v6_baobab_config.py",
-    "val_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/val_v6_baobab_config.py",
+    "train_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/train_v7_baobab_config.py",
+    "val_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/val_v7_baobab_config.py",
     "Y_cols": ["lens_mass_center_x", "src_light_center_x","lens_mass_center_y", "src_light_center_y", "lens_mass_gamma", "lens_mass_theta_E", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_R_sersic"],
     "define_src_pos_wrt_lens": true,
     "rescale_pixels": true,
@@ -15,14 +15,14 @@
     }
   },
   "model": {
-    "architecture": "resnet50",
+    "architecture": "resnet56",
     "load_state": false,
     "state_path": "",
     "dropout_rate": 0.001,
     "likelihood_class": "DoubleGaussianNLL"
   },
   "optim": {
-    "n_epochs": 500,
+    "n_epochs": 10,
     "learning_rate": 0.001,
     "weight_decay": 0.00001,
     "batch_size": 1024,
