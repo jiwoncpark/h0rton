@@ -22,7 +22,7 @@
     "likelihood_class": "DoubleGaussianNLL"
   },
   "optim": {
-    "n_epochs": 10,
+    "n_epochs": 15,
     "learning_rate": 0.001,
     "weight_decay": 0.00001,
     "batch_size": 1024,
