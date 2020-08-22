@@ -24,7 +24,7 @@
   "optim": {
     "n_epochs": 15,
     "learning_rate": 0.001,
-    "weight_decay": 0.00001,
+    "weight_decay": 0.000000001,
     "batch_size": 1024,
     "lr_scheduler": {
       "step_size_up": 300
