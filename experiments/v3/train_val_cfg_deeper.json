@@ -8,7 +8,7 @@
     "Y_cols": ["lens_mass_center_x", "src_light_center_x","lens_mass_center_y", "src_light_center_y", "lens_mass_gamma", "lens_mass_theta_E", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_R_sersic"],
     "define_src_pos_wrt_lens": true,
     "rescale_pixels": true,
-    "log_pixels": true,
+    "log_pixels": false,
     "add_pixel_noise" : true,
     "eff_exposure_time": {
       "TDLMC_F160W": 5400.0
