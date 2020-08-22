@@ -18,12 +18,12 @@ class BayesianBasicBlock(BasicBlock):
 
     def forward(self, x):   
         identity = x
-        out = F.dropout2d(x, p=self.dropout_rate)   
+        out = F.dropout(x, p=self.dropout_rate)   
         out = self.conv1(out)  
         out = self.bn1(out) 
         out = self.relu(out)    
 
-        out = F.dropout2d(out, p=self.dropout_rate) 
+        out = F.dropout(out, p=self.dropout_rate) 
         out = self.conv2(out)   
         out = self.bn2(out) 
 
@@ -94,7 +94,7 @@ class BayesianResNet(models.ResNet):
 
     def _forward_impl_3layer(self, x):
         # See note [TorchScript super()
-        x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
+        x = F.dropout(x, p=self.dropout_rate) # F not NN b/c activated during eval
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -110,7 +110,7 @@ class BayesianResNet(models.ResNet):
 
     def _forward_impl_4layer(self, x):
         # See note [TorchScript super()
-        x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
+        x = F.dropout(x, p=self.dropout_rate) # F not NN b/c activated during eval
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -129,7 +129,7 @@ class BayesianResNet(models.ResNet):
         # See note [TorchScript super()
         activation_map_shapes = []
         activation_map_shapes.append(x.shape)
-        x = F.dropout2d(x, p=self.dropout_rate) # F not NN b/c activated during eval
+        x = F.dropout(x, p=self.dropout_rate) # F not NN b/c activated during eval
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
