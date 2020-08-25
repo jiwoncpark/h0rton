@@ -116,7 +116,7 @@ def main():
     # Instantiate optimizer
     optimizer = optim.Adam(net.parameters(), lr=cfg.optim.learning_rate, amsgrad=False, weight_decay=cfg.optim.weight_decay)
     #optimizer = optim.SGD(net.parameters(), lr=cfg.optim.learning_rate, weight_decay=cfg.optim.weight_decay)
-    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.75, patience=50, cooldown=50, min_lr=1e-7, verbose=True)
+    lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.75, patience=50, cooldown=50, min_lr=1e-5, verbose=True)
     #lr_scheduler = optim.lr_scheduler.CyclicLR(optimizer, base_lr=cfg.optim.learning_rate*0.2, max_lr=cfg.optim.learning_rate, step_size_up=cfg.optim.lr_scheduler.step_size_up, step_size_down=None, mode='triangular2', gamma=1.0, scale_fn=None, scale_mode='cycle', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9, last_epoch=-1)
     
     # Saving/loading state dicts
@@ -178,7 +178,7 @@ def main():
                     
                     # Subset of validation for plotting
                     n_plotting = cfg.monitoring.n_plotting
-                    X_plt = X_v[:n_plotting].cpu().numpy()
+                    #X_plt = X_v[:n_plotting].cpu().numpy()
                     #Y_plt = Y[:n_plotting].cpu().numpy()
                     Y_plt_orig = bnn_post.transform_back_mu(Y_v[:n_plotting]).cpu().numpy()
                     pred_plt = pred_v[:n_plotting]
@@ -192,6 +192,7 @@ def main():
                     mae_dict = train_utils.get_mae(mu_orig, Y_plt_orig, cfg.data.Y_cols)
                     logger.add_scalars('metrics/mae', mae_dict, n_iter)
                     # Log log determinant of the covariance matrix
+                    
                     if cfg.model.likelihood_class in ['DoubleGaussianNLL', 'FullRankGaussianNLL']:
                         logdet = train_utils.get_logdet(bnn_post.tril_elements.cpu().numpy(), Y_dim)
                         logger.add_histogram('logdet_cov_mat', logdet, n_iter)
