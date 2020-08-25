@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 __all__ = ['resnet34', 'resnet44', 'resnet50', 'resnet56', 'resnet101']
 
+
+
 class BayesianBasicBlock(BasicBlock):
     """Basic block of ResNet BNN with architectural modifications from the torchvision implementation
 
@@ -103,8 +105,8 @@ class BayesianResNet(models.ResNet):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.avgpool(x)
-        x = F.dropout(x, p=self.dropout_rate)
         x = torch.flatten(x, 1)
+        x = F.dropout(x, p=self.dropout_rate)
         x = self.fc(x)
         return x
 
@@ -120,8 +122,8 @@ class BayesianResNet(models.ResNet):
         x = self.layer3(x)
         x = self.layer4(x)
         x = self.avgpool(x)
-        x = F.dropout(x, p=self.dropout_rate)
         x = torch.flatten(x, 1)
+        x = F.dropout(x, p=self.dropout_rate)
         x = self.fc(x)
         return x
 
@@ -147,8 +149,8 @@ class BayesianResNet(models.ResNet):
         activation_map_shapes.append(x.shape)
         x = self.avgpool(x)
         activation_map_shapes.append(x.shape)
-        x = F.dropout(x, p=self.dropout_rate)
         x = torch.flatten(x, 1)
+        x = F.dropout(x, p=self.dropout_rate)
         x = self.fc(x)
         activation_map_shapes.append(x.shape)
         return activation_map_shapes
