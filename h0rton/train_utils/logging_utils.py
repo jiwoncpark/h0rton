@@ -74,9 +74,9 @@ def get_mae(pred_mu, true_mu, Y_cols):
     abs_error = np.abs(pred_mu - true_mu) # [batch_size, Y_dim]
     mae_dict = {}
     # Total sq error, averaged across examples
-    mae_dict['mae'] = np.mean(np.sum(abs_error, axis=1)) # float
+    mae_dict['mae'] = np.median(np.sum(abs_error, axis=1)) # float
     # Parameter-wise sq error, averaged across examples
-    mae_param = np.mean(abs_error, axis=0)**0.5 # [Y_dim,]
+    mae_param = np.median(abs_error, axis=0) # [Y_dim,]
     param_dict = dict(zip(Y_cols, range(len(Y_cols))))
     for k, i in param_dict.items():
         mae_dict[k] = mae_param[i]
