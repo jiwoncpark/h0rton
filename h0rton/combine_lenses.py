@@ -61,8 +61,9 @@ def main():
     summary['is_quad'] = (summary['n_img'] == 4)
     print("Doubles: ", len(summary[~summary['is_quad']]))
     print("Quads: ", len(summary[summary['is_quad']]))
-    doubles = summary[~summary['is_quad']].iloc[:n_test]
-    quads = summary[summary['is_quad']].iloc[:n_test]
+    min_doubles_quads = np.min([len(summary[~summary['is_quad']]), len(summary[summary['is_quad']])])
+    doubles = summary[~summary['is_quad']].iloc[:min_doubles_quads]
+    quads = summary[summary['is_quad']].iloc[:min_doubles_quads]
 
     ####################
     # Lens combination #
@@ -75,11 +76,11 @@ def main():
         combined_path_all = os.path.join(version_dir, 'combined_H0_summary.npy')
         _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=summary['D_dt_mean'].values, ddt_sigma=summary['D_dt_std'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
         # Combine all doubles
-        print("Combining the {:d} doubles...".format(doubles.shape[0]))
+        print("Combining the {:d} doubles...".format(min_doubles_quads))
         combined_path_doubles = os.path.join(version_dir, 'combined_H0_doubles.npy')
         _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=doubles['D_dt_mean'].values, ddt_sigma=doubles['D_dt_std'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
         # Combine all quads
-        print("Combining the {:d} quads...".format(quads.shape[0]))
+        print("Combining the {:d} quads...".format(min_doubles_quads))
         combined_path_quads = os.path.join(version_dir, 'combined_H0_quads.npy')
         _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=quads['D_dt_mean'].values, ddt_sigma=quads['D_dt_std'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
     # 2. Lognormal D_dt
@@ -89,11 +90,11 @@ def main():
     combined_path_all_lognormal = os.path.join(version_dir, 'combined_H0_summary_lognormal.npy')
     _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=summary['D_dt_mu'].values, ddt_sigma=summary['D_dt_sigma'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
     # Combine all doubles
-    print("Combining the {:d} doubles...".format(doubles.shape[0]))
+    print("Combining the {:d} doubles...".format(min_doubles_quads))
     combined_path_doubles_lognormal = os.path.join(version_dir, 'combined_H0_doubles_lognormal.npy')
     _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=doubles['D_dt_mu'].values, ddt_sigma=doubles['D_dt_sigma'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
     # Combine all quads
-    print("Combining the {:d} quads...".format(quads.shape[0]))
+    print("Combining the {:d} quads...".format(min_doubles_quads))
     combined_path_quads_lognormal = os.path.join(version_dir, 'combined_H0_quads_lognormal.npy')
     _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=quads['D_dt_mu'].values, ddt_sigma=quads['D_dt_sigma'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
 
