@@ -194,33 +194,37 @@ def combine_lenses(likelihood_type, z_lens, z_src, true_Om0, samples_save_path=N
     true_Om0 : float
         true Om0, not inferred
     likelihood_type : str
-        'DdtGaussian', 'DdtLogNorm' supported. 'DdtGaussian' must have 'ddt_mean', 'ddt_sigma' and 'DdtLogNorm' must have 'ddt_mu' and 'ddt_sigma'
+        'DdtGaussian', 'DdtLogNorm', 'DdtHistKDE' supported. 'DdtGaussian' must have 'ddt_mean', 'ddt_sigma'. 'DdtLogNorm' must have 'ddt_mu' and 'ddt_sigma'. 'DdtHistKDE' must have 'lens_ids' and 'samples_dir'.
 
     """
     n_test = len(z_lens)
-
     kwargs_posterior_list = []
-    for i in range(n_test):
-        kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i],
-                           'likelihood_type': likelihood_type}
-        for param_name, param_value in posterior_parameters.items():
-            kwargs_posterior.update({param_name: param_value[i]})
-        kwargs_posterior_list.append(kwargs_posterior)
-
-    #for i, lens_i in enumerate(lens_ids):
-    #    h0_dict_path = os.path.join(samples_dir, 'h0_dict_{:04d}.npy'.format(lens_i))
-    #    h0_dict = np.load(h0_dict_path, allow_pickle=True).item()
-    #    H0_samples = h0_dict['h0_samples']
-    #    weights = h0_dict['h0_weights']
-    #    remove = np.logical_or(np.isnan(weights), np.isnan(H0_samples))
-    #    H0_samples = H0_samples[~remove]
-    #    weights = weights[~remove]
-    #    cosmo_converter = CosmoConverter(z_lens[i], z_src[i])
-    #    D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
-    #    kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
-    #                        'ddt_samples': D_dt_samples, 'ddt_weights': weights,
-    #                       'likelihood_type': 'DdtHistKDE'}
-    #    kwargs_posterior_list.append(kwargs_posterior)
+    if likelihood_type in ['DdtLogNorm', 'DdtGaussian']:
+        for i in range(n_test):
+            kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i],
+                               'likelihood_type': likelihood_type}
+            for param_name, param_value in posterior_parameters.items():
+                kwargs_posterior.update({param_name: param_value[i]})
+            kwargs_posterior_list.append(kwargs_posterior)
+    elif likelihood_type == 'DdtHistKDE':
+        lens_ids = posterior_parameters['lens_ids']
+        samples_dir = posterior_parameters['samples_dir']
+        for i, lens_i in enumerate(lens_ids):
+            h0_dict_path = os.path.join(samples_dir, 'D_dt_dict_{:04d}.npy'.format(lens_i))
+            h0_dict = np.load(h0_dict_path, allow_pickle=True).item() # TODO: Use context manager to prevent memory overload
+            D_dt_samples = h0_dict['D_dt_samples']
+            weights = np.ones_like(D_dt_samples) #h0_dict['H0_weights']
+            remove = np.logical_or(np.isnan(weights), np.isnan(D_dt_samples))
+            D_dt_samples = D_dt_samples[~remove]
+            weights = weights[~remove]
+            #cosmo_converter = CosmoConverter(z_lens[i], z_src[i])
+            #D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
+            kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
+                                'ddt_samples': D_dt_samples, 'ddt_weights': weights,
+                               'likelihood_type': 'DdtHistKDE'}
+            kwargs_posterior_list.append(kwargs_posterior)
+    else:
+        raise NotImplementedError("This likelihood type is not supported. Please choose from 'DdtGaussian', 'DdtLogNorm', and 'DdtHistKDE'.")
 
     kwargs_lower_cosmo = {'h0': 50.0}
     kwargs_lower_lens = {}
