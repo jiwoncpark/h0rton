@@ -1,5 +1,5 @@
 {
-    "device_type": "cpu",
+    "device_type": "cuda",
     "global_seed": 1234,
     "lens_posterior_type": "default",
     "error_model": {
@@ -21,10 +21,10 @@
     "plotting": {
         "include_fit_gaussian": false
     },
-    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v3/models/resnet50_epoch=7_08-19-2020_01:14.mdl",
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v3/models/resnet101_epoch=14_08-26-2020_10:06.mdl",
     "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/experiments/v3/train_val_cfg.json", 
     "data": {
-        "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/test_v6_baobab_config.py",
+        "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/test_v7_baobab_config.py",
         "n_test": 200,
         "lens_indices": null
     },

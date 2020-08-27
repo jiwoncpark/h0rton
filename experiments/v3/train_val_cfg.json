@@ -1,6 +1,6 @@
 {
   "device_type": "cuda",
-  "global_seed": 1082,
+  "global_seed": 200821,
   "data": {
     "float_type": "FloatTensor",
     "train_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/train_v7_baobab_config.py",
@@ -15,14 +15,14 @@
     }
   },
   "model": {
-    "architecture": "resnet56",
+    "architecture": "resnet101",
     "load_state": false,
     "state_path": "",
     "dropout_rate": 0.001,
     "likelihood_class": "DoubleGaussianNLL"
   },
   "optim": {
-    "n_epochs": 15,
+    "n_epochs": 12,
     "learning_rate": 0.001,
     "weight_decay": 0.000001,
     "batch_size": 1024,
