@@ -58,18 +58,18 @@ def main():
                         for_cosmology=False)
     # Define val data and loader
     test_data = XYData(is_train=False, 
-                      Y_cols=cfg.data.Y_cols, 
-                      float_type=cfg.data.float_type, 
-                      define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
-                      rescale_pixels=cfg.data.rescale_pixels, 
-                      log_pixels=cfg.data.log_pixels, 
-                      add_pixel_noise=cfg.data.add_pixel_noise, 
-                      eff_exposure_time=cfg.data.eff_exposure_time, 
-                      train_Y_mean=train_data.train_Y_mean, 
-                      train_Y_std=train_data.train_Y_std, 
-                      train_baobab_cfg_path=cfg.data.train_baobab_cfg_path, 
-                      val_baobab_cfg_path=test_cfg.data.test_baobab_cfg_path, 
-                      for_cosmology=True)
+                       Y_cols=cfg.data.Y_cols, 
+                       float_type=cfg.data.float_type, 
+                       define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
+                       rescale_pixels=cfg.data.rescale_pixels, 
+                       log_pixels=cfg.data.log_pixels, 
+                       add_pixel_noise=cfg.data.add_pixel_noise, 
+                       eff_exposure_time=cfg.data.eff_exposure_time, 
+                       train_Y_mean=train_data.train_Y_mean, 
+                       train_Y_std=train_data.train_Y_std, 
+                       train_baobab_cfg_path=cfg.data.train_baobab_cfg_path, 
+                       val_baobab_cfg_path=test_cfg.data.test_baobab_cfg_path, 
+                       for_cosmology=True)
     master_truth = test_data.Y_df
     master_truth = metadata_utils.add_qphi_columns(master_truth)
     master_truth = metadata_utils.add_gamma_psi_ext_columns(master_truth)
@@ -132,11 +132,19 @@ def main():
     init_pos = np.empty([batch_size, dropout_samples, n_samples_per_dropout, mcmc_Y_dim]) # initialize zero array with shape unknown a priori
     mcmc_pred = 0.0
     with torch.no_grad():
+        net.train()
+        # Send some empty forward passes through the test data without backprop to adjust batchnorm weights
+        # (This is often not necessary, but good to have just in case.)
+        for nograd_pass in range(5):
+            for X_, Y_ in test_loader:
+                X = X_.to(device)
+                _ = net(X)
+        # Obtain MC dropout samples
         for d in range(dropout_samples):
             net.eval()
             for X_, Y_ in test_loader:
                 X = X_.to(device)
-                Y = Y_.to(device) # TODO: compare master_truth with reverse-transformed Y
+                Y = Y_.to(device)
                 pred = net(X)
                 break
             mcmc_pred_d = pred.cpu().numpy()
@@ -147,8 +155,8 @@ def main():
             mcmc_pred += mcmc_pred_d/dropout_samples
             # Instantiate posterior for BNN samples, to initialize the walkers
             #print(mcmc_pred_d[0, :2])
-            bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior, loss_fn.posterior_name)(mcmc_Y_dim, device, mcmc_train_Y_mean, mcmc_train_Y_std)
-            bnn_post.set_sliced_pred(torch.tensor(mcmc_pred_d))
+            bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior_cpu, loss_fn.posterior_name + 'CPU')(mcmc_Y_dim,  mcmc_train_Y_mean, mcmc_train_Y_std)
+            bnn_post.set_sliced_pred(mcmc_pred_d)
             init_pos[:, d, :, :] = bnn_post.sample(n_samples_per_dropout, sample_seed=test_cfg.global_seed+d) # [batch_size, dropout_samples, n_samples_per_dropout, mcmc_Y_dim] contains just the lens model params, no D_dt
             gc.collect()
 
