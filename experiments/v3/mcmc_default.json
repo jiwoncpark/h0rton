@@ -26,12 +26,13 @@
     "data": {
         "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/test_v7_baobab_config.py",
         "n_test": 200,
-        "lens_indices": null
+        "lens_indices": [0, 7, 11, 19, 28, 31, 35, 36, 39, 40, 44, 48, 57, 63, 68, 70, 73, 75, 78, 92, 93, 94,
+            103, 106, 109, 114, 118, 122, 130, 131, 146, 152, 156, 169, 172, 173, 177, 178, 184, 190]
     },
     "numerics": {
         "mcmc": {
-            "n_burn": 500,
-            "n_run": 120,
+            "n_burn": 1000,
+            "n_run": 200,
             "walkerRatio": 15,
             "sigma_scale": 1,
             "threadCount": 12
