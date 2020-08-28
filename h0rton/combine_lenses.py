@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 import argparse
 import pandas as pd
@@ -69,50 +70,49 @@ def main():
     ####################
     # Lens combination #
     ####################
-    if False:
-        if is_prec_ceiling:
-            # 1. Gaussian D_dt
-            print("Gaussian D_dt parameterization:")
-            # Combine all lenses
-            print("Combining all lenses...")
-            combined_path_all = os.path.join(version_dir, 'combined_H0_summary.npy')
-            _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=summary['D_dt_mean'].values, ddt_sigma=summary['D_dt_std'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
-            # Combine all doubles
-            print("Combining the {:d} doubles...".format(min_doubles_quads))
-            combined_path_doubles = os.path.join(version_dir, 'combined_H0_doubles.npy')
-            _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=doubles['D_dt_mean'].values, ddt_sigma=doubles['D_dt_std'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
-            # Combine all quads
-            print("Combining the {:d} quads...".format(min_doubles_quads))
-            combined_path_quads = os.path.join(version_dir, 'combined_H0_quads.npy')
-            _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=quads['D_dt_mean'].values, ddt_sigma=quads['D_dt_std'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
-        # 2. Lognormal D_dt
-        print("Lognormal D_dt parameterization:")
+    if is_prec_ceiling:
+        # 1. Gaussian D_dt
+        print("Gaussian D_dt parameterization:")
         # Combine all lenses
         print("Combining all lenses...")
-        combined_path_all_lognormal = os.path.join(version_dir, 'combined_H0_summary_lognormal.npy')
-        _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=summary['D_dt_mu'].values, ddt_sigma=summary['D_dt_sigma'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+        combined_path_all = os.path.join(version_dir, 'combined_H0_summary.npy')
+        _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=summary['D_dt_mean'].values, ddt_sigma=summary['D_dt_std'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
         # Combine all doubles
         print("Combining the {:d} doubles...".format(min_doubles_quads))
-        combined_path_doubles_lognormal = os.path.join(version_dir, 'combined_H0_doubles_lognormal.npy')
-        _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=doubles['D_dt_mu'].values, ddt_sigma=doubles['D_dt_sigma'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+        combined_path_doubles = os.path.join(version_dir, 'combined_H0_doubles.npy')
+        _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=doubles['D_dt_mean'].values, ddt_sigma=doubles['D_dt_std'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
         # Combine all quads
         print("Combining the {:d} quads...".format(min_doubles_quads))
-        combined_path_quads_lognormal = os.path.join(version_dir, 'combined_H0_quads_lognormal.npy')
-        _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=quads['D_dt_mu'].values, ddt_sigma=quads['D_dt_sigma'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+        combined_path_quads = os.path.join(version_dir, 'combined_H0_quads.npy')
+        _ = h0_utils.combine_lenses('DdtGaussian', ddt_mean=quads['D_dt_mean'].values, ddt_sigma=quads['D_dt_std'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+    # 2. Lognormal D_dt
+    print("Lognormal D_dt parameterization:")
+    # Combine all lenses
+    print("Combining all lenses...")
+    combined_path_all_lognormal = os.path.join(version_dir, 'combined_H0_summary_lognormal.npy')
+    _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=summary['D_dt_mu'].values, ddt_sigma=summary['D_dt_sigma'].values, z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+    # Combine all doubles
+    print("Combining the {:d} doubles...".format(min_doubles_quads))
+    combined_path_doubles_lognormal = os.path.join(version_dir, 'combined_H0_doubles_lognormal.npy')
+    _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=doubles['D_dt_mu'].values, ddt_sigma=doubles['D_dt_sigma'].values, z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
+    # Combine all quads
+    print("Combining the {:d} quads...".format(min_doubles_quads))
+    combined_path_quads_lognormal = os.path.join(version_dir, 'combined_H0_quads_lognormal.npy')
+    _ = h0_utils.combine_lenses('DdtLogNorm', ddt_mu=quads['D_dt_mu'].values, ddt_sigma=quads['D_dt_sigma'].values, z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads_lognormal, corner_save_path=None, n_run=100, n_burn=500, n_walkers=20, true_Om0=true_Om0)
     # 2. KDE
     print("KDE D_dt:")
     # Combine all lenses
     print("Combining all lenses...")
     combined_path_all_kde = os.path.join(version_dir, 'combined_H0_summary_kde.npy')
-    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=summary['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all_kde, corner_save_path=None, n_run=100, n_burn=1000, n_walkers=20, true_Om0=true_Om0)
+    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=summary['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=summary['z_lens'].values, z_src=summary['z_src'].values, samples_save_path=combined_path_all_kde, corner_save_path=None, n_run=100, n_burn=1500, n_walkers=20, true_Om0=true_Om0)
     # Combine all doubles
     print("Combining the {:d} doubles...".format(min_doubles_quads))
     combined_path_doubles_kde = os.path.join(version_dir, 'combined_H0_doubles_kde.npy')
-    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=doubles['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles_kde, corner_save_path=None, n_run=100, n_burn=1000, n_walkers=20, true_Om0=true_Om0)
+    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=doubles['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=doubles['z_lens'].values, z_src=doubles['z_src'].values, samples_save_path=combined_path_doubles_kde, corner_save_path=None, n_run=100, n_burn=1500, n_walkers=20, true_Om0=true_Om0)
     # Combine all quads
     print("Combining the {:d} quads...".format(min_doubles_quads))
     combined_path_quads_kde = os.path.join(version_dir, 'combined_H0_quads_kde.npy')
-    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=quads['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads_kde, corner_save_path=None, n_run=100, n_burn=1000, n_walkers=20, true_Om0=true_Om0)
+    _ = h0_utils.combine_lenses('DdtHistKDE', lens_ids=quads['id'].values, samples_dir=os.path.join(version_dir, 'mcmc_default'), z_lens=quads['z_lens'].values, z_src=quads['z_src'].values, samples_save_path=combined_path_quads_kde, corner_save_path=None, n_run=100, n_burn=1500, n_walkers=20, true_Om0=true_Om0)
 
     # Combine for each Einstein brightness bin
     if is_prec_ceiling:
