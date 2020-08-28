@@ -17,12 +17,12 @@
         "mcmc_cols": ["lens_mass_theta_E", "lens_mass_gamma", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_center_x", "src_light_center_y", "D_dt"],
         "mcmc_col_labels": ["$\\theta_E$", "$\\gamma$", "$e_1$", "$e_2$", "$\\gamma_{1}$", "$\\gamma_{2}$", "$x_{src}$", "$y_{src}$", "$D_{\\Delta t}$"]
     },
-    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v3/mcmc_default",
+    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default",
     "plotting": {
         "include_fit_gaussian": false
     },
-    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v3/models/resnet101_epoch=14_08-26-2020_10:06.mdl",
-    "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/experiments/v3/train_val_cfg.json", 
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v1/models/resnet101_epoch=11_08-26-2020_04:03.mdl",
+    "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/experiments/v1/train_val_cfg.json", 
     "data": {
         "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/test_v7_baobab_config.py",
         "n_test": 200,
