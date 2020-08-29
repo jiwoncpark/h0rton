@@ -17,25 +17,24 @@
         "mcmc_cols": ["lens_mass_theta_E", "lens_mass_gamma", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_center_x", "src_light_center_y", "D_dt"],
         "mcmc_col_labels": ["$\\theta_E$", "$\\gamma$", "$e_1$", "$e_2$", "$\\gamma_{1}$", "$\\gamma_{2}$", "$x_{src}$", "$y_{src}$", "$D_{\\Delta t}$"]
     },
-    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default",
+    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default_from100",
     "plotting": {
         "include_fit_gaussian": false
     },
-    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v1/models/resnet101_epoch=11_08-26-2020_04:03.mdl",
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v1/models/resnet101_epoch=13_08-29-2020_11:56.mdl",
     "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/experiments/v1/train_val_cfg.json", 
     "data": {
         "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/test_v7_baobab_config.py",
         "n_test": 200,
-        "lens_indices": [0, 7, 11, 19, 28, 31, 35, 36, 39, 40, 44, 48, 57, 63, 68, 70, 73, 75, 78, 92, 93, 94,
-            103, 106, 109, 114, 118, 122, 130, 131, 146, 152, 156, 169, 172, 173, 177, 178, 184, 190]
+        "lens_indices": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199]
     },
     "numerics": {
         "mcmc": {
-            "n_burn": 1000,
-            "n_run": 200,
+            "n_burn": 150,
+            "n_run": 100,
             "walkerRatio": 15,
             "sigma_scale": 1,
-            "threadCount": 12
+            "threadCount": 4
         },
         "solver_type": "NONE"
     },
