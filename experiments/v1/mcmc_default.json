@@ -17,7 +17,7 @@
         "mcmc_cols": ["lens_mass_theta_E", "lens_mass_gamma", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_center_x", "src_light_center_y", "D_dt"],
         "mcmc_col_labels": ["$\\theta_E$", "$\\gamma$", "$e_1$", "$e_2$", "$\\gamma_{1}$", "$\\gamma_{2}$", "$x_{src}$", "$y_{src}$", "$D_{\\Delta t}$"]
     },
-    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default_from174",
+    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default_from67",
     "plotting": {
         "include_fit_gaussian": false
     },
@@ -26,7 +26,7 @@
     "data": {
         "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/test_v7_baobab_config.py",
         "n_test": 200,
-        "lens_indices": [174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199]
+        "lens_indices": [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
     },
     "numerics": {
         "mcmc": {
