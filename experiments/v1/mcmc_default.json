@@ -17,7 +17,7 @@
         "mcmc_cols": ["lens_mass_theta_E", "lens_mass_gamma", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_center_x", "src_light_center_y", "D_dt"],
         "mcmc_col_labels": ["$\\theta_E$", "$\\gamma$", "$e_1$", "$e_2$", "$\\gamma_{1}$", "$\\gamma_{2}$", "$x_{src}$", "$y_{src}$", "$D_{\\Delta t}$"]
     },
-    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default_from100",
+    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v1/mcmc_default",
     "plotting": {
         "include_fit_gaussian": false
     },
