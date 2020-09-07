@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 from baobab import BaobabConfig
 from baobab.data_augmentation.noise_torch import NoiseModelTorch
 from baobab.sim_utils import add_g1g2_columns
-from .data_utils import whiten_pixels, plus_1_log, whiten_Y_cols
+from .data_utils import whiten_pixels, rescale_01, plus_1_log, whiten_Y_cols
 
 __all__ = ['XYData']
 
@@ -16,7 +16,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
     """Represents the XYData used to train or validate the BNN
 
     """
-    def __init__(self, is_train, Y_cols, float_type, define_src_pos_wrt_lens, rescale_pixels, log_pixels, add_pixel_noise, eff_exposure_time, train_Y_mean=None, train_Y_std=None, train_baobab_cfg_path=None, val_baobab_cfg_path=None, for_cosmology=False):
+    def __init__(self, is_train, Y_cols, float_type, define_src_pos_wrt_lens, rescale_pixels, log_pixels, add_pixel_noise, eff_exposure_time, train_Y_mean=None, train_Y_std=None, train_baobab_cfg_path=None, val_baobab_cfg_path=None, for_cosmology=False, rescale_pixels_type='whiten_pixels'):
         """
         Parameters
         ----------
@@ -89,7 +89,10 @@ class XYData(Dataset): # torch.utils.data.Dataset
         self.X_dim = img.shape[0]
 
         # Rescale pixels, stack filters, and shift/scale pixels on the fly 
-        rescale = transforms.Lambda(whiten_pixels)
+        if rescale_pixels_type == 'rescale_01':
+            rescale = transforms.Lambda(rescale_01)
+        else:
+            rescale = transforms.Lambda(whiten_pixels)
         log = transforms.Lambda(plus_1_log)
         transforms_list = []
         if self.log_pixels:

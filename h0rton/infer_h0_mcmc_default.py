@@ -1,15 +1,18 @@
-"""Script to run an MCMC afterburner for the BNN posterior
+"""Script to run MCMC cosmological sampling for individual lenses, using the BNN posterior
 
 It borrows heavily from the `catalogue modelling.ipynb` notebook in Lenstronomy Extensions, which you can find `here <https://github.com/sibirrer/lenstronomy_extensions/blob/master/lenstronomy_extensions/Notebooks/catalogue%20modelling.ipynb>`_.
+
+Example
+-------
+To run this script, pass in the path to the user-defined inference config file as the argument::
+    
+    $ python h0rton/infer_h0_mcmc_default.py mcmc_default.json
 
 """
 import os
 import time
 from tqdm import tqdm
 import gc
-import glob
-from addict import Dict
-import json
 from ast import literal_eval
 import numpy as np
 import pandas as pd
@@ -48,6 +51,7 @@ def main():
                         float_type=cfg.data.float_type, 
                         define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
                         rescale_pixels=cfg.data.rescale_pixels, 
+                        rescale_pixels_type=cfg.data.rescale_pixels_type,
                         log_pixels=cfg.data.log_pixels, 
                         add_pixel_noise=cfg.data.add_pixel_noise, 
                         eff_exposure_time=cfg.data.eff_exposure_time, 
@@ -62,6 +66,7 @@ def main():
                        float_type=cfg.data.float_type, 
                        define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
                        rescale_pixels=cfg.data.rescale_pixels, 
+                       rescale_pixels_type='whiten_pixels',
                        log_pixels=cfg.data.log_pixels, 
                        add_pixel_noise=cfg.data.add_pixel_noise, 
                        eff_exposure_time=cfg.data.eff_exposure_time, 
@@ -73,6 +78,7 @@ def main():
     master_truth = test_data.Y_df
     master_truth = metadata_utils.add_qphi_columns(master_truth)
     master_truth = metadata_utils.add_gamma_psi_ext_columns(master_truth)
+    # Figure out how many lenses BNN will predict on (must be consecutive)
     if test_cfg.data.lens_indices is None:
         if args.lens_indices_path is None:
             # Test on all n_test lenses in the test set
@@ -104,43 +110,60 @@ def main():
     else:
         raise OSError("Destination folder already exists.")
 
-    ######################
-    # Load trained state #
-    ######################
-    # Instantiate loss function, to append to the MCMC objective as the prior
+    #####################
+    # Parameter penalty #
+    #####################
+    # Instantiate original loss function with all BNN-predicted params
     orig_Y_cols = cfg.data.Y_cols
-    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=test_data.Y_dim, device=device)
-    # Instantiate MCMC parameter penalty function
+    loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=test_data.Y_dim, 
+                                                                 device=device)
+    # Not all predicted params will be sampled via MCMC
     params_to_remove = [] #'lens_light_R_sersic', 'src_light_R_sersic'] 
     mcmc_Y_cols = [col for col in orig_Y_cols if col not in params_to_remove]
     mcmc_Y_dim = len(mcmc_Y_cols)
-    mcmc_loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=test_data.Y_dim - len(params_to_remove), device=device)
-    remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, orig_Y_cols, params_to_remove, cfg.model.likelihood_class)
+    # Instantiate loss function with just the MCMC params
+    mcmc_loss_fn = getattr(h0rton.losses, cfg.model.likelihood_class)(Y_dim=test_data.Y_dim - len(params_to_remove), 
+                                                                      device=device)
+    remove_param_idx, remove_idx = mcmc_utils.get_idx_for_params(mcmc_loss_fn.out_dim, 
+                                                                 orig_Y_cols, 
+                                                                 params_to_remove, 
+                                                                 cfg.model.likelihood_class)
     mcmc_train_Y_mean = np.delete(train_data.train_Y_mean, remove_param_idx)
     mcmc_train_Y_std = np.delete(train_data.train_Y_std, remove_param_idx)
     parameter_penalty = mcmc_utils.HybridBNNPenalty(mcmc_Y_cols, cfg.model.likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, test_cfg.h0_posterior.exclude_velocity_dispersion, device)
     custom_logL_addition = parameter_penalty.evaluate
     null_spread = False
-    # Instantiate model
+
+    ###################
+    # BNN predictions #
+    ###################
+    # Instantiate BNN model
     net = getattr(h0rton.models, cfg.model.architecture)(num_classes=loss_fn.out_dim, dropout_rate=cfg.model.dropout_rate)
     net.to(device)
     # Load trained weights from saved state
     net, epoch = train_utils.load_state_dict_test(test_cfg.state_dict_path, net, cfg.optim.n_epochs, device)
-    n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # BNN params + H0 times walker ratio
-    dropout_samples = n_walkers//test_cfg.numerics.mcmc.walkerRatio
-    n_samples_per_dropout = test_cfg.numerics.mcmc.walkerRatio
-    init_pos = np.empty([batch_size, dropout_samples, n_samples_per_dropout, mcmc_Y_dim]) # initialize zero array with shape unknown a priori
-    mcmc_pred = 0.0
+    # When only generating BNN predictions (and not running MCMC), we can afford more n_dropout
+    # otherwise, we fix n_dropout = mcmc_Y_dim + 1
+    if test_cfg.export.pred:
+        n_dropout = 20
+        n_samples_per_dropout = test_cfg.numerics.mcmc.walkerRatio
+    else:
+        n_walkers = test_cfg.numerics.mcmc.walkerRatio*(mcmc_Y_dim + 1) # (BNN params + D_dt) times walker ratio
+        n_dropout = n_walkers//test_cfg.numerics.mcmc.walkerRatio
+        n_samples_per_dropout = test_cfg.numerics.mcmc.walkerRatio
+    # Initialize arrays that will store samples and BNN predictions
+    init_pos = np.empty([batch_size, n_dropout, n_samples_per_dropout, mcmc_Y_dim])
+    mcmc_pred = np.empty([batch_size, n_dropout, mcmc_loss_fn.out_dim])
     with torch.no_grad():
         net.train()
         # Send some empty forward passes through the test data without backprop to adjust batchnorm weights
-        # (This is often not necessary, but good to have just in case.)
+        # (This is often not necessary. Beware if using for just 1 lens.)
         for nograd_pass in range(5):
             for X_, Y_ in test_loader:
                 X = X_.to(device)
                 _ = net(X)
         # Obtain MC dropout samples
-        for d in range(dropout_samples):
+        for d in range(n_dropout):
             net.eval()
             for X_, Y_ in test_loader:
                 X = X_.to(device)
@@ -148,78 +171,66 @@ def main():
                 pred = net(X)
                 break
             mcmc_pred_d = pred.cpu().numpy()
+            # Replace BNN posterior's primary gaussian mean with truth values
             if test_cfg.lens_posterior_type == 'default_with_truth_mean':
-                # Replace BNN posterior's primary gaussian mean with truth values
                 mcmc_pred_d[:, :len(mcmc_Y_cols)] = Y[:, :len(mcmc_Y_cols)].cpu().numpy()
+            # Leave only the MCMC parameters in pred
             mcmc_pred_d = mcmc_utils.remove_parameters_from_pred(mcmc_pred_d, remove_idx, return_as_tensor=False)
-            mcmc_pred += mcmc_pred_d/dropout_samples
-            # Instantiate posterior for BNN samples, to initialize the walkers
-            #print(mcmc_pred_d[0, :2])
+            # Populate pred that will define the MCMC penalty function
+            mcmc_pred[:, d, :] = mcmc_pred_d
+            # Instantiate posterior to generate BNN samples, which will serve as initial positions for walkers
             bnn_post = getattr(h0rton.h0_inference.gaussian_bnn_posterior_cpu, loss_fn.posterior_name + 'CPU')(mcmc_Y_dim,  mcmc_train_Y_mean, mcmc_train_Y_std)
             bnn_post.set_sliced_pred(mcmc_pred_d)
-            init_pos[:, d, :, :] = bnn_post.sample(n_samples_per_dropout, sample_seed=test_cfg.global_seed+d) # [batch_size, dropout_samples, n_samples_per_dropout, mcmc_Y_dim] contains just the lens model params, no D_dt
+            init_pos[:, d, :, :] = bnn_post.sample(n_samples_per_dropout, sample_seed=test_cfg.global_seed+d) # contains just the lens model params, no D_dt
             gc.collect()
-
+    # Terminate right after generating BNN predictions (no MCMC)
     if test_cfg.export.pred:
         import sys
         samples_path = os.path.join(out_dir, 'samples.npy')
-        print(mcmc_Y_cols)
         np.save(samples_path, init_pos)
         sys.exit()
-    init_pos = init_pos.transpose(0, 3, 1, 2).reshape([batch_size, mcmc_Y_dim, -1]).transpose(0, 2, 1)
-    #print(init_pos[0, :5, 4])
-    init_D_dt = np.random.uniform(0.0, 15000.0, size=(batch_size, n_walkers, 1))
 
+    #############
+    # MCMC loop #
+    #############
+    # Convolve MC dropout iterates with aleatoric samples
+    init_pos = init_pos.transpose(0, 3, 1, 2).reshape([batch_size, mcmc_Y_dim, -1]).transpose(0, 2, 1) # [batch_size, n_samples, mcmc_Y_dim]
+    init_D_dt = np.random.uniform(0.0, 15000.0, size=(batch_size, n_walkers, 1))
+    pred_mean = np.mean(init_pos, axis=1) # [batch_size, mcmc_Y_dim]
+    # Define assumed model profiles
     kwargs_model = dict(lens_model_list=['PEMD', 'SHEAR'],
                         point_source_model_list=['SOURCE_POSITION'],
                         source_light_model_list=['SERSIC_ELLIPSE'])
-    astro_sig = test_cfg.image_position_likelihood.sigma
+    astro_sig = test_cfg.image_position_likelihood.sigma # astrometric uncertainty
     # Get H0 samples for each system
     if not test_cfg.time_delay_likelihood.baobab_time_delays:
         if 'abcd_ordering_i' not in master_truth:
             raise ValueError("If the time delay measurements were not generated using Baobab, the user must specify the order of image positions in which the time delays are listed, in order of increasing dec.")
     kwargs_lens_eqn_solver = {'min_distance': 0.05, 'search_window': baobab_cfg.instrument['pixel_scale']*baobab_cfg.image['num_pix'], 'num_iter_max': 200}
 
-    lenses_skipped = [] # keeps track of lenses that skipped MCMC
     total_progress = tqdm(total=n_test)
     realized_time_delays = pd.read_csv(test_cfg.error_model.realized_time_delays, index_col=None)
     # For each lens system...
     for i, lens_i in enumerate(lens_range):
-        # Each lens gets a unique random state for td and vd measurement error realizations.
+        # Each lens gets a unique random state for time delay measurement error realizations.
         rs_lens = np.random.RandomState(lens_i)
         ###########################
         # Relevant data and prior #
         ###########################
         data_i = master_truth.iloc[lens_i].copy()
-        parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :]) # set the BNN parameters
-        # Init values for the lens model params
-        init_info = dict(zip(mcmc_Y_cols, mcmc_pred[lens_i, :len(mcmc_Y_cols)]*mcmc_train_Y_std + mcmc_train_Y_mean)) # mean of primary Gaussian
-        if not test_cfg.h0_posterior.exclude_velocity_dispersion:
-            parameter_penalty.set_vel_disp_params()
-            raise NotImplementedError
+        # Set BNN pred defining parameter penalty for this lens, batch processes across n_dropout
+        parameter_penalty.set_bnn_post_params(mcmc_pred[lens_i, :, :])
+        # Initialize lens model params walkers at the predictive mean
+        init_info = dict(zip(mcmc_Y_cols, pred_mean[lens_i, :]*mcmc_train_Y_std + mcmc_train_Y_mean))
         lcdm = LCDM(z_lens=data_i['z_lens'], z_source=data_i['z_src'], flat=True)
         true_img_dec = literal_eval(data_i['y_image'])
         n_img = len(true_img_dec)
-        #true_td = np.array(literal_eval(data_i['true_td']))
-        #measured_td = true_td + rs_lens.randn(*true_td.shape)*test_cfg.error_model.time_delay_error
-        #print(true_td, measured_td)
-        measured_td_sig = test_cfg.time_delay_likelihood.sigma # np.ones(n_img - 1)*
-        #measured_img_dec = true_img_dec + rs_lens.randn(n_img)*astro_sig
-        #increasing_dec_i = np.argsort(true_img_dec) #np.argsort(measured_img_dec)
-        #measured_td = h0_utils.reorder_to_tdlmc(measured_td, increasing_dec_i, range(n_img)) # need to use measured dec to order
-        #measured_img_dec = h0_utils.reorder_to_tdlmc(measured_img_dec, increasing_dec_i, range(n_img))
+        measured_td_sig = test_cfg.time_delay_likelihood.sigma
         measured_td_wrt0 = np.array(literal_eval(realized_time_delays.iloc[lens_i]['measured_td_wrt0']))
-        kwargs_data_joint = dict(time_delays_measured=measured_td_wrt0,
+        kwargs_data_joint = dict(
+                                 time_delays_measured=measured_td_wrt0,
                                  time_delays_uncertainties=measured_td_sig,
-                                 #vel_disp_measured=measured_vd, # TODO: optionally exclude
-                                 #vel_disp_uncertainty=vel_disp_sig,
                                  )
-        #realized_time_delays.at[lens_i, 'measured_td'] = list(measured_td)
-        #realized_time_delays.at[lens_i, 'measured_y_image'] = list(measured_img_dec)
-        if not test_cfg.h0_posterior.exclude_velocity_dispersion:
-            measured_vd = data_i['true_vd']*(1.0 + rs_lens.randn()*test_cfg.error_model.velocity_dispersion_frac_error)
-            kwargs_data_joint['vel_disp_measured'] = measured_vd
-            kwargs_data_joint['vel_disp_sig'] = test_cfg.velocity_dispersion_likelihood.sigma
 
         #############################
         # Parameter init and bounds #
@@ -270,11 +281,6 @@ def main():
         with script_utils.HiddenPrints():
             chain_list_mcmc = fitting_seq.fit_sequence(fitting_kwargs_list_mcmc)
             kwargs_result_mcmc = fitting_seq.best_fit()
-        #except:
-            #print("lens {:d} skipped".format(lens_i))
-            #total_progress.update(1)
-            #lenses_skipped.append(lens_i)
-            #continue
         lens_i_end_time = time.time()
         inference_time = (lens_i_end_time - lens_i_start_time)/60.0 # min
 

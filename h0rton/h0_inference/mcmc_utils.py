@@ -183,7 +183,7 @@ class HybridBNNPenalty:
         likelihood_class : str
             name of subclass of BaseGaussianNLL to wrap around
         exclude_vel_disp : bool
-            whether to add the NLL of velocity dispersion
+            whether to add the NLL of velocity dispersion (not used)
         device : str
 
         """
@@ -200,8 +200,8 @@ class HybridBNNPenalty:
         """Set BNN posterior parameters, which define the penaty function
 
         """
-        self.bnn_post_params = bnn_post_params.reshape(1, -1)
-        #print("BNN", self.bnn_post_params[:, :self.Y_dim])
+        self.bnn_post_params = bnn_post_params#.reshape(1, -1)
+        self.n_dropout = bnn_post_params.shape[0]
 
     def evaluate(self, kwargs_lens, kwargs_source, kwargs_lens_light=None, kwargs_ps=None, kwargs_special=None, kwargs_extinction=None):
         #kwargs_lens[1]['ra_0'] = kwargs_lens[0]['center_x']
@@ -210,12 +210,8 @@ class HybridBNNPenalty:
         # Whiten the mcmc array
         to_eval = (to_eval - self.mcmc_train_Y_mean)/self.mcmc_train_Y_std
         #print(self.bnn_post_params[:, :self.Y_dim], to_eval)
+        to_eval = np.repeat(to_eval, repeats=self.n_dropout, axis=0)
         ll = -self.nll(self.bnn_post_params, to_eval)
-        #if not self.exclude_vel_disp:
-        #    vel_disp_nll = 0.0
-        #    ll += vel_disp_nll
-        #    raise NotImplementedError
-        #print(kwargs_lens[0]['gamma'], ll)
         return ll #+ self.constant_term
 
 def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debug=False):
