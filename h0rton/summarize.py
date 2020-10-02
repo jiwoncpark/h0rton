@@ -112,7 +112,7 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method, rung_idx):
             metadata_path = os.path.join(baobab_cfg.out_dir, 'metadata.csv')
             summary_df = pd.read_csv(metadata_path, index_col=None, usecols=['z_lens', 'z_src', 'n_img'], nrows=500) # FIXME: capped test set size at 500, as the stored dataset may be much larger
         else:
-            summary_df = h0rton.tdlmc_utils.convert_to_dataframe(rung=rung_idx, save_csv_path=None)
+            summary_df = tdlmc_utils.convert_to_dataframe(rung=rung_idx, save_csv_path=None)
             summary_df.sort_values('seed', axis=0, inplace=True)
             true_H0 = summary_df.iloc[0]['H0']
             true_Om0 = 0.27
@@ -143,14 +143,16 @@ def summarize_mcmc(samples_dir, test_cfg, sampling_method, rung_idx):
         uncorrected_D_dt_samples = h0_utils.remove_outliers_from_lognormal(uncorrected_D_dt_samples, 3).reshape(-1, 1) # [n_samples, 1] 
         k_ext_rv = getattr(scipy.stats, test_cfg.kappa_ext_prior.dist)(**test_cfg.kappa_ext_prior.kwargs)
         k_ext = k_ext_rv.rvs(size=[len(uncorrected_D_dt_samples), oversampling]) # [n_samples, oversampling]
-        D_dt_samples = (uncorrected_D_dt_samples/(1.0 - k_ext)).squeeze() # [n_samples,]
+        if test_cfg.kappa_ext_prior.transformed:
+            D_dt_samples = (uncorrected_D_dt_samples*k_ext).flatten()
+        else:
+            D_dt_samples = (uncorrected_D_dt_samples/(1.0 - k_ext)).flatten() # [n_samples,]
         # Compute lognormal params for D_dt and update summary
         try:
             D_dt_stats = h0_utils.get_lognormal_stats(D_dt_samples)
             D_dt_normal_stats = h0_utils.get_normal_stats(D_dt_samples)
         except:
             print("lens", lens_i)
-            #print(D_dt_samples)
             print("==========")
             lenses_to_rerun.append(lens_i)
             #continue

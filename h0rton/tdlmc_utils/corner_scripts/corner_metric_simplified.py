@@ -69,7 +69,7 @@ for subname in subnames:
                 line = lines[i].split('\t')
             else:
                 line = lines[i].split(' ')
-            if "seed" in line[0] and 'rung1' in line[0]:
+            if "seed" in line[0] and 'rung2' in line[0]:
                 result[line[0]] = np.array([float(line[1]),float(line[2])])
         #==============================================================================
         # Calculate the metric
@@ -101,15 +101,15 @@ fig = plt.figure(figsize=(12, 12))
 n=1
 axes = [[False for i in range(num_boxes)] for j in range(num_boxes)]
 catlog = folders
-color_list = [['#880519']]*6
-ma = ['o', '+', 'x', 'o', '+', 'x',] #'s','D','*','p','<','>','^','v','P','X' ]
+color_list = ['#f97978', '#c04546', '#880519', '#880519', '#880519']
+ma = ['o', 'o', 'o', '+', 'x',] #'s','D','*','p','<','>','^','v','P','X' ]
 #axis_lab = ["efficiency", "log10(goodness)", "log10(precision)", "accuracy"]
-axis_lab = [r"log$_{10}(\chi^2)$", "Precision (%)", "Accuracy (%)"]
+axis_lab = [r"Log goodness log$_{10}(\chi^2)$", "Precision (%)", "Accuracy (%)"]
 
 #metric_target = [(0,1),(np.log10(0.4),np.log10(2.)),(0,np.log10(6)),(-2,2)]
 #metric= [[efficiencys[i], np.log10(goodnesses)[i], np.log10(precisions)[i], accuracys[i]] for i in range(len(label_name))]
 
-metric_target = [(np.log10(0.4), np.log10(2.)), (0, 6), (-2, 2) ]
+metric_target = [(np.log10(0.8), np.log10(1.2)), (0, 6), (-1, 1) ]
 metric= [[np.log10(goodnesses[i]), precisions[i], accuracys[i]] for i in range(len(label_name))]
 label = [label_name[i].split('/')[-1].replace('_','.').replace('-','.').split('.')[-2] for i in range(len(label_name))]
 
@@ -132,25 +132,25 @@ for j in range(num_boxes): # j = column idx
             # Plot target range
             target_x, target_y = metric_target[i][0], metric_target[y_j][0]
             target_wx, target_wy = metric_target[i][1]-metric_target[i][0], metric_target[y_j][1]-metric_target[y_j][0]
-            rectangle = plt.Rectangle((target_x, target_y), target_wx, target_wy, facecolor='gray', alpha =0.2)
+            rectangle = plt.Rectangle((target_x, target_y), target_wx, target_wy, facecolor='tab:gray', alpha =0.2)
             plt.gca().add_patch(rectangle)
             # Plot goodness
             if i == 0:
-                print('j+1={0}={1}'.format(axis_lab[y_j],y_j))
-                print('{0}'.format(axis_lab[y_j]))
-                plt.ylabel('j+1={0}={1}'.format(axis_lab[y_j],y_j), fontsize=15)
-                plt.ylabel('{0}'.format(axis_lab[y_j]), fontsize=15)
+                plt.axvline(np.log10(0.7), ls='--', color='tab:gray')
+                plt.axvline(np.log10(1.4), ls='--', color='tab:gray')
+                plt.ylabel('j+1={0}={1}'.format(axis_lab[y_j],y_j), fontsize=25)
+                plt.ylabel('{0}'.format(axis_lab[y_j]), fontsize=25)
                 plt.xlim(np.log10(0.4), np.log10(2.0))   #plot the limit for goodness for x axis
             # Plot precision
             elif i == 1:
-                plt.xlim(0, 10)   #plot the limit for precision for x axis
+                plt.xlim(0, 12)   #plot the limit for precision for x axis
             # Plot accuracy
             if y_j == 2:
-                plt.xlabel('i={0}={1}'.format(axis_lab[i], i), fontsize =15)
-                plt.xlabel('{0}'.format(axis_lab[i]), fontsize =15)
+                plt.xlabel('i={0}={1}'.format(axis_lab[i], i), fontsize =25)
+                plt.xlabel('{0}'.format(axis_lab[i]), fontsize =25)
                 plt.ylim(-2, 2)   #plot the limit for accuracy for y axis
             elif y_j ==1:
-                plt.ylim(0, 10)   #plot the limit for precision for y axis
+                plt.ylim(0, 12)   #plot the limit for precision for y axis
             elif y_j ==0:
                 plt.ylim(np.log10(0.4), np.log10(2.0))   #plot the limit for goodness for y axis
             if i>=1:
@@ -160,7 +160,7 @@ for j in range(num_boxes): # j = column idx
         
         n += 1
         if i==1 and j ==0: # Add legend only once
-            marker_legend = ax.legend(bbox_to_anchor=(1.5, 0.5), loc='center left', borderaxespad=0., prop={'size': 16})
+            marker_legend = ax.legend(bbox_to_anchor=(1.2, 0.5), loc='center left', borderaxespad=0., prop={'size': 16}, fontsize=20)
             ax.add_artist(marker_legend)
             #target_legend = ax.legend(handles=[Patch(facecolor='gray', alpha=0.2, label='Target region')])
             #ax.add_artist(target_legend)

@@ -233,7 +233,7 @@ def lens_model_plot_custom(image, ax, lensModel, kwargs_lens, numPix=500, deltaP
     if with_caustics is True:
         ra_crit_list, dec_crit_list = lensModelExt.critical_curve_tiling(kwargs_lens, compute_window=_frame_size, start_scale=deltaPix, max_order=20)
         ra_caustic_list, dec_caustic_list = lensModel.ray_shooting(ra_crit_list, dec_crit_list, kwargs_lens)
-        plot_util.plot_line_set(ax, _coords, ra_caustic_list, dec_caustic_list, color='y')
+        plot_util.plot_line_set(ax, _coords, ra_caustic_list, dec_caustic_list, color='orange')
         plot_util.plot_line_set(ax, _coords, ra_crit_list, dec_crit_list, color='r')
     if point_source:
         solver = LensEquationSolver(lensModel)

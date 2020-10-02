@@ -213,7 +213,7 @@ def main():
     # For each lens system...
     for i, lens_i in enumerate(lens_range):
         # Each lens gets a unique random state for time delay measurement error realizations.
-        rs_lens = np.random.RandomState(lens_i)
+        #rs_lens = np.random.RandomState(lens_i) # replaced with externally rendered time delays
         ###########################
         # Relevant data and prior #
         ###########################

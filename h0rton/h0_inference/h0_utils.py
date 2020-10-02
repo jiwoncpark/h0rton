@@ -7,7 +7,7 @@ import corner
 import matplotlib.pyplot as plt
 from scipy.stats import norm, median_abs_deviation
 
-__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "get_normal_stats", "get_normal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses", "gaussian_ll_pdf", "TrueKappa"]
+__all__ = ["reorder_to_tdlmc", "pred_to_natural_gaussian", "CosmoConverter", "get_lognormal_stats", "get_lognormal_stats_naive", "get_normal_stats", "get_normal_stats_naive", "remove_outliers_from_lognormal", "combine_lenses", "gaussian_ll_pdf"]
 
 MAD_to_sig = 1.0/norm.ppf(0.75) # 1.4826 built into scipy, so not used.
 
