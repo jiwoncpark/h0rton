@@ -257,7 +257,9 @@ def combine_lenses(likelihood_type, z_lens, z_src, true_Om0, samples_save_path=N
                 'kwargs_fixed_kin': kwargs_fixed_kin}
 
     cosmology = 'FLCDM'  # available models: 'FLCDM', "FwCDM", "w0waCDM", "oLCDM"
-    mcmc_sampler = MCMCSampler(kwargs_posterior_list, cosmology, kwargs_bounds, 
+    mcmc_sampler = MCMCSampler(kwargs_likelihood_list=kwargs_posterior_list, 
+                               cosmology=cosmology, 
+                               kwargs_bounds=kwargs_bounds, 
                                ppn_sampling=False,
                                lambda_mst_sampling=False, 
                                lambda_mst_distribution='NONE', 
