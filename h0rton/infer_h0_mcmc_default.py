@@ -66,7 +66,7 @@ def main():
                        float_type=cfg.data.float_type, 
                        define_src_pos_wrt_lens=cfg.data.define_src_pos_wrt_lens, 
                        rescale_pixels=cfg.data.rescale_pixels, 
-                       rescale_pixels_type='whiten_pixels',
+                       rescale_pixels_type=cfg.data.rescale_pixels_type,
                        log_pixels=cfg.data.log_pixels, 
                        add_pixel_noise=cfg.data.add_pixel_noise, 
                        eff_exposure_time=cfg.data.eff_exposure_time, 
