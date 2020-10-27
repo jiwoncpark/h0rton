@@ -101,17 +101,17 @@ fig = plt.figure(figsize=(12, 12))
 n=1
 axes = [[False for i in range(num_boxes)] for j in range(num_boxes)]
 catlog = folders
-color_list = ['#f97978', '#c04546', '#880519', '#880519', '#880519']
+color_list = ['#e7969c', '#d6616b', '#843c39', '#843c39', '#843c39'] #['#f97978', '#c04546', '#880519', '#880519', '#880519'] orbit_to_color = dict(zip([2, 1, 0.5], ['#843c39', '#d6616b', '#e7969c']))
 ma = ['o', 'o', 'o', '+', 'x',] #'s','D','*','p','<','>','^','v','P','X' ]
 #axis_lab = ["efficiency", "log10(goodness)", "log10(precision)", "accuracy"]
-axis_lab = [r"Log goodness log$_{10}(\chi^2)$", "Precision (%)", "Accuracy (%)"]
+axis_lab = [r"log$_{10}(\chi^2)$", "P (%)", "A (%)"]
 
 #metric_target = [(0,1),(np.log10(0.4),np.log10(2.)),(0,np.log10(6)),(-2,2)]
 #metric= [[efficiencys[i], np.log10(goodnesses)[i], np.log10(precisions)[i], accuracys[i]] for i in range(len(label_name))]
 
 metric_target = [(np.log10(0.8), np.log10(1.2)), (0, 6), (-1, 1) ]
 metric= [[np.log10(goodnesses[i]), precisions[i], accuracys[i]] for i in range(len(label_name))]
-label = [label_name[i].split('/')[-1].replace('_','.').replace('-','.').split('.')[-2] for i in range(len(label_name))]
+label = [label_name[i].split('/')[-1].replace('_','.').replace('-','.').split('.t')[-2] for i in range(len(label_name))]
 
 for j in range(num_boxes): # j = column idx
     for i in range(num_boxes): # i = row idx
@@ -119,7 +119,7 @@ for j in range(num_boxes): # j = column idx
             y_j = j+1
             ax = fig.add_subplot(num_boxes, num_boxes, n)
             plt.setp(ax.spines.values(), linewidth=2) # set property
-            ax.tick_params(labelsize=12)
+            ax.tick_params(labelsize=15)
             ax.get_xaxis().set_tick_params(direction='in', width=1.5, length=6)
             ax.get_yaxis().set_tick_params(direction='in', width=1.5, length=6)
             ax.yaxis.set_ticks_position('both')
@@ -140,7 +140,7 @@ for j in range(num_boxes): # j = column idx
                 plt.axvline(np.log10(1.4), ls='--', color='tab:gray')
                 plt.ylabel('j+1={0}={1}'.format(axis_lab[y_j],y_j), fontsize=25)
                 plt.ylabel('{0}'.format(axis_lab[y_j]), fontsize=25)
-                plt.xlim(np.log10(0.4), np.log10(2.0))   #plot the limit for goodness for x axis
+                plt.xlim(np.log10(0.5), np.log10(2.0))   #plot the limit for goodness for x axis
             # Plot precision
             elif i == 1:
                 plt.xlim(0, 12)   #plot the limit for precision for x axis
@@ -152,7 +152,7 @@ for j in range(num_boxes): # j = column idx
             elif y_j ==1:
                 plt.ylim(0, 12)   #plot the limit for precision for y axis
             elif y_j ==0:
-                plt.ylim(np.log10(0.4), np.log10(2.0))   #plot the limit for goodness for y axis
+                plt.ylim(np.log10(0.5), np.log10(2.0))   #plot the limit for goodness for y axis
             if i>=1:
                 ax.yaxis.set_ticklabels([])
             if y_j <2:
@@ -168,7 +168,7 @@ for j in range(num_boxes): # j = column idx
             #bbox_to_anchor=(3.0, -0.5), 
 
 fig.subplots_adjust()
-#fig.tight_layout(h_pad=-1.15, w_pad=-0.7)
+fig.tight_layout(h_pad=0.1, w_pad=1.0)
 #fig.show()
 fig.savefig(args.out_path, bbox_inches='tight')
 
