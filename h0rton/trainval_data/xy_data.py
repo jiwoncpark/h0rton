@@ -69,7 +69,7 @@ class XYData(Dataset): # torch.utils.data.Dataset
             self.train_Y_std = np.std(train_Y_to_whiten, axis=0, keepdims=True)
         # Store the unwhitened metadata
         if self.for_cosmology:
-            self.Y_df = Y_df        
+            self.Y_df = Y_df.copy()        
         # Number of predictive columns
         self.Y_dim = len(self.Y_cols)
         # Whiten the columns
