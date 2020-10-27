@@ -138,7 +138,7 @@ def get_special_kwargs(n_img, astrometry_sigma, delta_pos_hard_bound=5.0, D_dt_i
     kwargs_upper_special = {'delta_x_image': ones*delta_pos_hard_bound, 'delta_y_image': ones*delta_pos_hard_bound, 'D_dt': D_dt_upper}
     return [kwargs_special_init, kwargs_special_sigma, fixed_special, kwargs_lower_special, kwargs_upper_special]
 
-def postprocess_mcmc_chain(kwargs_result, samples, kwargs_model, fixed_lens_kwargs, fixed_ps_kwargs, fixed_src_light_kwargs, fixed_special_kwargs, kwargs_constraints):
+def postprocess_mcmc_chain(kwargs_result, samples, kwargs_model, fixed_lens_kwargs, fixed_ps_kwargs, fixed_src_light_kwargs, fixed_special_kwargs, kwargs_constraints, kwargs_fixed_lens_light=None, verbose=False):
     """Postprocess the MCMC chain for making the chains consistent with the optimized lens model and converting parameters
 
     Returns
@@ -147,18 +147,24 @@ def postprocess_mcmc_chain(kwargs_result, samples, kwargs_model, fixed_lens_kwar
         processed MCMC chain, where each row is a sample
 
     """
-    param = Param(kwargs_model, fixed_lens_kwargs, kwargs_fixed_ps=fixed_ps_kwargs, kwargs_fixed_source=fixed_src_light_kwargs, kwargs_fixed_special=fixed_special_kwargs, kwargs_lens_init=kwargs_result['kwargs_lens'], **kwargs_constraints)
+    param = Param(kwargs_model, fixed_lens_kwargs, kwargs_fixed_ps=fixed_ps_kwargs, kwargs_fixed_source=fixed_src_light_kwargs, kwargs_fixed_special=fixed_special_kwargs, kwargs_fixed_lens_light=kwargs_fixed_lens_light, kwargs_lens_init=kwargs_result['kwargs_lens'], **kwargs_constraints)
+    if verbose:
+        param.print_setting()
     n_samples = len(samples)
     processed = []
     for i in range(n_samples):
         kwargs = {}
         kwargs_out = param.args2kwargs(samples[i])
-        kwargs_lens_out, kwargs_special_out, kwargs_ps_out, kwargs_source_out = kwargs_out['kwargs_lens'], kwargs_out['kwargs_special'], kwargs_out['kwargs_ps'], kwargs_out['kwargs_source']
+        kwargs_lens_out, kwargs_special_out, kwargs_ps_out, kwargs_source_out, kwargs_lens_light_out = kwargs_out['kwargs_lens'], kwargs_out['kwargs_special'], kwargs_out['kwargs_ps'], kwargs_out['kwargs_source'], kwargs_out['kwargs_lens_light']
         for k, v in kwargs_lens_out[0].items():
             kwargs['lens_mass_{:s}'.format(k)] = v
         for k, v in kwargs_lens_out[1].items():
             kwargs['external_shear_{:s}'.format(k)] = v
-        kwargs['src_light_R_sersic'] = kwargs_source_out[0]['R_sersic']
+        for k, v in kwargs_source_out[0].items():
+            kwargs['src_light_{:s}'.format(k)] = v
+        for k, v in kwargs_lens_light_out[0].items():
+            kwargs['lens_light_{:s}'.format(k)] = v
+        #kwargs['src_light_R_sersic'] = kwargs_source_out[0]['R_sersic']
         if 'ra_source' in kwargs_ps_out[0]:
             kwargs['src_light_center_x'] = kwargs_ps_out[0]['ra_source'] - kwargs_lens_out[0]['center_x']
             kwargs['src_light_center_y'] = kwargs_ps_out[0]['dec_source'] - kwargs_lens_out[0]['center_y']

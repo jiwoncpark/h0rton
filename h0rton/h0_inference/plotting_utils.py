@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 import corner
 from lenstronomy.Plots import chain_plot
 from h0rton.h0_inference import h0_utils
-from scipy.stats import norm, median_absolute_deviation
+from scipy.stats import norm#, median_absolute_deviation
 from lenstronomy.LensModel.lens_model_extensions import LensModelExtensions
 from lenstronomy.LensModel.Solver.lens_equation_solver import LensEquationSolver
 #import lenstronomy.Util.util as util
@@ -25,7 +25,7 @@ plt.rc('axes', linewidth=2, titlesize='medium', labelsize='medium', labelweight=
 params = {'mathtext.default': 'regular' }          
 plt.rcParams.update(params)
 
-__all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner", "gaussian"]
+__all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner", "gaussian", "plot_forward_modeling_comparisons"]
 
 def gaussian(x, mean, standard_deviation, amplitude):
     return amplitude * np.exp( - ((x - mean) / standard_deviation) ** 2)
@@ -204,6 +204,24 @@ def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
     fig.savefig(save_path, dpi=100)
     plt.close()
 
+def plot_forward_modeling_comparisons(model_plot_instance, out_dir):
+    """Plot the data vs. model comparisons using the Lenstronomy modelPlot tool
+
+    Parameters
+    ----------
+    model_plot_instance : lenstronomy.Plots.model_plot.ModelPlot object
+    out_dir : directory in which the plots will be saved
+
+    """
+    f, axes = model_plot_instance.plot_main()
+    f.savefig(os.path.join(out_dir, 'main_plot_lenstronomy.png'))
+    plt.close()
+    f, axes = model_plot_instance.plot_separate()
+    f.savefig(os.path.join(out_dir, 'separate_plot_lenstronomy.png'))
+    plt.close()
+    f, axes = model_plot_instance.plot_subtract_from_data_all()
+    f.savefig(os.path.join(out_dir, 'subtract_plot_lenstronomy.png'))
+    plt.close('all')
 
 #TODO define coordinate grid beforehand, e.g. kwargs_data
 def lens_model_plot_custom(image, ax, lensModel, kwargs_lens, numPix=500, deltaPix=0.01, sourcePos_x=0, sourcePos_y=0, point_source=False, with_caustics=False):

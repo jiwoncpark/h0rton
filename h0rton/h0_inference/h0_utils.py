@@ -209,19 +209,18 @@ def combine_lenses(likelihood_type, z_lens, z_src, true_Om0, samples_save_path=N
     elif likelihood_type == 'DdtHistKDE':
         lens_ids = posterior_parameters['lens_ids']
         samples_dir = posterior_parameters['samples_dir']
+        binning_method = posterior_parameters['binning_method']
         for i, lens_i in enumerate(lens_ids):
             h0_dict_path = os.path.join(samples_dir, 'D_dt_dict_{:04d}.npy'.format(lens_i))
             h0_dict = np.load(h0_dict_path, allow_pickle=True).item() # TODO: Use context manager to prevent memory overload
             D_dt_samples = h0_dict['D_dt_samples']
-            weights = np.ones_like(D_dt_samples) #h0_dict['H0_weights']
-            remove = np.logical_or(np.isnan(weights), np.isnan(D_dt_samples))
+            remove = np.isnan(D_dt_samples)
             D_dt_samples = D_dt_samples[~remove]
-            weights = weights[~remove]
             #cosmo_converter = CosmoConverter(z_lens[i], z_src[i])
             #D_dt_samples = cosmo_converter.get_D_dt(H0_samples)
             kwargs_posterior = {'z_lens': z_lens[i], 'z_source': z_src[i], 
-                                'ddt_samples': D_dt_samples, 'ddt_weights': weights,
-                               'likelihood_type': 'DdtHistKDE'}
+                                'ddt_samples': D_dt_samples, 'ddt_weights': None,
+                               'likelihood_type': 'DdtHist', 'binning_method': binning_method}
             kwargs_posterior_list.append(kwargs_posterior)
     else:
         raise NotImplementedError("This likelihood type is not supported. Please choose from 'DdtGaussian', 'DdtLogNorm', and 'DdtHistKDE'.")
