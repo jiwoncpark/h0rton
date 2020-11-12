@@ -47,6 +47,7 @@ extensions = [
 autoapi_type = 'python'
 autoapi_dirs = ['../h0rton']
 autodoc_mock_imports = ["torch", "torchvision"]
+exclude_patterns = ['../baobab_configs', '../demo']
 
 html_math_renderer = 'mathjax'
 
