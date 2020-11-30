@@ -1,0 +1,6 @@
+name    desc
+{train|val|test}_v3_baobab_config   matched precision (but tdcosmo was at 0.01 so sampling was too slow), src_light ~ U(20, 22.5)
+{train|val|test}_v4_baobab_config   matched precision, now at min_distance=pixel_scale, search_window=pixel_scale*num_pix, metadata and image rendering have the same precision. src_light ~ U(20, 22.5)
+{train|val|test}_v5_baobab_config   everything to now, src_light ~ U(20, 25), min_distance = 0.05, magnification bug fixed, PSF=101
+v6  normal on 1/(1-kappa)
+v7 normal on 1/(1-kappa) = 1 with magnification errors 0.1 (10%)
