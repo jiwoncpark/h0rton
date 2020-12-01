@@ -101,8 +101,6 @@ Feedback and More
 Suggestions are always welcome! If you encounter issues or areas for improvement, please message @jiwoncpark or `make an issue
 <https://github.com/jiwoncpark/h0rton/issues>`_.
 
-There is an ongoing `document <https://www.overleaf.com/read/pswdqwttjbjr>`_ that details our Bayesian inference method, written and maintained by Ji Won. The API documentation can be found at https://h0rton.readthedocs.io/
-
 `h0rton` was used to enter the Time Delay Lens Modeling Challenge:
 
 * Challenge webpage: https://tdlmc.github.io/
