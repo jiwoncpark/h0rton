@@ -8,20 +8,20 @@ from setuptools import setup, find_packages
 
 setup(
       name='h0rton',
-      version='0.1',
+      version='v1.0',
       author='Ji Won Park',
       author_email='jiwon.christine.park@gmail.com',
       packages=find_packages(),
       license='LICENSE.md',
       description='Bayesian neural network for hierarchical inference of the Hubble constant',
       long_description=open("README.rst").read(),
-      long_description_content_type='text/markdown',
+      long_description_content_type='text/x-rst',
       url='https://github.com/jiwoncpark/h0rton',
       #install_requires=required_packages,
       #dependency_links=['http://github.com/jiwoncpark/corner.py/tarball/master#egg=corner_jiwoncpark'],
       include_package_data=True,
       entry_points={
-      'console_scripts': ['train=h0rton.train:main', 'infer_h0=h0rton.infer_h0:main'],
+      'console_scripts': ['train=h0rton.train:main', 'infer_h0=h0rton.infer_h0_mcmc_default:main'],
       },
       test_suite='nose.collector',
       tests_require=['nose'],

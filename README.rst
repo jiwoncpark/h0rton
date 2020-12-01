@@ -14,6 +14,9 @@ h0rton - Hierarchical Bayesian Inference of the Hubble Constant from Strong Grav
 .. image:: https://coveralls.io/repos/github/jiwoncpark/h0rton/badge.svg?branch=master
         :target: https://coveralls.io/github/jiwoncpark/h0rton?branch=master
 
+.. image:: https://badge.fury.io/py/h0rton.svg
+    :target: https://badge.fury.io/py/h0rton
+
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/jiwoncpark/h0rton/LICENSE
 
