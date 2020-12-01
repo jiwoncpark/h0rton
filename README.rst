@@ -108,4 +108,4 @@ There is an ongoing `document <https://www.overleaf.com/read/pswdqwttjbjr>`_ tha
 * Challenge webpage: https://tdlmc.github.io/
 * Experimental design paper: https://arxiv.org/abs/1801.01506
 
-This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product”. When referring to h0rton please cite (Park et al, in preparation) and provide a link to https://github.com/jiwoncpark/h0rton 
+This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product."" When referring to h0rton, please cite (Park et al 2020) and provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_. 
