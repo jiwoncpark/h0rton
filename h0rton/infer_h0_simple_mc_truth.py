@@ -10,15 +10,9 @@ To run this script, pass in the path to the user-defined training config file as
 
 """
 import os
-import sys
-import argparse
-import random
 import time
-from addict import Dict
 from tqdm import tqdm
 from ast import literal_eval
-import json
-import glob
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
@@ -30,7 +24,6 @@ from baobab import BaobabConfig
 # H0rton modules
 from h0rton.configs import TrainValConfig, TestConfig
 import h0rton.losses
-import h0rton.train_utils as train_utils
 import h0rton.script_utils as script_utils
 from h0rton.h0_inference import H0Posterior, plot_weighted_h0_histogram
 from h0rton.trainval_data import XYData

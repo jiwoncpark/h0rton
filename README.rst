@@ -27,7 +27,14 @@ Hierarchical Bayesian inference of the Hubble constant from samples of strong gr
 Installation
 ============
 
-0. You'll need a Fortran compiler and Fortran-compiled `fastell4py`, which you can get on a debian system by running
+0. Virtual environments are strongly recommended, to prevent dependencies with conflicting versions. Create a conda virtual environment and activate it:
+
+::
+
+$conda create -n h0rton python=3.6 -y
+$conda activate h0rton
+
+1. You'll need a Fortran compiler and Fortran-compiled `fastell4py`, which you can get on a debian system by running
 
 ::
 
@@ -35,13 +42,6 @@ $sudo apt-get install gfortran
 $git clone https://github.com/sibirrer/fastell4py.git <desired location>
 $cd <desired location>/fastell4py
 $python setup.py install --user
-
-1. Virtual environments are strongly recommended, to prevent dependencies with conflicting versions. Create a conda virtual environment and activate it:
-
-::
-
-$conda create -n h0rton python=3.6 -y
-$conda activate h0rton
 
 2. Now do one of the following. 
 
@@ -106,4 +106,4 @@ Suggestions are always welcome! If you encounter issues or areas for improvement
 * Challenge webpage: https://tdlmc.github.io/
 * Experimental design paper: https://arxiv.org/abs/1801.01506
 
-This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product."" When referring to h0rton, please cite (Park et al 2020) and provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_. 
+This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product." When referring to h0rton, please cite (Park et al 2020) and provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_. 

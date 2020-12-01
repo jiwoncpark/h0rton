@@ -12,7 +12,6 @@ To run this script, pass in the path to the user-defined inference config file a
 
 import time
 import warnings
-import sys
 import os
 from tqdm import tqdm
 import gc
@@ -110,7 +109,11 @@ def main():
     #############
     # MCMC loop #
     #############
-    kwargs_lens_eqn_solver = {'min_distance': 0.05, 'search_window': baobab_cfg.instrument['pixel_scale']*baobab_cfg.image['num_pix'], 'num_iter_max': 200}
+    kwargs_lens_eqn_solver = dict(
+                                  min_distance=0.05,
+                                  search_window=baobab_cfg.instrument['pixel_scale']*baobab_cfg.image['num_pix'],
+                                  num_iter_max=200
+                                  )
     fm_posterior = ForwardModelingPosterior(kwargs_lens_eqn_solver=kwargs_lens_eqn_solver,
                                             astrometric_sigma=test_cfg.image_position_likelihood.sigma,
                                             supersampling_factor=baobab_cfg.numerics.supersampling_factor)

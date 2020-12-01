@@ -10,15 +10,13 @@ with the ID of the precision ceiling folder as the optional argument::
 """
 
 import os
-import sys
 import numpy as np
 import argparse
 import pandas as pd
 import lenstronomy
 print(lenstronomy.__path__)
-from h0rton.configs import TrainValConfig, TestConfig
+from h0rton.configs import TestConfig
 import h0rton.h0_inference.h0_utils as h0_utils
-import matplotlib.pyplot as plt
 from baobab.configs import BaobabConfig
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.LightModel.light_model import LightModel
@@ -60,7 +58,6 @@ def main():
     # Read in summary
     summary = pd.read_csv(os.path.join(version_dir, 'summary.csv'), index_col=None, nrows=n_test)
     summary['id'] = summary.index
-    true_H0 = 70.0
     true_Om0 = 0.3
 
     # Drop irrelevant lenses
