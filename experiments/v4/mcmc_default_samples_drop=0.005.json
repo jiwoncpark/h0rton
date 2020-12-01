@@ -1,0 +1,77 @@
+{
+    "device_type": "cuda",
+    "global_seed": 1234,
+    "lens_posterior_type": "default",
+    "error_model": {
+        "time_delay_error": 0.25,
+        "velocity_dispersion_frac_error": 0.05,  
+        "realized_time_delays": "/home/jwp/stage/sl/h0rton/experiments/v0/simple_mc_default/realized_time_delays.csv"
+    },
+    "fractional_error_added_to_truth": 0.03,
+    "export": {
+        "images": false,
+        "pred": true,
+        "mcmc_chain": false,
+        "mcmc_corner": false,
+        "D_dt_histogram": true,
+        "mcmc_cols": ["lens_mass_theta_E", "lens_mass_gamma", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_center_x", "src_light_center_y", "D_dt"],
+        "mcmc_col_labels": ["$\\theta_E$", "$\\gamma$", "$e_1$", "$e_2$", "$\\gamma_{1}$", "$\\gamma_{2}$", "$x_{src}$", "$y_{src}$", "$D_{\\Delta t}$"]
+    },
+    "out_dir": "/home/jwp/stage/sl/h0rton/experiments/v4/mcmc_default_samples_val_drop=0.005",
+    "plotting": {
+        "include_fit_gaussian": false
+    },
+    "state_dict_path": "/home/jwp/stage/sl/h0rton/experiments/v4/models_drop=0.005/resnet101_epoch=32_09-06-2020_09:25.mdl",
+    "train_val_config_file_path": "/home/jwp/stage/sl/h0rton/experiments/v4/train_val_cfg_drop=0.005.json", 
+    "data": {
+        "test_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/val_v7_baobab_config.py",
+        "n_test": 512,
+        "lens_indices": null
+    },
+    "numerics": {
+        "mcmc": {
+            "n_burn": 150,
+            "n_run": 100,
+            "walkerRatio": 1000,
+            "sigma_scale": 1,
+            "threadCount": 4
+        },
+        "solver_type": "NONE"
+    },
+    "h0_posterior": {
+        "n_samples": 5000,
+        "sampling_buffer": 2,
+        "exclude_velocity_dispersion": true
+    },
+    "h0_prior": {
+        "dist": "uniform", 
+        "kwargs": {
+            "loc": 50.0,
+            "scale": 40.0
+        }
+    },
+    "kappa_ext_prior": {
+        "dist": "norm",
+        "kwargs": {
+            "loc": 0.0,
+            "scale": 0.025
+        }
+    },
+    "aniso_param_prior": {
+        "dist": "uniform",
+        "kwargs": {
+            "loc": 0.5,
+            "scale": 4.5
+        }
+    },
+    "time_delay_likelihood": {
+        "baobab_time_delays": true,
+        "sigma": 0.25
+    },
+    "velocity_dispersion_likelihood": {
+        "sigma": 20
+    },
+    "image_position_likelihood": {
+        "sigma": 0.005
+    }
+}
