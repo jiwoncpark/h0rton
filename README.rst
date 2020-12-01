@@ -1,6 +1,8 @@
-======
-h0rton
-======
+===========================================================================================================
+h0rton - Hierarchical Bayesian Inference of the Hubble Constant from Strong Gravitational Time Delay Lenses
+===========================================================================================================
+
+.. image:: plots/overlaid_200_posteriors.png
 
 .. image:: https://travis-ci.com/jiwoncpark/h0rton.svg?branch=master
     :target: https://travis-ci.org/jiwoncpark/h0rton
@@ -12,8 +14,14 @@ h0rton
 .. image:: https://coveralls.io/repos/github/jiwoncpark/h0rton/badge.svg?branch=master
         :target: https://coveralls.io/github/jiwoncpark/h0rton?branch=master
 
+.. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
+    :target: https://github.com/jiwoncpark/h0rton/LICENSE
 
-Hierarchical Bayesian inference of the Hubble constant from samples of strong gravitational time delay lenses. This package represents LSST Dark Energy Science Collaboration research in progress:  the code is under development and has not yet been released. We welcome requests to access the code for non-DESC use; if you wish to use the code outside DESC please contact Ji Won Park (@jiwoncpark).
+.. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
+        :target: http://www.astropy.org
+        :alt: Powered by Astropy Badge
+
+Hierarchical Bayesian inference of the Hubble constant from samples of strong gravitational time delay lenses. This package represents LSST Dark Energy Science Collaboration research in progress. Please contact Ji Won Park (@jiwoncpark) for questions on using the code.
 
 
 Installation

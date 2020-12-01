@@ -8,7 +8,7 @@
 *.hdf5
 *.png
 h0rton/tdlmc_data/*
-h0rton/tdlmc_utils/*
+#h0rton/tdlmc_utils/*
 
 # Logs
 runs/*
