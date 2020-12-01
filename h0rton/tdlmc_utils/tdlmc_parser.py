@@ -1,19 +1,83 @@
-import os, sys
+import os
 import numpy as np
 import pandas as pd
 from ast import literal_eval
 import re
 import h0rton.tdlmc_data
-__all__ = ['convert_to_dataframe', 'parse_closed_box', 'parse_open_box', 'read_from_csv']
+from h0rton.tdlmc_utils import tdlmc_metrics
 
-#tdlmc_data_path = os.path.abspath(os.path.dirname(h0rton.tdlmc_data.__file__))
+__all__ = ['convert_to_dataframe', 'parse_closed_box', 'parse_open_box', 
+'read_from_csv', 'format_results_for_tdlmc_metrics']
+
 tdlmc_data_path = os.path.abspath(list(h0rton.tdlmc_data.__path__)[0])
 """str: directory path containing the TDLMC data
 
 """
 
+def format_results_for_tdlmc_metrics(version_dir, out_dir, rung_id=2):
+    """Format the BNN inference results so they can be read into the script that 
+    generates the TDLMC metrics cornerplot
+
+    Parameters
+    ----------
+    version_dir : str or os.path object
+        path to the folder containing inference results
+    rung_id : int
+        TDLMC rung ID
+
+    """
+    label_to_id = {'A1 (0.5 HST orbit)': (4, ''), 
+                   'A2 (1 HST orbit)': (3, ''), 
+                   'A3 (2 HST orbits)': (2, ''), 
+                   'B1 (89 doubles for 1 HST orbit)': (3, '_doubles'), 
+                   'B2 (89 quads for 1 HST orbit)': (3, '_quads')}
+
+    for label, (version_id, img) in label_to_id.items():
+        summary = pd.read_csv(os.path.join(version_dir, 'summary.csv'), 
+                              index_col=None)
+        true_H0 = 70.0
+        outside_rung = summary[ summary['id'] > (199)].index
+        summary.drop(list(outside_rung), inplace=True)
+        summary['keep'] = True # keep all lenses
+        summary.loc[~summary['keep'], ['H0_mean', 'H0_std']] = -99
+        summary['id'] = summary['id'].astype(int)
+        
+        if img != '':
+            summary['is_quad'] = (summary['n_img'] == 4)
+            n_test = np.min([len(summary[~summary['is_quad']]), 
+                            len(summary[summary['is_quad']])])
+            if img == '_doubles':
+                summary = summary[~summary['is_quad']].iloc[:n_test]
+            else:
+                summary = summary[summary['is_quad']].iloc[:n_test]
+                
+        tdlmc_mean = summary['H0_mean'][summary['keep']]
+        tdlmc_std = summary['H0_std'][summary['keep']]
+
+        # Compute per-lens versions of the metrics
+        summary['g'] = ((summary['H0_mean'] - true_H0)/summary['H0_std'])**2.0
+        summary['log_g'] = np.log10(summary['g'])
+        summary['p'] = (summary['H0_std']/true_H0)
+        summary['a'] = (summary['H0_mean'] - true_H0)/true_H0
+
+        # Test-set-side metrics
+        G = tdlmc_metrics.get_goodness(tdlmc_mean,tdlmc_std, true_H0)
+        P = tdlmc_metrics.get_precision(tdlmc_std, true_H0)
+        A = tdlmc_metrics.get_accuracy(tdlmc_mean, true_H0)
+        print("Goodness: ", G, "Log goodness: ", np.log10(G))
+        print("Precision: ", P)
+        print("Accuracy: ", A)
+        print("Total combined", summary[summary['keep']].shape[0])
+        print("Actually discarded", summary[~summary['keep']].shape[0])
+        lens_name_formatting = lambda x: 'rung{:d}_seed{:d}'.format(rung_id, x)
+        summary['rung_id'] = summary.id.apply(lens_name_formatting)
+        summary = summary[['rung_id', 'H0_mean', 'H0_std']]
+        summary.to_csv(os.path.join(out_dir, 'H0rton/{:s}.txt'.format(label)), 
+                       header=None, index=None, sep=' ', mode='a')
+
 def read_from_csv(csv_path):
-    """Read a Pandas Dataframe from the combined csv file of TDLMC data while evaluating all the relevant strings in each column as Python objects
+    """Read a Pandas Dataframe from the combined csv file of TDLMC data while 
+    evaluating all the relevant strings in each column as Python objects
 
     Parameters
     ----------
@@ -41,7 +105,8 @@ def read_from_csv(csv_path):
     return df
 
 def convert_to_dataframe(rung, save_csv_path):
-    """Store the TDLMC closed and open boxes into a Pandas DataFrame and exports to a csv file at the same location
+    """Store the TDLMC closed and open boxes into a Pandas DataFrame and exports 
+    to a csv file at the same location
 
     Parameters
     ----------

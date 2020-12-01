@@ -1,21 +1,24 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Oct  9 14:29:37 2018
+Created: 9/14/2018
 
 @author: Dartoon
 @modified by: Ji Won Park (jiwoncpark) for Python3
 
-Read each seed.
 """
+import os
+import glob
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as matt
-from matplotlib.patches import Patch
+import h0rton.tdlmc_utils.tdlmc_parser as tdlmc_parser
 matt.rcParams['font.family'] = 'STIXGeneral'
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--version_id', default=2, type=int,
+                    help='version ID of the folder containing results')
 parser.add_argument('--out_path', default='simplified_metrics.png', type=str,
                     help='path to the output plot')
 args = parser.parse_args()
@@ -37,8 +40,10 @@ seed_name = [ 'seed101',
  'seed117',
  'seed118']
 
-import os
-import glob
+version_dir = '/home/jwp/stage/sl/h0rton/experiments/v{:d}'.format(args.version_id)
+input_dir = '/home/jwp/stage/sl/h0rton/h0rton/tdlmc_utils/rung{:d}_submit_result'.format(2)
+tdlmc_parser.format_results_for_tdlmc_metrics(version_dir, input_dir, rung_id=2)
+
 dirpath = os.getcwd()
 all_teams = False
 folders = ['H0rton']
@@ -101,13 +106,9 @@ fig = plt.figure(figsize=(12, 12))
 n=1
 axes = [[False for i in range(num_boxes)] for j in range(num_boxes)]
 catlog = folders
-color_list = ['#e7969c', '#d6616b', '#843c39', '#843c39', '#843c39'] #['#f97978', '#c04546', '#880519', '#880519', '#880519'] orbit_to_color = dict(zip([2, 1, 0.5], ['#843c39', '#d6616b', '#e7969c']))
-ma = ['o', 'o', 'o', '+', 'x',] #'s','D','*','p','<','>','^','v','P','X' ]
-#axis_lab = ["efficiency", "log10(goodness)", "log10(precision)", "accuracy"]
+color_list = ['#e7969c', '#d6616b', '#843c39', '#843c39', '#843c39'] 
+ma = ['o', 'o', 'o', '+', 'x',] 
 axis_lab = [r"log$_{10}(\chi^2)$", "P (%)", "A (%)"]
-
-#metric_target = [(0,1),(np.log10(0.4),np.log10(2.)),(0,np.log10(6)),(-2,2)]
-#metric= [[efficiencys[i], np.log10(goodnesses)[i], np.log10(precisions)[i], accuracys[i]] for i in range(len(label_name))]
 
 metric_target = [(np.log10(0.8), np.log10(1.2)), (0, 6), (-1, 1) ]
 metric= [[np.log10(goodnesses[i]), precisions[i], accuracys[i]] for i in range(len(label_name))]
@@ -125,10 +126,8 @@ for j in range(num_boxes): # j = column idx
             ax.yaxis.set_ticks_position('both')
             ax.xaxis.set_ticks_position('both')
             for k in range(len(metric)): # Plot each metric
-                #c_ind = [x for x in range(len(catlog)) if catlog[x] in label[k]][0]
                 ma_ind = k-k//(len(ma))*len(ma)
                 ax.scatter(metric[k][i], metric[k][y_j], color=color_list[ma_ind], marker = ma[ma_ind], label = label[k], s=70)
-#            label = "_nolegend_"
             # Plot target range
             target_x, target_y = metric_target[i][0], metric_target[y_j][0]
             target_wx, target_wy = metric_target[i][1]-metric_target[i][0], metric_target[y_j][1]-metric_target[y_j][0]
@@ -162,17 +161,8 @@ for j in range(num_boxes): # j = column idx
         if i==1 and j ==0: # Add legend only once
             marker_legend = ax.legend(bbox_to_anchor=(1.2, 0.5), loc='center left', borderaxespad=0., prop={'size': 16}, fontsize=20)
             ax.add_artist(marker_legend)
-            #target_legend = ax.legend(handles=[Patch(facecolor='gray', alpha=0.2, label='Target region')])
-            #ax.add_artist(target_legend)
             axes[j][i] = ax
-            #bbox_to_anchor=(3.0, -0.5), 
 
 fig.subplots_adjust()
 fig.tight_layout(h_pad=0.1, w_pad=1.0)
-#fig.show()
 fig.savefig(args.out_path, bbox_inches='tight')
-
-##%%Print for table
-#for i in range(len(label)):
-#    team, algorithm = label[i].split('-')
-#    print team, '&' , algorithm, '&' , "{0:.3f} &  {1:.3f} &  {2:.3f} &  {3:.3f} \\\\".format(metric[i][0], metric[i][1], metric[i][2], metric[i][3])

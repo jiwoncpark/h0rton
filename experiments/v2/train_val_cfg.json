@@ -1,6 +1,6 @@
 {
   "device_type": "cuda",
-  "global_seed": 200821,
+  "global_seed": 200905,
   "data": {
     "float_type": "FloatTensor",
     "train_baobab_cfg_path": "/home/jwp/stage/sl/h0rton/baobab_configs/v7/train_v7_baobab_config.py",
@@ -8,7 +8,7 @@
     "Y_cols": ["lens_mass_center_x", "src_light_center_x","lens_mass_center_y", "src_light_center_y", "lens_mass_gamma", "lens_mass_theta_E", "lens_mass_e1", "lens_mass_e2", "external_shear_gamma1", "external_shear_gamma2", "src_light_R_sersic"],
     "define_src_pos_wrt_lens": true,
     "rescale_pixels": true,
-    "rescale_pixels_type": "whiten_pixels",
+    "rescale_pixels_type": "rescale_01",
     "log_pixels": true,
     "add_pixel_noise" : true,
     "eff_exposure_time": {
@@ -23,8 +23,9 @@
     "likelihood_class": "DoubleGaussianNLL"
   },
   "optim": {
-    "n_epochs": 15,
-    "learning_rate": 0.001,
+    "n_epochs": 50,
+    "num_workers": 8,
+    "learning_rate": 0.0005,
     "weight_decay": 0.000001,
     "batch_size": 1024,
     "lr_scheduler": {
