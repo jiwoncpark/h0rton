@@ -19,11 +19,14 @@ h0rton - Deep Modeling of Strong Gravitational Time Delay Lenses for Bayesian In
 .. image:: https://img.shields.io/badge/license-MIT-blue.svg?style=flat
     :target: https://github.com/jiwoncpark/h0rton/LICENSE
 
+.. image:: https://img.shields.io/badge/astro--ph.IM-arXiv%3A2012.00042-B31B1B.svg
+    :target: https://arxiv.org/abs/2012.00042
+
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
         :target: http://www.astropy.org
         :alt: Powered by Astropy Badge
 
-Hierarchical Bayesian inference of the Hubble constant from samples of strong gravitational time delay lenses. This package represents LSST Dark Energy Science Collaboration research in progress. Please contact Ji Won Park (@jiwoncpark) for questions on using the code.
+This package models strong gravitational time delay lenses using Bayesian neural networks to infer the Hubble constant. It represents LSST Dark Energy Science Collaboration research in progress. Please contact Ji Won Park (@jiwoncpark) for questions on using the code.
 
 
 Installation
