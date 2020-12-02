@@ -1,7 +1,6 @@
-===========================================================================================================
-h0rton - Hierarchical Bayesian Inference of the Hubble Constant from Strong Gravitational Time Delay Lenses
-===========================================================================================================
-
+==============================================================================================================
+h0rton - Deep Modeling of Strong Gravitational Time Delay Lenses for Bayesian Inference of the Hubble Constant
+==============================================================================================================
 .. image:: plots/overlaid_200_posteriors.png
 
 .. image:: https://travis-ci.com/jiwoncpark/h0rton.svg?branch=master
