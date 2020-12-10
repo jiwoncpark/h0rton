@@ -111,4 +111,17 @@ Suggestions are always welcome! If you encounter issues or areas for improvement
 * Challenge webpage: https://tdlmc.github.io/
 * Experimental design paper: https://arxiv.org/abs/1801.01506
 
-This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product." When referring to h0rton, please cite (Park et al 2020) and provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_. 
+This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product." 
+
+When referring to h0rton, please provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_ and cite our paper:
+
+.. only:: html
+
+@article{park2020large,
+         title={Large-Scale Gravitational Lens Modeling with Bayesian Neural Networks for Accurate and Precise Inference of the Hubble Constant},
+         author={Park, Ji Won and Wagner-Carena, Sebastian and Birrer, Simon and Marshall, Philip J and Lin, Joshua Yao-Yu and Roodman, Aaron},
+         journal={arXiv preprint arXiv:2012.00042},
+         year={2020}
+}
+
+
