@@ -115,14 +115,12 @@ This software was developed within the LSST DESC using LSST DESC resources, and 
 
 When referring to h0rton, please provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_ and cite our paper:
 
-.. role:: raw-tex(raw)
-    :format: latex html
+.. code-block:: bib
 
 @article{park2020large,
          title={Large-Scale Gravitational Lens Modeling with Bayesian Neural Networks for Accurate and Precise Inference of the Hubble Constant},
          author={Park, Ji Won and Wagner-Carena, Sebastian and Birrer, Simon and Marshall, Philip J and Lin, Joshua Yao-Yu and Roodman, Aaron},
          journal={arXiv preprint arXiv:2012.00042},
-         year={2020}
-}
+         year={2020}}
 
 
