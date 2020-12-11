@@ -22,11 +22,14 @@ h0rton - Deep Modeling of Strong Gravitational Time Delay Lenses for Bayesian In
 .. image:: https://img.shields.io/badge/astro--ph.IM-arXiv%3A2012.00042-B31B1B.svg
     :target: https://arxiv.org/abs/2012.00042
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4300382.svg
+   :target: https://doi.org/10.5281/zenodo.4300382
+
 .. image:: http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat
         :target: http://www.astropy.org
         :alt: Powered by Astropy Badge
 
-This package models strong gravitational time delay lenses using Bayesian neural networks to infer the Hubble constant. It represents LSST Dark Energy Science Collaboration research in progress. Please contact Ji Won Park (@jiwoncpark) for questions on using the code.
+This package models strong gravitational time delay lenses using Bayesian neural networks to infer the Hubble constant. It represents LSST Dark Energy Science Collaboration research in progress. Please contact Ji Won Park (@jiwoncpark) for questions on using the code or the data.
 
 
 Installation
@@ -113,14 +116,5 @@ Suggestions are always welcome! If you encounter issues or areas for improvement
 
 This software was developed within the LSST DESC using LSST DESC resources, and so meets the criteria given in, and is bound by, the LSST DESC Publication Policy for being a “DESC product." 
 
-When referring to h0rton, please provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_ and cite our paper:
-
-.. code-block:: bib
-
-@article{park2020large,
-         title={Large-Scale Gravitational Lens Modeling with Bayesian Neural Networks for Accurate and Precise Inference of the Hubble Constant},
-         author={Park, Ji Won and Wagner-Carena, Sebastian and Birrer, Simon and Marshall, Philip J and Lin, Joshua Yao-Yu and Roodman, Aaron},
-         journal={arXiv preprint arXiv:2012.00042},
-         year={2020}}
-
+When referring to h0rton, please cite `our paper <https://arxiv.org/abs/2012.00042>`_ and provide a link to `this repo <https://github.com/jiwoncpark/h0rton>`_.
 
