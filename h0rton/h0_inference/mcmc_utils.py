@@ -179,10 +179,12 @@ def postprocess_mcmc_chain(kwargs_result, samples, kwargs_model, fixed_lens_kwar
     return processed_df
 
 class HybridBNNPenalty:
-    """Wrapper for subclasses of BaseGaussianNLL that allows MCMC methods to appropriately penalize parameter samples
+    """Wrapper for subclasses of BaseGaussianNLL that allows MCMC methods to 
+    appropriately penalize parameter samples
 
     """
-    def __init__(self, Y_cols, likelihood_class, mcmc_train_Y_mean, mcmc_train_Y_std, exclude_vel_disp, device):
+    def __init__(self, Y_cols, likelihood_class, 
+                 mcmc_train_Y_mean, mcmc_train_Y_std, exclude_vel_disp, device):
         """
         Parameters
         ----------
@@ -197,12 +199,52 @@ class HybridBNNPenalty:
         """
         self.Y_cols = Y_cols
         self.Y_dim = len(self.Y_cols)
+        self.likelihood_class = likelihood_class
         self.mcmc_train_Y_mean = mcmc_train_Y_mean
         self.mcmc_train_Y_std = mcmc_train_Y_std
         self.constant_term = np.log(2*np.pi)*self.Y_dim*0.5
-        #self.device = device
+        self.device = device
         self.exclude_vel_disp = exclude_vel_disp
-        self.nll = getattr(h0rton.losses, '{:s}CPU'.format(likelihood_class))(Y_dim=self.Y_dim)
+        self.nll = getattr(h0rton.losses, '{:s}CPU'.format(self.likelihood_class))(Y_dim=self.Y_dim)
+        self.out_dim = self.nll.out_dim
+
+    def remove_params(self, params_to_remove):
+        """Remove some parameters from penalty function
+
+        """
+        #'lens_light_R_sersic', 'src_light_R_sersic'] 
+        # New, reduced parameter list, called MCMC params
+        mcmc_Y_cols = [c for c in self.Y_cols if c not in params_to_remove]
+        mcmc_Y_dim = len(mcmc_Y_cols)
+        # Instantiate loss function with just the MCMC params
+        mcmc_loss_fn = getattr(h0rton.losses, self.likelihood_class)(Y_dim=mcmc_Y_dim, 
+                                                                     device=self.device)
+        remove_param_i, remove_i = get_idx_for_params(None, 
+                                                      self.Y_cols, 
+                                                      params_to_remove, 
+                                                      self.likelihood_class)
+        # Update
+        self.mcmc_train_Y_mean = np.delete(self.mcmc_train_Y_mean, remove_param_i)
+        self.mcmc_train_Y_std = np.delete(self.mcmc_train_Y_std, remove_param_i)
+        self.Y_cols = mcmc_Y_cols
+        self.Y_dim = mcmc_Y_dim
+        self.out_dim = mcmc_loss_fn.out_dim
+        self.nll = getattr(h0rton.losses, '{:s}CPU'.format(self.likelihood_class))(Y_dim=self.Y_dim)
+        # New attributes
+        self.remove_param_i = remove_param_i
+        self.remove_i = remove_i
+
+    def remove_params_from_pred(self, pred, return_as_tensor):
+        """Remove elements corresponding to certain params from BNN pred
+
+        Note
+        ----
+        Can only be run after running `remove_params`.
+
+        """
+        new_pred = remove_parameters_from_pred(pred, self.remove_i, 
+                                               return_as_tensor)
+        return new_pred
 
     def set_bnn_post_params(self, bnn_post_params):
         """Set BNN posterior parameters, which define the penaty function
@@ -222,13 +264,16 @@ class HybridBNNPenalty:
         ll = -self.nll(self.bnn_post_params, to_eval)
         return ll #+ self.constant_term
 
-def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debug=False):
+def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, 
+                       debug=False):
     """Get columns corresponding to certain parameters from the BNN output
 
     Parameters
     ----------
     out_dim : int
+        pred output dimension, only required for low-rank NLL
     Y_cols : list of str
+        the original column names
     
     Returns
     -------
@@ -240,16 +285,22 @@ def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debu
     """
     Y_dim = len(Y_cols)
     col_to_idx = dict(zip(Y_cols, range(Y_dim)))
-    param_idx = np.array([col_to_idx[i] for i in params_to_remove]) # indices corresponding to primary mean
+    # Indices corresponding to primary mean
+    param_idx = np.array([col_to_idx[i] for i in params_to_remove]) 
     if likelihood_class in ['FullRankGaussianNLL', 'DoubleGaussianNLL']:
         tril_idx = np.tril_indices(Y_dim)
         tril_idx_dim0 = tril_idx[0]
         tril_idx_dim1 = tril_idx[1]
-        tril_len = len(tril_idx_dim0)
-        tril_mask = np.logical_or(np.isin(tril_idx_dim0, param_idx), np.isin(tril_idx_dim1, param_idx)).nonzero()[0]
-        idx_within_tril1 = list(Y_dim + tril_mask)
-        idx_within_tril2 = list(2*Y_dim + tril_len + tril_mask)
-        idx = list(param_idx) + idx_within_tril1 + list(Y_dim + tril_len + param_idx) + idx_within_tril2
+        tril_len = len(tril_idx_dim0) # d(d+1)/2
+        # True at idx of covmat for params to remove
+        tril_mask = np.logical_or(
+                                  np.isin(tril_idx_dim0, param_idx), 
+                                  np.isin(tril_idx_dim1, param_idx)
+                                  ).nonzero()[0]
+        idx_within_tril1 = list(Y_dim + tril_mask) # 1st gauss cov
+        idx_within_tril2 = list(2*Y_dim + tril_len + tril_mask) # 2nd gauss cov
+        idx = list(param_idx) + idx_within_tril1 # 1st gauss
+        idx += list(Y_dim + tril_len + param_idx) + idx_within_tril2 # 2nd gauss
         if debug:
             to_test = dict(
                            tril_mask=tril_mask,
@@ -262,7 +313,7 @@ def get_idx_for_params(out_dim, Y_cols, params_to_remove, likelihood_class, debu
     else: # tested for 'DoubleLowRankGaussianNLL':
         tiling_by_Y_dim = np.arange(out_dim//Y_dim)*Y_dim
         idx = [tile + i for tile in tiling_by_Y_dim for i in param_idx]
-    param_idx = np.array(param_idx, dtype=int)
+    param_idx = param_idx.astype(int)
     idx = np.array(idx, dtype=int)
     return param_idx, idx 
 
@@ -331,7 +382,7 @@ def dict_to_array(Y_cols, kwargs_lens, kwargs_source, kwargs_lens_light=None, kw
         #    return_array[i] = kwargs_lens_light[0][param]
         else:
             # Ignore kwargs_ps since image position likelihood is separate.
-            raise ValueError("Component doesn't exist.")
+            raise ValueError("Component {:s} doesn't exist.".format(component))
     return return_array.reshape(1, -1)
 
 def reorder_to_param_class(bnn_Y_cols, param_class_Y_cols, bnn_array, D_dt_array):
