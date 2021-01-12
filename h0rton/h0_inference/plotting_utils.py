@@ -14,17 +14,6 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Plots import plot_util
 #import scipy.ndimage as ndimage
 
-plt.rcParams.update(plt.rcParamsDefault)
-plt.rc('font', family='STIXGeneral', size=15, weight='bold')
-plt.rc('xtick', labelsize='small')
-plt.rc('ytick', labelsize='small')
-## for Palatino and other serif fonts use:
-#rc('font',**{'family':'serif','serif':['Palatino']})
-#plt.rc('text', usetex=True)
-plt.rc('axes', linewidth=2, titlesize='medium', labelsize='medium', labelweight='bold')
-params = {'mathtext.default': 'regular' }          
-plt.rcParams.update(params)
-
 __all__ = ["plot_weighted_h0_histogram", 'plot_h0_histogram', "plot_D_dt_histogram", "plot_mcmc_corner", "gaussian", "plot_forward_modeling_comparisons"]
 
 def gaussian(x, mean, standard_deviation, amplitude):
@@ -45,7 +34,7 @@ def plot_weighted_h0_histogram(all_samples, all_weights, lens_i=0, true_h0=None,
     stats = h0_utils.get_normal_stats_naive(all_samples, all_weights)
     _ = plt.hist(stats['samples'], weights=stats['weights'], bins=290, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[10.0, 300.0])
     #print(mean, std)
-    x_interval_for_fit = np.linspace(10, 300, 1000) 
+    x_interval_for_fit = np.linspace(10, 300, 1000)
     # Overlay the fit gaussian pdf
     plt.plot(x_interval_for_fit, norm.pdf(x_interval_for_fit, stats['mean'], stats['std']), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(stats['mean'], stats['std']))
     if save_dir is not None:
@@ -76,7 +65,7 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
     weights = all_weights[~is_nan_mask]
     bin_heights, bin_borders, _ = plt.hist(samples, weights=weights, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 15000.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
-    
+
     # Compute the weighted mean and std analytically
     lognorm_stats = h0_utils.get_lognormal_stats_naive(samples, weights)
     mu = lognorm_stats['mu']
@@ -85,7 +74,7 @@ def plot_weighted_D_dt_histogram(all_samples, all_weights, lens_i=0, true_D_dt=N
     std = lognorm_stats['std']
     popt = [mu, sigma]
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
-    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
+    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000)
     # Overlay the fit gaussian pdf
     plt.plot(x_interval_for_fit, lognormal(x_interval_for_fit, *popt), color='k', label='fit: mode={:0.1f}, std={:0.1f}'.format(mode, std))
     if save_dir is not None:
@@ -125,7 +114,7 @@ def plot_h0_histogram(samples, lens_i=0, true_h0=None, include_fit_gaussian=True
         #print(mean, std)
         popt = [mean, std, 1.0/std/np.sqrt(2*np.pi)]
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
-    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
+    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000)
     # Overlay the fit gaussian pdf
     plt.plot(x_interval_for_fit, gaussian(x_interval_for_fit, *popt), color='k', label='fit: mu={:0.1f}, sig={:0.1f}'.format(mean, std))
     #if std < 1.0:
@@ -157,7 +146,7 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
     """
     bin_heights, bin_borders, _ = plt.hist(all_samples, bins=200, alpha=0.5, density=True, edgecolor='k', color='tab:blue', range=[0.0, 15000.0])
     bin_centers = bin_borders[:-1] + np.diff(bin_borders) / 2
-    
+
     # Compute the mode and std for lognormal
     lognorm_stats = h0_utils.get_lognormal_stats(all_samples)
     mu = lognorm_stats['mu']
@@ -167,7 +156,7 @@ def plot_D_dt_histogram(all_samples, lens_i=0, true_D_dt=None, save_dir='.'):
     popt = [mu, sigma]
 
     #x_interval_for_fit = np.linspace(bin_borders[0], bin_borders[-1], 10000)
-    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000) 
+    x_interval_for_fit = np.linspace(bin_centers[0], bin_centers[-1], 1000)
     # Overlay the fit gaussian pdf
     plt.plot(x_interval_for_fit, lognormal(x_interval_for_fit, *popt), color='k', label='fit: mode={:0.1f}, std={:0.1f}'.format(mode, std))
     if save_dir is not None:
@@ -188,14 +177,14 @@ def plot_mcmc_chain(chain_list_mcmc, save_path):
     plt.close()
 
 def plot_mcmc_corner(mcmc_samples, truth, col_labels, save_path):
-    fig = corner.corner(mcmc_samples, 
-                        truths=truth, 
-                        truth_color='r', 
-                        labels=col_labels, 
+    fig = corner.corner(mcmc_samples,
+                        truths=truth,
+                        truth_color='r',
+                        labels=col_labels,
                         smooth=1.0,
                         no_fill_contours=True,
                         plot_datapoints=False,
-                        show_titles=True, 
+                        show_titles=True,
                         quiet=True,
                         plot_contours=True,
                         use_math_text=True,
@@ -223,7 +212,7 @@ def plot_forward_modeling_comparisons(model_plot_instance, out_dir):
     f.savefig(os.path.join(out_dir, 'subtract_plot_lenstronomy.png'))
     plt.close('all')
 
-#TODO define coordinate grid beforehand, e.g. kwargs_data
+# TODO define coordinate grid beforehand, e.g. kwargs_data
 def lens_model_plot_custom(image, ax, lensModel, kwargs_lens, numPix=500, deltaPix=0.01, sourcePos_x=0, sourcePos_y=0, point_source=False, with_caustics=False):
     """
     plots a lens model (convergence) and the critical curves and caustics
@@ -251,22 +240,32 @@ def lens_model_plot_custom(image, ax, lensModel, kwargs_lens, numPix=500, deltaP
     if with_caustics is True:
         ra_crit_list, dec_crit_list = lensModelExt.critical_curve_tiling(kwargs_lens, compute_window=_frame_size, start_scale=deltaPix, max_order=20)
         ra_caustic_list, dec_caustic_list = lensModel.ray_shooting(ra_crit_list, dec_crit_list, kwargs_lens)
-        plot_util.plot_line_set(ax, _coords, ra_caustic_list, dec_caustic_list, color='orange')
-        plot_util.plot_line_set(ax, _coords, ra_crit_list, dec_crit_list, color='r')
+        plot_util.plot_line_set(ax, _coords, ra_caustic_list, dec_caustic_list,
+                                color='tab:red')
+        plot_util.plot_line_set(ax, _coords, ra_crit_list, dec_crit_list,
+                                color='yellow')
     if point_source:
         solver = LensEquationSolver(lensModel)
-        theta_x, theta_y = solver.image_position_from_source(sourcePos_x, sourcePos_y, kwargs_lens,
-                                                             min_distance=deltaPix, search_window=deltaPix*numPix)
+        theta_x, theta_y = solver.image_position_from_source(sourcePos_x,
+                                                             sourcePos_y,
+                                                             kwargs_lens,
+                                                             min_distance=deltaPix,
+                                                             search_window=deltaPix*numPix)
         mag_images = lensModel.magnification(theta_x, theta_y, kwargs_lens)
         x_image, y_image = _coords.map_coord2pix(theta_x, theta_y)
         abc_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
         for i in range(len(x_image)):
             x_ = (x_image[i] + 0.5) * deltaPix
             y_ = (y_image[i] + 0.5) * deltaPix
-            ax.plot(x_, y_, 'dk', markersize=4*(1 + np.log(np.abs(mag_images[i]))), alpha=0.5)
-            ax.text(x_, y_, abc_list[i], fontsize=20, color='k')
+            ax.plot(x_, y_, 'dk',
+                    markersize=4*(1 + np.log(np.abs(mag_images[i]))),
+                    markerfacecolor='none')
+            ax.text(x_+0.1, y_+0.1, abc_list[i], fontsize=15, color='white')
         x_source, y_source = _coords.map_coord2pix(sourcePos_x, sourcePos_y)
-        ax.plot((x_source + 0.5) * deltaPix, (y_source + 0.5) * deltaPix, '*r', markersize=5)
+        ax.plot((x_source + 0.5) * deltaPix, (y_source + 0.5) * deltaPix,
+                marker='*',
+                color='tab:red',
+                markersize=7.5)
     #ax.plot(numPix * deltaPix*0.5 + pred['lens_mass_center_x'] + pred['src_light_center_x'], numPix * deltaPix*0.5 + pred['lens_mass_center_y'] + pred['src_light_center_y'], '*k', markersize=5)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
